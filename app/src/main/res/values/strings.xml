@@ -49,4 +49,13 @@
     <string name="profile_edit_save">Lưu thay đổi</string>
     <string name="profile_edit_close_content_description">Đóng chỉnh sửa hồ sơ</string>
     <string name="profile_edit_clear_name">Xoá tên</string>
+
+    <string name="settings_title">Cài đặt</string>
+    <string name="settings_theme">Giao diện</string>
+    <string name="settings_theme_dialog_title">Chọn giao diện</string>
+    <string name="settings_theme_follow_system">Theo hệ thống</string>
+    <string name="settings_theme_light">Giao diện sáng</string>
+    <string name="settings_theme_dark">Giao diện tối</string>
+    <string name="settings_theme_apply">Áp dụng</string>
+    <string name="settings_logout">Đăng xuất</string>
 </resources>
