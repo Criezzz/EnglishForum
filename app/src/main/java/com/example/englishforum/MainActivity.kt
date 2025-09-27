@@ -17,8 +17,12 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -29,8 +33,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
+import com.example.englishforum.data.auth.DataStoreUserSessionRepository
+import com.example.englishforum.data.auth.FakeAuthRepository
 import com.example.englishforum.feature.auth.LoginScreen
 import com.example.englishforum.feature.auth.LoginViewModel
+import com.example.englishforum.feature.auth.LoginViewModelFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,11 +53,23 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainApp() {
+    val context = LocalContext.current
+    val sessionRepository = remember { DataStoreUserSessionRepository(context) }
+    val authRepository = remember { FakeAuthRepository(sessionRepository) }
     val navController = rememberNavController()
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val showBottomBar = currentRoute != "login" && currentRoute != "register" && currentRoute != "forgot"
+    val userSession by sessionRepository.sessionFlow.collectAsState(initial = null)
+
+    LaunchedEffect(userSession, currentRoute) {
+        if (userSession != null && currentRoute == "login") {
+            navController.navigate(Destinations.Home.route) {
+                popUpTo("login") { inclusive = true }
+            }
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -66,7 +85,7 @@ fun MainApp() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable("login") {
-                val vm: LoginViewModel = viewModel()
+                val vm: LoginViewModel = viewModel(factory = LoginViewModelFactory(authRepository))
                 LoginScreen(
                     viewModel = vm,
                     onLoginSuccess = {

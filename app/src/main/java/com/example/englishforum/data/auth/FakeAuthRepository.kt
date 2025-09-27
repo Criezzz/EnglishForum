@@ -2,7 +2,9 @@ package com.example.englishforum.data.auth
 
 import kotlinx.coroutines.delay
 
-class FakeAuthRepository : AuthRepository {
+class FakeAuthRepository(
+    private val userSessionRepository: UserSessionRepository? = null
+) : AuthRepository {
 
     override suspend fun login(username: String, password: String): Result<UserSession> {
         delay(900)
@@ -11,13 +13,13 @@ class FakeAuthRepository : AuthRepository {
         return if (normalizedUsername.equals("user", ignoreCase = true) &&
             normalizedPassword.equals("pass", ignoreCase = true)
         ) {
-            Result.success(
-                UserSession(
-                    userId = "demo-user",
-                    username = normalizedUsername.ifEmpty { "user" },
-                    token = "fake-token"
-                )
+            val session = UserSession(
+                userId = "demo-user",
+                username = normalizedUsername.ifEmpty { "user" },
+                token = "fake-token"
             )
+            userSessionRepository?.saveSession(session)
+            Result.success(session)
         } else {
             Result.failure(IllegalArgumentException("Tên đăng nhập hoặc mật khẩu không đúng"))
         }

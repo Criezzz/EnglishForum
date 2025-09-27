@@ -4,13 +4,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.englishforum.data.auth.AuthRepository
-import com.example.englishforum.data.auth.FakeAuthRepository
 import kotlinx.coroutines.launch
 
 class LoginViewModel(
-    private val authRepository: AuthRepository = FakeAuthRepository()
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     var uiState by mutableStateOf(LoginUiState())
@@ -52,3 +52,15 @@ data class LoginUiState(
     val isLoading: Boolean = false,
     val error: String? = null
 )
+
+class LoginViewModelFactory(
+    private val authRepository: AuthRepository
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(LoginViewModel::class.java)) {
+            return LoginViewModel(authRepository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
+    }
+}
