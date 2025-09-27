@@ -32,4 +32,16 @@
     <string name="nav_create">Tạo bài viết</string>
     <string name="nav_notifications">Thông báo</string>
     <string name="nav_profile">Hồ sơ</string>
+
+    <string name="profile_settings_content_description">Mở cài đặt hồ sơ</string>
+    <string name="profile_edit_content_description">Chỉnh sửa hồ sơ</string>
+    <string name="profile_tab_posts">Bài đăng</string>
+    <string name="profile_tab_replies">Câu trả lời</string>
+    <string name="profile_stat_upvotes">Upvote</string>
+    <string name="profile_stat_posts">Bài đăng</string>
+    <string name="profile_stat_answers">Câu trả lời</string>
+    <string name="profile_post_meta">%1$d phút trước</string>
+    <string name="profile_reply_meta">Trả lời %1$s | %2$d phút trước</string>
+    <string name="profile_empty_posts">Chưa có bài đăng nào</string>
+    <string name="profile_empty_replies">Chưa có câu trả lời nào</string>
 </resources>

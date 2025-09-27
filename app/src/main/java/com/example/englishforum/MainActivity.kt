@@ -39,6 +39,7 @@ import com.example.englishforum.data.auth.FakeAuthRepository
 import com.example.englishforum.feature.auth.LoginScreen
 import com.example.englishforum.feature.auth.LoginViewModel
 import com.example.englishforum.feature.auth.LoginViewModelFactory
+import com.example.englishforum.feature.profile.ProfileScreen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -137,7 +138,7 @@ fun MainApp() {
                 ScreenContent(titleRes = R.string.nav_notifications)
             }
             composable(Destinations.Profile.route) {
-                ScreenContent(titleRes = R.string.nav_profile)
+                ProfileScreen(modifier = Modifier.fillMaxSize())
             }
         }
     }

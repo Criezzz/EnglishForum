@@ -1,0 +1,40 @@
+package com.example.englishforum.feature.profile
+
+import com.example.englishforum.core.model.VoteState
+
+data class ProfileOverview(
+    val displayName: String,
+    val avatarUrl: String? = null,
+    val stats: ProfileStats
+)
+
+data class ProfileStats(
+    val upvotes: Int,
+    val posts: Int,
+    val answers: Int
+)
+
+data class ProfilePost(
+    val id: String,
+    val title: String,
+    val body: String,
+    val minutesAgo: Int,
+    val voteCount: Int,
+    val voteState: VoteState = VoteState.NONE
+)
+
+data class ProfileReply(
+    val id: String,
+    val questionTitle: String,
+    val body: String,
+    val minutesAgo: Int,
+    val voteCount: Int,
+    val voteState: VoteState = VoteState.NONE
+)
+
+data class ProfileUiState(
+    val overview: ProfileOverview? = null,
+    val posts: List<ProfilePost> = emptyList(),
+    val replies: List<ProfileReply> = emptyList(),
+    val isLoading: Boolean = true
+)
