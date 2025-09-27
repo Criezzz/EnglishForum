@@ -5,20 +5,29 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -29,15 +38,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
 import com.example.englishforum.core.model.VoteState
@@ -54,12 +66,16 @@ fun ProfileScreen(
     onReplyMoreClick: (ProfileReply) -> Unit = {}
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showEditDialog by rememberSaveable { mutableStateOf(false) }
 
     ProfileContent(
         modifier = modifier,
         uiState = uiState,
         onSettingsClick = onSettingsClick,
-        onEditClick = onEditClick,
+        onEditClick = {
+            onEditClick()
+            showEditDialog = true
+        },
         onPostMoreClick = onPostMoreClick,
         onReplyMoreClick = onReplyMoreClick,
         onPostUpvote = viewModel::onPostUpvote,
@@ -67,6 +83,19 @@ fun ProfileScreen(
         onReplyUpvote = viewModel::onReplyUpvote,
         onReplyDownvote = viewModel::onReplyDownvote
     )
+
+    val overview = uiState.overview
+    if (showEditDialog && overview != null) {
+        ProfileEditDialog(
+            currentName = overview.displayName,
+            onDismiss = { showEditDialog = false },
+            onSave = { name ->
+                viewModel.updateDisplayName(name)
+                showEditDialog = false
+            },
+            onChangePhoto = {}
+        )
+    }
 }
 
 @Composable
@@ -396,5 +425,108 @@ private fun ProfileScreenPreview() {
             onReplyUpvote = {},
             onReplyDownvote = {}
         )
+    }
+}
+
+@Composable
+private fun ProfileEditDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+    onChangePhoto: () -> Unit
+) {
+    var editedName by rememberSaveable(currentName) { mutableStateOf(currentName) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Surface(
+            shape = MaterialTheme.shapes.extraLarge,
+            tonalElevation = 6.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .padding(horizontal = 24.dp, vertical = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Filled.Close,
+                            contentDescription = stringResource(R.string.profile_edit_close_content_description)
+                        )
+                    }
+                }
+
+                Surface(
+                    modifier = Modifier.size(96.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Filled.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+                }
+
+                FilledTonalButton(
+                    onClick = onChangePhoto,
+                    shape = MaterialTheme.shapes.large,
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_profile_upload),
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(text = stringResource(R.string.profile_edit_change_photo))
+                }
+
+                OutlinedTextField(
+                    value = editedName,
+                    onValueChange = { editedName = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.profile_edit_display_name_label)) },
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.large,
+                    trailingIcon = {
+                        IconButton(
+                            onClick = { editedName = "" },
+                            enabled = editedName.isNotBlank(),
+                            colors = IconButtonDefaults.iconButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Close,
+                                contentDescription = stringResource(R.string.profile_edit_clear_name)
+                            )
+                        }
+                    }
+                )
+
+                val trimmedName = editedName.trim()
+                Button(
+                    onClick = { onSave(trimmedName) },
+                    enabled = trimmedName.isNotBlank(),
+                    shape = MaterialTheme.shapes.large,
+                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Check,
+                        contentDescription = null
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(text = stringResource(R.string.profile_edit_save))
+                }
+            }
+        }
     }
 }

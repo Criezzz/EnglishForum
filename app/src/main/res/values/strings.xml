@@ -44,4 +44,9 @@
     <string name="profile_reply_meta">Trả lời %1$s | %2$d phút trước</string>
     <string name="profile_empty_posts">Chưa có bài đăng nào</string>
     <string name="profile_empty_replies">Chưa có câu trả lời nào</string>
+    <string name="profile_edit_change_photo">Thay đổi ảnh</string>
+    <string name="profile_edit_display_name_label">Tên người dùng</string>
+    <string name="profile_edit_save">Lưu thay đổi</string>
+    <string name="profile_edit_close_content_description">Đóng chỉnh sửa hồ sơ</string>
+    <string name="profile_edit_clear_name">Xoá tên</string>
 </resources>

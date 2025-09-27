@@ -63,6 +63,19 @@ class ProfileViewModel : ViewModel() {
         )
     }
 
+    fun updateDisplayName(newName: String) {
+        _uiState.update { current ->
+            val overview = current.overview
+            if (overview == null) {
+                current
+            } else {
+                current.copy(
+                    overview = overview.copy(displayName = newName)
+                )
+            }
+        }
+    }
+
     fun onPostUpvote(postId: String) {
         updatePostVote(postId, VoteState.UPVOTED)
     }
