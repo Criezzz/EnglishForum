@@ -83,7 +83,10 @@ fun MainApp() {
                 val vm: com.example.englishforum.feature.auth.ForgotPasswordViewModel = viewModel()
                 com.example.englishforum.feature.auth.ForgotPasswordScreen(
                     viewModel = vm,
-                    onDone = {
+                    onBackToLogin = {
+                        navController.popBackStack()
+                    },
+                    onResetSuccess = {
                         navController.navigate(Destinations.Home.route) {
                             popUpTo("login") { inclusive = true }
                         }

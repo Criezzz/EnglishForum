@@ -5,53 +5,50 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.delay
+import com.example.englishforum.data.auth.AuthRepository
+import com.example.englishforum.data.auth.FakeAuthRepository
 import kotlinx.coroutines.launch
 
-class LoginViewModel : ViewModel() {
-    var username by mutableStateOf("")
-        private set
+class LoginViewModel(
+    private val authRepository: AuthRepository = FakeAuthRepository()
+) : ViewModel() {
 
-    var password by mutableStateOf("")
-        private set
-
-    var isLoading by mutableStateOf(false)
-        private set
-
-    var errorMessage by mutableStateOf<String?>(null)
+    var uiState by mutableStateOf(LoginUiState())
         private set
 
     fun onUsernameChange(value: String) {
-        username = value
-        clearError()
+        uiState = uiState.copy(username = value, error = null)
     }
 
     fun onPasswordChange(value: String) {
-        password = value
-        clearError()
+        uiState = uiState.copy(password = value, error = null)
     }
 
-    // Mock login: succeed when username == "user" and password == "pass"
     fun login(onSuccess: () -> Unit) {
-        errorMessage = null
-        isLoading = true
+        val username = uiState.username
+        val password = uiState.password
+
+        uiState = uiState.copy(isLoading = true, error = null)
         viewModelScope.launch {
-            delay(900) // simulate network
-            isLoading = false
+            val result = authRepository.login(username, password)
+            uiState = uiState.copy(isLoading = false)
 
-            val u = username.trim()
-            val p = password.trim()
-
-            // accept common casing variations
-            if (u.equals("user", ignoreCase = true) && p.equals("pass", ignoreCase = true)) {
+            result.onSuccess {
                 onSuccess()
-            } else {
-                errorMessage = "Tên đăng nhập hoặc mật khẩu không đúng"
+            }.onFailure { throwable ->
+                uiState = uiState.copy(error = throwable.message ?: "Đăng nhập thất bại")
             }
         }
     }
 
     fun clearError() {
-        errorMessage = null
+        uiState = uiState.copy(error = null)
     }
 }
+
+data class LoginUiState(
+    val username: String = "",
+    val password: String = "",
+    val isLoading: Boolean = false,
+    val error: String? = null
+)

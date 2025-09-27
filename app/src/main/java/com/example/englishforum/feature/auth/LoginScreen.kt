@@ -50,6 +50,7 @@ fun LoginScreen(
     val scrollState = rememberScrollState()
     val focusManager = LocalFocusManager.current
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    val uiState = viewModel.uiState
 
     Column(
         modifier = modifier
@@ -68,7 +69,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(24.dp))
 
         OutlinedTextField(
-            value = viewModel.username,
+            value = uiState.username,
             onValueChange = viewModel::onUsernameChange,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -80,7 +81,7 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
-            value = viewModel.password,
+            value = uiState.password,
             onValueChange = viewModel::onPasswordChange,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
@@ -100,7 +101,7 @@ fun LoginScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        viewModel.errorMessage?.let { err ->
+        uiState.error?.let { err ->
             Text(text = err, color = MaterialTheme.colorScheme.error, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -110,9 +111,9 @@ fun LoginScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
-            enabled = !viewModel.isLoading
+            enabled = !uiState.isLoading
         ) {
-            if (viewModel.isLoading) {
+            if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
             } else {
                 Text(text = "Đăng nhập")

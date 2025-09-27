@@ -55,12 +55,13 @@ fun RegisterScreen(
     var showDatePicker by remember { mutableStateOf(false) }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
     var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
+    val uiState = viewModel.uiState
 
-    val initialMillis = remember(viewModel.dob) {
+    val initialMillis = remember(uiState.dob) {
         try {
-            if (viewModel.dob.isNotBlank()) {
+            if (uiState.dob.isNotBlank()) {
                 val sdf = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                sdf.parse(viewModel.dob)?.time
+                sdf.parse(uiState.dob)?.time
             } else null
         } catch (_: Exception) {
             null
@@ -114,7 +115,7 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(20.dp))
 
         OutlinedTextField(
-            value = viewModel.name,
+            value = uiState.name,
             onValueChange = { viewModel.onNameChange(it) },
             modifier = Modifier.fillMaxWidth(),
             label = { Text(text = "Họ và tên") },
@@ -126,7 +127,7 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
-            value = viewModel.phone,
+            value = uiState.phone,
             onValueChange = { viewModel.onPhoneChange(it) },
             modifier = Modifier.fillMaxWidth(),
             label = { Text(text = "Số điện thoại") },
@@ -138,7 +139,7 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
-            value = viewModel.email,
+            value = uiState.email,
             onValueChange = { viewModel.onEmailChange(it) },
             modifier = Modifier.fillMaxWidth(),
             label = { Text(text = "Email") },
@@ -150,7 +151,7 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
-            value = viewModel.password,
+            value = uiState.password,
             onValueChange = viewModel::onPasswordChange,
             modifier = Modifier.fillMaxWidth(),
             label = { Text(text = "Mật khẩu") },
@@ -171,7 +172,7 @@ fun RegisterScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         OutlinedTextField(
-            value = viewModel.confirmPassword,
+            value = uiState.confirmPassword,
             onValueChange = viewModel::onConfirmPasswordChange,
             modifier = Modifier.fillMaxWidth(),
             label = { Text(text = "Xác nhận mật khẩu") },
@@ -194,7 +195,7 @@ fun RegisterScreen(
         val dateInteractionSource = remember { MutableInteractionSource() }
 
         OutlinedTextField(
-            value = viewModel.dob,
+            value = uiState.dob,
             onValueChange = { /* read-only */ },
             modifier = Modifier
                 .fillMaxWidth()
@@ -216,7 +217,7 @@ fun RegisterScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        viewModel.errorMessage?.let { err ->
+        uiState.errorMessage?.let { err ->
             Text(text = err, color = MaterialTheme.colorScheme.error, modifier = Modifier.fillMaxWidth())
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -226,9 +227,9 @@ fun RegisterScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),
-            enabled = !viewModel.isLoading
+            enabled = !uiState.isLoading
         ) {
-            if (viewModel.isLoading) {
+            if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
             } else {
                 Text(text = "Đăng ký")

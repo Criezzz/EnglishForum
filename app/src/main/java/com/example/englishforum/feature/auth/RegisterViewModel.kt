@@ -9,92 +9,66 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class RegisterViewModel : ViewModel() {
-    var name by mutableStateOf("")
+
+    var uiState by mutableStateOf(RegisterUiState())
         private set
 
-    var phone by mutableStateOf("")
-        private set
-
-    var email by mutableStateOf("")
-        private set
-
-    var password by mutableStateOf("")
-        private set
-
-    var confirmPassword by mutableStateOf("")
-        private set
-
-    var dob by mutableStateOf("")
-        private set
-
-    var isLoading by mutableStateOf(false)
-        private set
-
-    var errorMessage by mutableStateOf<String?>(null)
-        private set
-
-    fun onNameChange(v: String) {
-        name = v
-        clearError()
+    fun onNameChange(value: String) {
+        uiState = uiState.copy(name = value, errorMessage = null)
     }
 
-    fun onPhoneChange(v: String) {
-        phone = v
-        clearError()
+    fun onPhoneChange(value: String) {
+        uiState = uiState.copy(phone = value, errorMessage = null)
     }
 
-    fun onEmailChange(v: String) {
-        email = v
-        clearError()
+    fun onEmailChange(value: String) {
+        uiState = uiState.copy(email = value, errorMessage = null)
     }
 
-    fun onPasswordChange(v: String) {
-        password = v
-        clearError()
+    fun onPasswordChange(value: String) {
+        uiState = uiState.copy(password = value, errorMessage = null)
     }
 
-    fun onConfirmPasswordChange(v: String) {
-        confirmPassword = v
-        clearError()
+    fun onConfirmPasswordChange(value: String) {
+        uiState = uiState.copy(confirmPassword = value, errorMessage = null)
     }
 
-    fun onDobChange(v: String) {
-        dob = v
-        clearError()
+    fun onDobChange(value: String) {
+        uiState = uiState.copy(dob = value, errorMessage = null)
     }
 
-    // allow UI to set an arbitrary error (e.g. DOB validation)
     fun setError(message: String) {
-        errorMessage = message
+        uiState = uiState.copy(errorMessage = message)
     }
 
     private fun validate(): Boolean {
-        if (name.trim().isEmpty()) {
-            errorMessage = "Vui lòng nhập tên"
+        val state = uiState
+        if (state.name.trim().isEmpty()) {
+            uiState = state.copy(errorMessage = "Vui lòng nhập tên")
             return false
         }
-        if (phone.trim().isEmpty()) {
-            errorMessage = "Vui lòng nhập số điện thoại"
+        if (state.phone.trim().isEmpty()) {
+            uiState = state.copy(errorMessage = "Vui lòng nhập số điện thoại")
             return false
         }
-        if (email.trim().isEmpty() || !email.contains("@")) {
-            errorMessage = "Vui lòng nhập email hợp lệ"
+        if (state.email.trim().isEmpty() || !state.email.contains("@")) {
+            uiState = state.copy(errorMessage = "Vui lòng nhập email hợp lệ")
             return false
         }
-        if (password.trim().length < 6) {
-            errorMessage = "Mật khẩu phải có ít nhất 6 ký tự"
+        if (state.password.trim().length < 6) {
+            uiState = state.copy(errorMessage = "Mật khẩu phải có ít nhất 6 ký tự")
             return false
         }
-        if (confirmPassword.trim().isEmpty()) {
-            errorMessage = "Vui lòng xác nhận mật khẩu"
+        if (state.confirmPassword.trim().isEmpty()) {
+            uiState = state.copy(errorMessage = "Vui lòng xác nhận mật khẩu")
             return false
         }
-        if (password != confirmPassword) {
-            errorMessage = "Mật khẩu xác nhận không khớp"
+        if (state.password != state.confirmPassword) {
+            uiState = state.copy(errorMessage = "Mật khẩu xác nhận không khớp")
             return false
         }
-        if (dob.trim().isEmpty()) {
-            errorMessage = "Vui lòng chọn ngày sinh"
+        if (state.dob.trim().isEmpty()) {
+            uiState = state.copy(errorMessage = "Vui lòng chọn ngày sinh")
             return false
         }
         return true
@@ -102,17 +76,26 @@ class RegisterViewModel : ViewModel() {
 
     fun register(onSuccess: () -> Unit) {
         if (!validate()) return
-        isLoading = true
-        errorMessage = null
+        uiState = uiState.copy(isLoading = true, errorMessage = null)
         viewModelScope.launch {
             delay(900)
-            isLoading = false
-            // mock success
+            uiState = uiState.copy(isLoading = false)
             onSuccess()
         }
     }
 
     fun clearError() {
-        errorMessage = null
+        uiState = uiState.copy(errorMessage = null)
     }
 }
+
+data class RegisterUiState(
+    val name: String = "",
+    val phone: String = "",
+    val email: String = "",
+    val password: String = "",
+    val confirmPassword: String = "",
+    val dob: String = "",
+    val isLoading: Boolean = false,
+    val errorMessage: String? = null
+)

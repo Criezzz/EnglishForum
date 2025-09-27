@@ -5,197 +5,190 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.englishforum.data.auth.AuthRepository
+import com.example.englishforum.data.auth.FakeAuthRepository
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-class ForgotPasswordViewModel : ViewModel() {
-    var contact by mutableStateOf("")
-        private set
+class ForgotPasswordViewModel(
+    private val authRepository: AuthRepository = FakeAuthRepository()
+) : ViewModel() {
 
-    var isLoading by mutableStateOf(false)
-        private set
-
-    var successMessage by mutableStateOf<String?>(null)
-        private set
-
-    var errorMessage by mutableStateOf<String?>(null)
-        private set
-
-    var otp by mutableStateOf("")
-        private set
-
-    var isOtpRequested by mutableStateOf(false)
-        private set
-
-    var otpErrorMessage by mutableStateOf<String?>(null)
-        private set
-
-    var isOtpVerified by mutableStateOf(false)
-        private set
-
-    var newPassword by mutableStateOf("")
-        private set
-
-    var confirmNewPassword by mutableStateOf("")
-        private set
-
-    var passwordErrorMessage by mutableStateOf<String?>(null)
-        private set
-
-    var isChangingPassword by mutableStateOf(false)
-        private set
-
-    var otpSecondsRemaining by mutableStateOf(0)
+    var uiState by mutableStateOf(ForgotPasswordUiState())
         private set
 
     private var otpTimerJob: Job? = null
 
-    fun onContactChange(v: String) {
-        contact = v
-        errorMessage = null
-        successMessage = null
-        isOtpRequested = false
-        otp = ""
-        otpErrorMessage = null
-        isOtpVerified = false
-        newPassword = ""
-        confirmNewPassword = ""
-        passwordErrorMessage = null
+    fun onContactChange(value: String) {
         otpTimerJob?.cancel()
         otpTimerJob = null
-        otpSecondsRemaining = 0
+        uiState = ForgotPasswordUiState(contact = value)
     }
 
     fun submit() {
-        val value = contact.trim()
-        if (value.isEmpty()) {
-            errorMessage = "Vui lòng nhập số điện thoại hoặc email"
+        val contact = uiState.contact.trim()
+        if (contact.isEmpty()) {
+            uiState = uiState.copy(errorMessage = "Vui lòng nhập số điện thoại hoặc email")
             return
         }
 
-        // simple validation: if contains @ treat as email, else phone
-        isLoading = true
-        errorMessage = null
-        successMessage = null
-
+        uiState = uiState.copy(isLoading = true, errorMessage = null, successMessage = null)
         viewModelScope.launch {
-            delay(800) // simulate network
-            isLoading = false
-            // mock success
-            successMessage = "Mã OTP đã được gửi đến $value"
-            isOtpRequested = true
-            otp = ""
-            isOtpVerified = false
-            newPassword = ""
-            confirmNewPassword = ""
-            passwordErrorMessage = null
-            otpErrorMessage = null
-            startOtpCountdown()
+            val result = authRepository.requestOtp(contact)
+            result.onSuccess {
+                uiState = uiState.copy(
+                    isLoading = false,
+                    successMessage = "Mã OTP đã được gửi đến $contact",
+                    errorMessage = null,
+                    isOtpRequested = true,
+                    otp = "",
+                    isOtpVerified = false,
+                    otpErrorMessage = null,
+                    newPassword = "",
+                    confirmNewPassword = "",
+                    passwordErrorMessage = null
+                )
+                startOtpCountdown()
+            }.onFailure { throwable ->
+                uiState = uiState.copy(
+                    isLoading = false,
+                    errorMessage = throwable.message ?: "Không gửi được OTP",
+                    successMessage = null,
+                    isOtpRequested = false,
+                    otp = "",
+                    otpSecondsRemaining = 0
+                )
+            }
         }
     }
 
     fun onOtpChange(value: String) {
-        otp = value.filter { it.isDigit() }.take(6)
-        otpErrorMessage = null
-        if (otp.length < VALID_OTP.length) {
-            isOtpVerified = false
+        val sanitized = value.filter { it.isDigit() }.take(6)
+        uiState = uiState.copy(otp = sanitized, otpErrorMessage = null)
+        if (sanitized.length < OTP_LENGTH) {
+            uiState = uiState.copy(isOtpVerified = false)
+            return
         }
-        if (otp.length == VALID_OTP.length) {
-            verifyOtp()
-        }
+        verifyOtp()
     }
 
     fun verifyOtp() {
-        if (!isOtpRequested) {
-            otpErrorMessage = "Vui lòng yêu cầu mã OTP trước"
+        val state = uiState
+        if (!state.isOtpRequested) {
+            uiState = state.copy(otpErrorMessage = "Vui lòng yêu cầu mã OTP trước")
             return
         }
-        if (otp.length < 6) {
-            otpErrorMessage = "Mã OTP phải gồm 6 số"
-            return
-        }
-
-        if (otp != VALID_OTP) {
-            otpErrorMessage = "Mã OTP không đúng"
-            isOtpVerified = false
+        if (state.otp.length < OTP_LENGTH) {
+            uiState = state.copy(otpErrorMessage = "Mã OTP phải gồm 6 số", isOtpVerified = false)
             return
         }
 
-        isOtpVerified = true
-        otpErrorMessage = null
-        successMessage = "OTP hợp lệ, vui lòng đặt mật khẩu mới"
+        viewModelScope.launch {
+            val result = authRepository.verifyOtp(state.otp)
+            result.onSuccess { isValid ->
+                if (isValid) {
+                    uiState = uiState.copy(
+                        isOtpVerified = true,
+                        otpErrorMessage = null,
+                        successMessage = "OTP hợp lệ, vui lòng đặt mật khẩu mới"
+                    )
+                } else {
+                    uiState = uiState.copy(
+                        isOtpVerified = false,
+                        otpErrorMessage = "Mã OTP không đúng"
+                    )
+                }
+            }.onFailure { throwable ->
+                uiState = uiState.copy(
+                    isOtpVerified = false,
+                    otpErrorMessage = throwable.message ?: "Xác thực OTP thất bại"
+                )
+            }
+        }
     }
 
     fun onNewPasswordChange(value: String) {
-        newPassword = value
-        passwordErrorMessage = null
+        uiState = uiState.copy(newPassword = value, passwordErrorMessage = null)
     }
 
     fun onConfirmNewPasswordChange(value: String) {
-        confirmNewPassword = value
-        passwordErrorMessage = null
+        uiState = uiState.copy(confirmNewPassword = value, passwordErrorMessage = null)
     }
 
     fun changePassword(onSuccess: () -> Unit) {
-        if (!isOtpVerified) {
-            passwordErrorMessage = "Vui lòng xác thực OTP trước"
+        val state = uiState
+        if (!state.isOtpVerified) {
+            uiState = state.copy(passwordErrorMessage = "Vui lòng xác thực OTP trước")
             return
         }
-        val trimmedPassword = newPassword.trim()
-        val trimmedConfirm = confirmNewPassword.trim()
+        val trimmedPassword = state.newPassword.trim()
+        val trimmedConfirm = state.confirmNewPassword.trim()
         if (trimmedPassword.length < 6) {
-            passwordErrorMessage = "Mật khẩu phải có ít nhất 6 ký tự"
+            uiState = state.copy(passwordErrorMessage = "Mật khẩu phải có ít nhất 6 ký tự")
             return
         }
         if (trimmedConfirm.isEmpty()) {
-            passwordErrorMessage = "Vui lòng xác nhận mật khẩu"
+            uiState = state.copy(passwordErrorMessage = "Vui lòng xác nhận mật khẩu")
             return
         }
         if (trimmedPassword != trimmedConfirm) {
-            passwordErrorMessage = "Mật khẩu xác nhận không khớp"
+            uiState = state.copy(passwordErrorMessage = "Mật khẩu xác nhận không khớp")
             return
         }
 
-        isChangingPassword = true
-        passwordErrorMessage = null
+        uiState = state.copy(isChangingPassword = true, passwordErrorMessage = null, successMessage = null)
         viewModelScope.launch {
-            delay(800)
-            isChangingPassword = false
-            successMessage = "Mật khẩu của bạn đã được đổi"
-            onSuccess()
+            val result = authRepository.resetPassword(trimmedPassword)
+            uiState = uiState.copy(isChangingPassword = false)
+            result.onSuccess {
+                uiState = uiState.copy(successMessage = "Mật khẩu của bạn đã được đổi")
+                onSuccess()
+            }.onFailure { throwable ->
+                uiState = uiState.copy(
+                    passwordErrorMessage = throwable.message ?: "Đổi mật khẩu thất bại"
+                )
+            }
         }
     }
 
     fun clearMessages() {
-        successMessage = null
-        errorMessage = null
-        isOtpRequested = false
-        otp = ""
-        otpErrorMessage = null
-        isOtpVerified = false
-        newPassword = ""
-        confirmNewPassword = ""
-        passwordErrorMessage = null
         otpTimerJob?.cancel()
         otpTimerJob = null
-        otpSecondsRemaining = 0
+        uiState = ForgotPasswordUiState()
     }
 
     private fun startOtpCountdown() {
         otpTimerJob?.cancel()
-        otpSecondsRemaining = OTP_COUNTDOWN_SECONDS
         otpTimerJob = viewModelScope.launch {
-            while (otpSecondsRemaining > 0) {
+            uiState = uiState.copy(otpSecondsRemaining = OTP_COUNTDOWN_SECONDS)
+            while (uiState.otpSecondsRemaining > 0) {
                 delay(1000)
-                otpSecondsRemaining -= 1
+                val next = uiState.otpSecondsRemaining - 1
+                uiState = uiState.copy(otpSecondsRemaining = next)
             }
-            otpTimerJob = null
+            uiState = uiState.copy(otpSecondsRemaining = 0)
         }
     }
 
     companion object {
-        private const val VALID_OTP = "000000"
         private const val OTP_COUNTDOWN_SECONDS = 60
+        private const val OTP_LENGTH = 6
     }
 }
+
+data class ForgotPasswordUiState(
+    val contact: String = "",
+    val isLoading: Boolean = false,
+    val successMessage: String? = null,
+    val errorMessage: String? = null,
+    val otp: String = "",
+    val isOtpRequested: Boolean = false,
+    val otpErrorMessage: String? = null,
+    val isOtpVerified: Boolean = false,
+    val newPassword: String = "",
+    val confirmNewPassword: String = "",
+    val passwordErrorMessage: String? = null,
+    val isChangingPassword: Boolean = false,
+    val otpSecondsRemaining: Int = 0
+)

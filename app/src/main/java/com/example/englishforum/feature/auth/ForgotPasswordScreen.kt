@@ -1,5 +1,6 @@
 package com.example.englishforum.feature.auth
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,11 +13,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -44,9 +45,16 @@ import com.example.englishforum.R
 @Composable
 fun ForgotPasswordScreen(
     viewModel: ForgotPasswordViewModel,
-    onDone: () -> Unit = {}
+    onBackToLogin: () -> Unit,
+    onResetSuccess: () -> Unit
 ) {
     val scrollState = rememberScrollState()
+    val uiState = viewModel.uiState
+
+    BackHandler {
+        viewModel.clearMessages()
+        onBackToLogin()
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(
@@ -65,10 +73,19 @@ fun ForgotPasswordScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            if (!viewModel.isOtpRequested) {
-                ContactStep(viewModel = viewModel, onDone = onDone)
+            if (!uiState.isOtpRequested) {
+                ContactStep(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    onBackToLogin = onBackToLogin
+                )
             } else {
-                OtpStep(viewModel = viewModel, onDone = onDone)
+                OtpStep(
+                    uiState = uiState,
+                    viewModel = viewModel,
+                    onBackToLogin = onBackToLogin,
+                    onResetSuccess = onResetSuccess
+                )
             }
         }
     }
@@ -76,8 +93,9 @@ fun ForgotPasswordScreen(
 
 @Composable
 private fun ContactStep(
+    uiState: ForgotPasswordUiState,
     viewModel: ForgotPasswordViewModel,
-    onDone: () -> Unit
+    onBackToLogin: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -86,23 +104,23 @@ private fun ContactStep(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         OutlinedTextField(
-            value = viewModel.contact,
+            value = uiState.contact,
             onValueChange = viewModel::onContactChange,
             label = { Text(text = "Số điện thoại hoặc Email") },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
 
-        viewModel.errorMessage?.let { err ->
+        uiState.errorMessage?.let { err ->
             Text(text = err, color = MaterialTheme.colorScheme.error)
         }
 
-        if (viewModel.isLoading) {
+        if (uiState.isLoading) {
             CircularProgressIndicator(modifier = Modifier.size(36.dp))
         }
 
-        val buttonLabel = if (viewModel.otpSecondsRemaining > 0) {
-            "Gửi lại (${viewModel.otpSecondsRemaining}s)"
+        val buttonLabel = if (uiState.otpSecondsRemaining > 0) {
+            "Gửi lại (${uiState.otpSecondsRemaining}s)"
         } else {
             "Gửi OTP"
         }
@@ -110,7 +128,7 @@ private fun ContactStep(
         Button(
             onClick = { viewModel.submit() },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !viewModel.isLoading && viewModel.otpSecondsRemaining == 0
+            enabled = !uiState.isLoading && uiState.otpSecondsRemaining == 0
         ) {
             Text(text = buttonLabel)
         }
@@ -118,7 +136,7 @@ private fun ContactStep(
         TextButton(
             onClick = {
                 viewModel.clearMessages()
-                onDone()
+                onBackToLogin()
             },
             modifier = Modifier.align(Alignment.Start)
         ) {
@@ -129,8 +147,10 @@ private fun ContactStep(
 
 @Composable
 private fun OtpStep(
+    uiState: ForgotPasswordUiState,
     viewModel: ForgotPasswordViewModel,
-    onDone: () -> Unit
+    onBackToLogin: () -> Unit,
+    onResetSuccess: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -139,25 +159,25 @@ private fun OtpStep(
         verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
         Text(
-            text = viewModel.successMessage
-                ?: "Mã OTP đã được gửi đến ${viewModel.contact}",
+            text = uiState.successMessage
+                ?: "Mã OTP đã được gửi đến ${uiState.contact}",
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center
         )
 
-        if (viewModel.isLoading) {
+        if (uiState.isLoading) {
             CircularProgressIndicator(modifier = Modifier.size(28.dp))
         }
 
         OutlinedTextField(
-            value = viewModel.otp,
+            value = uiState.otp,
             onValueChange = viewModel::onOtpChange,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            readOnly = viewModel.isOtpVerified,
-            enabled = !viewModel.isOtpVerified,
+            readOnly = uiState.isOtpVerified,
+            enabled = !uiState.isOtpVerified,
             label = { Text(text = "Mã OTP") },
             textStyle = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center),
             keyboardOptions = KeyboardOptions(
@@ -167,11 +187,11 @@ private fun OtpStep(
             keyboardActions = KeyboardActions(onDone = { viewModel.verifyOtp() })
         )
 
-        viewModel.otpErrorMessage?.let { err ->
+        uiState.otpErrorMessage?.let { err ->
             Text(text = err, color = MaterialTheme.colorScheme.error)
         }
 
-        if (!viewModel.isOtpVerified) {
+        if (!uiState.isOtpVerified) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -180,10 +200,10 @@ private fun OtpStep(
                     Text(text = "Thay đổi email/số khác")
                 }
 
-                val resendEnabled = viewModel.otpSecondsRemaining == 0 && !viewModel.isLoading
+                val resendEnabled = uiState.otpSecondsRemaining == 0 && !uiState.isLoading
                 TextButton(onClick = { viewModel.submit() }, enabled = resendEnabled) {
-                    val resendLabel = if (viewModel.otpSecondsRemaining > 0) {
-                        "Gửi lại (${viewModel.otpSecondsRemaining}s)"
+                    val resendLabel = if (uiState.otpSecondsRemaining > 0) {
+                        "Gửi lại (${uiState.otpSecondsRemaining}s)"
                     } else {
                         "Gửi lại OTP"
                     }
@@ -192,7 +212,7 @@ private fun OtpStep(
             }
         }
 
-        if (viewModel.isOtpVerified) {
+        if (uiState.isOtpVerified) {
             var newPasswordVisible by rememberSaveable { mutableStateOf(false) }
             var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
 
@@ -201,7 +221,7 @@ private fun OtpStep(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 OutlinedTextField(
-                    value = viewModel.newPassword,
+                    value = uiState.newPassword,
                     onValueChange = viewModel::onNewPasswordChange,
                     label = { Text(text = "Mật khẩu mới") },
                     modifier = Modifier.fillMaxWidth(),
@@ -220,7 +240,7 @@ private fun OtpStep(
                 )
 
                 OutlinedTextField(
-                    value = viewModel.confirmNewPassword,
+                    value = uiState.confirmNewPassword,
                     onValueChange = viewModel::onConfirmNewPasswordChange,
                     label = { Text(text = "Xác nhận mật khẩu") },
                     modifier = Modifier.fillMaxWidth(),
@@ -236,19 +256,19 @@ private fun OtpStep(
                         )
                     },
                     keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(onDone = { viewModel.changePassword(onSuccess = onDone) })
+                    keyboardActions = KeyboardActions(onDone = { viewModel.changePassword(onSuccess = onResetSuccess) })
                 )
 
-                viewModel.passwordErrorMessage?.let { err ->
+                uiState.passwordErrorMessage?.let { err ->
                     Text(text = err, color = MaterialTheme.colorScheme.error)
                 }
 
                 Button(
-                    onClick = { viewModel.changePassword(onSuccess = onDone) },
+                    onClick = { viewModel.changePassword(onSuccess = onResetSuccess) },
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !viewModel.isChangingPassword
+                    enabled = !uiState.isChangingPassword
                 ) {
-                    if (viewModel.isChangingPassword) {
+                    if (uiState.isChangingPassword) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
                         Text(text = "Đổi mật khẩu")
