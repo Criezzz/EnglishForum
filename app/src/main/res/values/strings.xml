@@ -1,3 +1,35 @@
 <resources>
     <string name="app_name">EnglishForum</string>
+
+    <string name="auth_logo_content_description">Logo</string>
+    <string name="auth_username_label">Tên đăng nhập</string>
+    <string name="auth_password_label">Mật khẩu</string>
+    <string name="auth_toggle_hide">Ẩn</string>
+    <string name="auth_toggle_show">Hiện</string>
+    <string name="auth_login">Đăng nhập</string>
+    <string name="auth_forgot_password">Quên mật khẩu</string>
+    <string name="auth_register">Đăng ký</string>
+    <string name="auth_full_name_label">Họ và tên</string>
+    <string name="auth_phone_number_label">Số điện thoại</string>
+    <string name="auth_email_label">Email</string>
+    <string name="auth_confirm_password_label">Xác nhận mật khẩu</string>
+    <string name="auth_date_of_birth_label">Ngày sinh</string>
+    <string name="auth_select_action">Chọn</string>
+    <string name="auth_cancel_action">Hủy</string>
+    <string name="auth_ok_action">OK</string>
+    <string name="auth_contact_label">Số điện thoại hoặc Email</string>
+    <string name="auth_resend_with_counter">Gửi lại (%1$ds)</string>
+    <string name="auth_send_otp">Gửi OTP</string>
+    <string name="auth_back_action">Quay lại</string>
+    <string name="auth_otp_label">Mã OTP</string>
+    <string name="auth_otp_sent_to_contact">Mã OTP đã được gửi đến %1$s</string>
+    <string name="auth_change_contact">Thay đổi email/số khác</string>
+    <string name="auth_resend_otp">Gửi lại OTP</string>
+    <string name="auth_new_password_label">Mật khẩu mới</string>
+    <string name="auth_change_password">Đổi mật khẩu</string>
+
+    <string name="nav_home">Trang chủ</string>
+    <string name="nav_create">Tạo bài viết</string>
+    <string name="nav_notifications">Thông báo</string>
+    <string name="nav_profile">Hồ sơ</string>
 </resources>

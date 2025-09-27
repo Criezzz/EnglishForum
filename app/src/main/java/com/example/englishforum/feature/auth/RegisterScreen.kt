@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -88,10 +89,12 @@ fun RegisterScreen(
                         viewModel.onDobChange(picked)
                     }
                     showDatePicker = false
-                }) { Text(text = "OK") }
+                }) { Text(text = stringResource(R.string.auth_ok_action)) }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) { Text(text = "Hủy") }
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text(text = stringResource(R.string.auth_cancel_action))
+                }
             }
         ) {
             DatePicker(state = datePickerState)
@@ -108,7 +111,7 @@ fun RegisterScreen(
     ) {
         Image(
             painter = painterResource(id = R.drawable.ic_logo),
-            contentDescription = "Logo",
+            contentDescription = stringResource(R.string.auth_logo_content_description),
             modifier = Modifier.size(100.dp)
         )
 
@@ -118,7 +121,7 @@ fun RegisterScreen(
             value = uiState.name,
             onValueChange = { viewModel.onNameChange(it) },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text(text = "Họ và tên") },
+            label = { Text(text = stringResource(R.string.auth_full_name_label)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
             keyboardActions = KeyboardActions(onNext = { })
@@ -130,7 +133,7 @@ fun RegisterScreen(
             value = uiState.phone,
             onValueChange = { viewModel.onPhoneChange(it) },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text(text = "Số điện thoại") },
+            label = { Text(text = stringResource(R.string.auth_phone_number_label)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next),
             keyboardActions = KeyboardActions(onNext = { })
@@ -142,7 +145,7 @@ fun RegisterScreen(
             value = uiState.email,
             onValueChange = { viewModel.onEmailChange(it) },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text(text = "Email") },
+            label = { Text(text = stringResource(R.string.auth_email_label)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
             keyboardActions = KeyboardActions(onNext = { })
@@ -154,12 +157,14 @@ fun RegisterScreen(
             value = uiState.password,
             onValueChange = viewModel::onPasswordChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text(text = "Mật khẩu") },
+            label = { Text(text = stringResource(R.string.auth_password_label)) },
             singleLine = true,
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
+                val hideText = stringResource(R.string.auth_toggle_hide)
+                val showText = stringResource(R.string.auth_toggle_show)
                 Text(
-                    text = if (passwordVisible) "Ẩn" else "Hiện",
+                    text = if (passwordVisible) hideText else showText,
                     modifier = Modifier
                         .clickable { passwordVisible = !passwordVisible }
                         .padding(end = 8.dp)
@@ -175,12 +180,14 @@ fun RegisterScreen(
             value = uiState.confirmPassword,
             onValueChange = viewModel::onConfirmPasswordChange,
             modifier = Modifier.fillMaxWidth(),
-            label = { Text(text = "Xác nhận mật khẩu") },
+            label = { Text(text = stringResource(R.string.auth_confirm_password_label)) },
             singleLine = true,
             visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
+                val hideText = stringResource(R.string.auth_toggle_hide)
+                val showText = stringResource(R.string.auth_toggle_show)
                 Text(
-                    text = if (confirmPasswordVisible) "Ẩn" else "Hiện",
+                    text = if (confirmPasswordVisible) hideText else showText,
                     modifier = Modifier
                         .clickable { confirmPasswordVisible = !confirmPasswordVisible }
                         .padding(end = 8.dp)
@@ -203,12 +210,12 @@ fun RegisterScreen(
                     interactionSource = dateInteractionSource,
                     indication = null
                 ) { showDatePicker = true },
-            label = { Text(text = "Ngày sinh") },
+            label = { Text(text = stringResource(R.string.auth_date_of_birth_label)) },
             readOnly = true,
             singleLine = true,
             trailingIcon = {
                 TextButton(onClick = { showDatePicker = true }) {
-                    Text(text = "Chọn")
+                    Text(text = stringResource(R.string.auth_select_action))
                 }
             },
             keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
@@ -232,14 +239,14 @@ fun RegisterScreen(
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
             } else {
-                Text(text = "Đăng ký")
+                Text(text = stringResource(R.string.auth_register))
             }
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
         TextButton(onClick = onCancel) {
-            Text(text = "Hủy")
+            Text(text = stringResource(R.string.auth_cancel_action))
         }
     }
 }

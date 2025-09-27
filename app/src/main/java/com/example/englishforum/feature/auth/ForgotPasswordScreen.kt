@@ -33,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -67,7 +68,7 @@ fun ForgotPasswordScreen(
         ) {
             Image(
                 painter = painterResource(id = R.drawable.ic_logo),
-                contentDescription = "Logo",
+                contentDescription = stringResource(R.string.auth_logo_content_description),
                 modifier = Modifier.size(120.dp)
             )
 
@@ -106,7 +107,7 @@ private fun ContactStep(
         OutlinedTextField(
             value = uiState.contact,
             onValueChange = viewModel::onContactChange,
-            label = { Text(text = "Số điện thoại hoặc Email") },
+            label = { Text(text = stringResource(R.string.auth_contact_label)) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true
         )
@@ -120,9 +121,9 @@ private fun ContactStep(
         }
 
         val buttonLabel = if (uiState.otpSecondsRemaining > 0) {
-            "Gửi lại (${uiState.otpSecondsRemaining}s)"
+            stringResource(R.string.auth_resend_with_counter, uiState.otpSecondsRemaining)
         } else {
-            "Gửi OTP"
+            stringResource(R.string.auth_send_otp)
         }
 
         Button(
@@ -140,7 +141,7 @@ private fun ContactStep(
             },
             modifier = Modifier.align(Alignment.Start)
         ) {
-            Text(text = "Quay lại")
+            Text(text = stringResource(R.string.auth_back_action))
         }
     }
 }
@@ -160,7 +161,7 @@ private fun OtpStep(
     ) {
         Text(
             text = uiState.successMessage
-                ?: "Mã OTP đã được gửi đến ${uiState.contact}",
+                ?: stringResource(R.string.auth_otp_sent_to_contact, uiState.contact),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.fillMaxWidth(),
@@ -178,7 +179,7 @@ private fun OtpStep(
             singleLine = true,
             readOnly = uiState.isOtpVerified,
             enabled = !uiState.isOtpVerified,
-            label = { Text(text = "Mã OTP") },
+            label = { Text(text = stringResource(R.string.auth_otp_label)) },
             textStyle = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center),
             keyboardOptions = KeyboardOptions(
                 keyboardType = KeyboardType.Number,
@@ -197,15 +198,15 @@ private fun OtpStep(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 TextButton(onClick = { viewModel.clearMessages() }) {
-                    Text(text = "Thay đổi email/số khác")
+                    Text(text = stringResource(R.string.auth_change_contact))
                 }
 
                 val resendEnabled = uiState.otpSecondsRemaining == 0 && !uiState.isLoading
                 TextButton(onClick = { viewModel.submit() }, enabled = resendEnabled) {
                     val resendLabel = if (uiState.otpSecondsRemaining > 0) {
-                        "Gửi lại (${uiState.otpSecondsRemaining}s)"
+                        stringResource(R.string.auth_resend_with_counter, uiState.otpSecondsRemaining)
                     } else {
-                        "Gửi lại OTP"
+                        stringResource(R.string.auth_resend_otp)
                     }
                     Text(text = resendLabel)
                 }
@@ -223,13 +224,15 @@ private fun OtpStep(
                 OutlinedTextField(
                     value = uiState.newPassword,
                     onValueChange = viewModel::onNewPasswordChange,
-                    label = { Text(text = "Mật khẩu mới") },
+                    label = { Text(text = stringResource(R.string.auth_new_password_label)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     visualTransformation = if (newPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
+                        val hideText = stringResource(R.string.auth_toggle_hide)
+                        val showText = stringResource(R.string.auth_toggle_show)
                         Text(
-                            text = if (newPasswordVisible) "Ẩn" else "Hiện",
+                            text = if (newPasswordVisible) hideText else showText,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
                                 .padding(end = 8.dp)
@@ -242,13 +245,15 @@ private fun OtpStep(
                 OutlinedTextField(
                     value = uiState.confirmNewPassword,
                     onValueChange = viewModel::onConfirmNewPasswordChange,
-                    label = { Text(text = "Xác nhận mật khẩu") },
+                    label = { Text(text = stringResource(R.string.auth_confirm_password_label)) },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
                     visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
+                        val hideText = stringResource(R.string.auth_toggle_hide)
+                        val showText = stringResource(R.string.auth_toggle_show)
                         Text(
-                            text = if (confirmPasswordVisible) "Ẩn" else "Hiện",
+                            text = if (confirmPasswordVisible) hideText else showText,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
                                 .padding(end = 8.dp)
@@ -271,7 +276,7 @@ private fun OtpStep(
                     if (uiState.isChangingPassword) {
                         CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                     } else {
-                        Text(text = "Đổi mật khẩu")
+                        Text(text = stringResource(R.string.auth_change_password))
                     }
                 }
             }

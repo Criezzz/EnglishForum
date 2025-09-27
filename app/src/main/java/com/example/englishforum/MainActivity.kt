@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -127,26 +128,26 @@ fun MainApp() {
             }
 
             composable(Destinations.Home.route) {
-                ScreenContent(title = "Home")
+                ScreenContent(titleRes = R.string.nav_home)
             }
             composable(Destinations.Create.route) {
-                ScreenContent(title = "Create")
+                ScreenContent(titleRes = R.string.nav_create)
             }
             composable(Destinations.Noti.route) {
-                ScreenContent(title = "Notifications")
+                ScreenContent(titleRes = R.string.nav_notifications)
             }
             composable(Destinations.Profile.route) {
-                ScreenContent(title = "Profile")
+                ScreenContent(titleRes = R.string.nav_profile)
             }
         }
     }
 }
 
-private sealed class Destinations(val route: String, val label: String) {
-    data object Home : Destinations("home", "Home")
-    data object Create : Destinations("create", "Create")
-    data object Noti : Destinations("noti", "Noti")
-    data object Profile : Destinations("profile", "Profile")
+private sealed class Destinations(val route: String, val labelRes: Int) {
+    data object Home : Destinations("home", R.string.nav_home)
+    data object Create : Destinations("create", R.string.nav_create)
+    data object Noti : Destinations("noti", R.string.nav_notifications)
+    data object Profile : Destinations("profile", R.string.nav_profile)
 
     companion object {
         val all = listOf(Home, Create, Noti, Profile)
@@ -179,16 +180,21 @@ private fun BottomBar(navController: androidx.navigation.NavHostController) {
                         restoreState = true
                     }
                 },
-                icon = { Icon(imageVector = icon, contentDescription = destination.label) },
-                label = { Text(destination.label) }
+                icon = {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = stringResource(destination.labelRes)
+                    )
+                },
+                label = { Text(stringResource(destination.labelRes)) }
             )
         }
     }
 }
 
 @Composable
-private fun ScreenContent(title: String) {
-    Text(text = title, modifier = Modifier.padding(16.dp))
+private fun ScreenContent(titleRes: Int) {
+    Text(text = stringResource(titleRes), modifier = Modifier.padding(16.dp))
 }
 
 @Preview(showBackground = true)

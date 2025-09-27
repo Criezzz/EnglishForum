@@ -32,6 +32,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
@@ -62,7 +63,7 @@ fun LoginScreen(
     ) {
         Image(
             painter = painterResource(id = R.drawable.ic_logo),
-            contentDescription = "Logo",
+            contentDescription = stringResource(R.string.auth_logo_content_description),
             modifier = Modifier.size(120.dp)
         )
 
@@ -73,7 +74,7 @@ fun LoginScreen(
             onValueChange = viewModel::onUsernameChange,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            label = { Text(text = "Tên đăng nhập") },
+            label = { Text(text = stringResource(R.string.auth_username_label)) },
             keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
             keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Down) })
         )
@@ -85,11 +86,13 @@ fun LoginScreen(
             onValueChange = viewModel::onPasswordChange,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            label = { Text(text = "Mật khẩu") },
+            label = { Text(text = stringResource(R.string.auth_password_label)) },
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
+                val hideText = stringResource(R.string.auth_toggle_hide)
+                val showText = stringResource(R.string.auth_toggle_show)
                 Text(
-                    text = if (passwordVisible) "Ẩn" else "Hiện",
+                    text = if (passwordVisible) hideText else showText,
                     modifier = Modifier
                         .clickable { passwordVisible = !passwordVisible }
                         .padding(end = 8.dp)
@@ -116,7 +119,7 @@ fun LoginScreen(
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
             } else {
-                Text(text = "Đăng nhập")
+                Text(text = stringResource(R.string.auth_login))
             }
         }
 
@@ -128,10 +131,10 @@ fun LoginScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextButton(onClick = onForgotPasswordClick) {
-                Text(text = "Quên mật khẩu")
+                Text(text = stringResource(R.string.auth_forgot_password))
             }
             TextButton(onClick = onRegisterClick) {
-                Text(text = "Đăng ký")
+                Text(text = stringResource(R.string.auth_register))
             }
         }
     }
