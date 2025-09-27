@@ -1,0 +1,39 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="200dp"
+    android:height="200dp"
+    android:viewportWidth="200"
+    android:viewportHeight="200">
+
+    <!-- Outer ring -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#0F3D62"
+        android:strokeWidth="8"
+        android:pathData="M100,10 a90,90 0 1,1 0,180 a90,90 0 1,1 0,-180"/>
+
+    <!-- Centered E group -->
+    <group
+        android:translateX="100"
+        android:translateY="100">
+
+        <!-- Vertical bar -->
+        <path
+            android:fillColor="#F6B527"
+            android:pathData="M -35,-60 h30 v120 h-30 z"/>
+
+        <!-- Top bar -->
+        <path
+            android:fillColor="#F6B527"
+            android:pathData="M -35,-60 h70 v25 h-70 z"/>
+
+        <!-- Middle bar -->
+        <path
+            android:fillColor="#F6B527"
+            android:pathData="M -35,-12 h60 v25 h-60 z"/>
+
+        <!-- Bottom bar (different color -> F on top of E idea) -->
+        <path
+            android:fillColor="#0F3D62"
+            android:pathData="M -35,35 h70 v25 h-70 z"/>
+    </group>
+</vector>

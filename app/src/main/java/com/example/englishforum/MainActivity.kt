@@ -21,6 +21,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
@@ -28,6 +29,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
+import com.example.englishforum.feature.auth.LoginScreen
+import com.example.englishforum.feature.auth.LoginViewModel
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,28 +48,73 @@ class MainActivity : ComponentActivity() {
 fun MainApp() {
     val navController = rememberNavController()
 
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val showBottomBar = currentRoute != "login" && currentRoute != "register" && currentRoute != "forgot"
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         bottomBar = {
-            BottomBar(navController = navController)
+            if (showBottomBar) {
+                BottomBar(navController)
+            }
         }
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Destinations.Home.route,
+            startDestination = "login",
             modifier = Modifier.padding(innerPadding)
         ) {
+            composable("login") {
+                val vm: LoginViewModel = viewModel()
+                LoginScreen(
+                    viewModel = vm,
+                    onLoginSuccess = {
+                        navController.navigate(Destinations.Home.route) {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    },
+                    onRegisterClick = { navController.navigate("register") },
+                    onForgotPasswordClick = { navController.navigate("forgot") }
+                )
+            }
+
+            composable("forgot") {
+                val vm: com.example.englishforum.feature.auth.ForgotPasswordViewModel = viewModel()
+                com.example.englishforum.feature.auth.ForgotPasswordScreen(
+                    viewModel = vm,
+                    onDone = {
+                        navController.navigate(Destinations.Home.route) {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    }
+                )
+            }
+
+            composable("register") {
+                val vm: com.example.englishforum.feature.auth.RegisterViewModel = viewModel()
+                com.example.englishforum.feature.auth.RegisterScreen(
+                    viewModel = vm,
+                    onRegisterSuccess = {
+                        navController.navigate(Destinations.Home.route) {
+                            popUpTo("register") { inclusive = true }
+                        }
+                    },
+                    onCancel = { navController.popBackStack() }
+                )
+            }
+
             composable(Destinations.Home.route) {
-                ScreenContent(title = "Home") //placeholder cho UI
+                ScreenContent(title = "Home")
             }
             composable(Destinations.Create.route) {
-                ScreenContent(title = "Create") //placeholder cho UI
+                ScreenContent(title = "Create")
             }
             composable(Destinations.Noti.route) {
-                ScreenContent(title = "Notifications") //placeholder cho UI
+                ScreenContent(title = "Notifications")
             }
             composable(Destinations.Profile.route) {
-                ScreenContent(title = "Profile") //placeholder cho UI
+                ScreenContent(title = "Profile")
             }
         }
     }
@@ -102,7 +150,6 @@ private fun BottomBar(navController: androidx.navigation.NavHostController) {
                 selected = selected,
                 onClick = {
                     navController.navigate(destination.route) {
-                        // Multiple back stacks for each top-level destination
                         popUpTo(navController.graph.findStartDestination().id) {
                             saveState = true
                         }
@@ -118,7 +165,7 @@ private fun BottomBar(navController: androidx.navigation.NavHostController) {
 }
 
 @Composable
-private fun ScreenContent(title: String) { //đây là place holder tạm
+private fun ScreenContent(title: String) {
     Text(text = title, modifier = Modifier.padding(16.dp))
 }
 
