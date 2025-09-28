@@ -32,6 +32,10 @@
     <string name="nav_create">Tạo bài viết</string>
     <string name="nav_notifications">Thông báo</string>
     <string name="nav_profile">Hồ sơ</string>
+    <string name="home_search_placeholder">Tìm kiếm</string>
+    <string name="home_clear_search_content_description">Xoá nội dung tìm kiếm</string>
+    <string name="home_post_meta">%1$s • %2$s</string>
+    <string name="home_empty_state">Không có bài viết nào phù hợp</string>
 
     <string name="profile_settings_content_description">Mở cài đặt hồ sơ</string>
     <string name="profile_edit_content_description">Chỉnh sửa hồ sơ</string>

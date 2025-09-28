@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
@@ -36,6 +37,8 @@ fun ForumContentCard(
     title: String? = null,
     body: String? = null,
     voteState: VoteState = VoteState.NONE,
+    commentCount: Int? = null,
+    onCommentClick: (() -> Unit)? = null,
     onUpvoteClick: () -> Unit = {},
     onDownvoteClick: () -> Unit = {},
     onMoreActionsClick: () -> Unit = {}
@@ -107,6 +110,14 @@ fun ForumContentCard(
                     onClick = onDownvoteClick
                 )
 
+                if (commentCount != null) {
+                    Spacer(Modifier.width(12.dp))
+                    CommentCountPill(
+                        commentCount = commentCount,
+                        onClick = onCommentClick
+                    )
+                }
+
                 Spacer(Modifier.weight(1f))
                 IconButton(onClick = onMoreActionsClick) {
                     Icon(
@@ -138,6 +149,39 @@ private fun VoteIconButton(
         )
     ) {
         Icon(imageVector = icon, contentDescription = contentDescription)
+    }
+}
+
+@Composable
+private fun CommentCountPill(
+    commentCount: Int,
+    onClick: (() -> Unit)?
+) {
+    Surface(
+        onClick = onClick ?: {},
+        enabled = onClick != null,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        tonalElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.ChatBubbleOutline,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                text = commentCount.toString(),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
     }
 }
 

@@ -42,6 +42,7 @@ import com.example.englishforum.data.settings.ThemePreferenceRepository
 import com.example.englishforum.feature.auth.LoginScreen
 import com.example.englishforum.feature.auth.LoginViewModel
 import com.example.englishforum.feature.auth.LoginViewModelFactory
+import com.example.englishforum.feature.home.HomeScreen
 import com.example.englishforum.feature.profile.ProfileScreen
 import com.example.englishforum.feature.settings.SettingsScreen
 import kotlinx.coroutines.launch
@@ -157,7 +158,9 @@ fun MainApp() {
                 }
 
                 composable(Destinations.Home.route) {
-                    PlaceholderScreen(titleRes = R.string.nav_home)
+                    HomeScreen(
+                        modifier = Modifier.fillMaxSize()
+                    )
                 }
                 composable(Destinations.Create.route) {
                     PlaceholderScreen(titleRes = R.string.nav_create)
