@@ -31,6 +31,8 @@
     <string name="nav_home">Trang chủ</string>
     <string name="nav_create">Tạo bài viết</string>
     <string name="nav_notifications">Thông báo</string>
+    <string name="notifications_title">Thông báo</string>
+    <string name="notifications_empty_state">Hiện chưa có thông báo mới</string>
     <string name="nav_profile">Hồ sơ</string>
     <string name="home_search_placeholder">Tìm kiếm</string>
     <string name="home_clear_search_content_description">Xoá nội dung tìm kiếm</string>

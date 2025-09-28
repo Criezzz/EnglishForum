@@ -44,6 +44,7 @@ import com.example.englishforum.feature.auth.LoginViewModel
 import com.example.englishforum.feature.auth.LoginViewModelFactory
 import com.example.englishforum.feature.aipractice.AiPracticeRoute
 import com.example.englishforum.feature.home.HomeScreen
+import com.example.englishforum.feature.noti.NotiRoute
 import com.example.englishforum.feature.postdetail.PostDetailRoute
 import com.example.englishforum.feature.profile.ProfileScreen
 import com.example.englishforum.feature.settings.SettingsScreen
@@ -179,7 +180,12 @@ fun MainApp() {
                     )
                 }
                 composable(Destinations.Noti.route) {
-                    PlaceholderScreen(titleRes = R.string.nav_notifications)
+                    NotiRoute(
+                        modifier = Modifier.fillMaxSize(),
+                        onNotificationClick = { postId, _ ->
+                            navController.navigate("post/$postId")
+                        }
+                    )
                 }
                 composable(Destinations.Profile.route) {
                     ProfileScreen(
