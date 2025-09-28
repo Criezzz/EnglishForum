@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -17,7 +16,6 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,9 +23,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.ui.components.VoteIconButton
+
+enum class CommentPillPlacement {
+    BesideVotes,
+    End
+}
 
 @Composable
 fun ForumContentCard(
@@ -41,10 +44,15 @@ fun ForumContentCard(
     onCommentClick: (() -> Unit)? = null,
     onUpvoteClick: () -> Unit = {},
     onDownvoteClick: () -> Unit = {},
-    onMoreActionsClick: () -> Unit = {}
+    onMoreActionsClick: () -> Unit = {},
+    showMoreActions: Boolean = true,
+    commentPillPlacement: CommentPillPlacement = CommentPillPlacement.BesideVotes,
+    onCardClick: (() -> Unit)? = null
 ) {
     Surface(
         modifier = modifier,
+        onClick = onCardClick ?: {},
+        enabled = onCardClick != null,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         tonalElevation = 2.dp
@@ -110,45 +118,38 @@ fun ForumContentCard(
                     onClick = onDownvoteClick
                 )
 
-                if (commentCount != null) {
+                val showCommentPill = commentCount != null
+
+                if (showCommentPill && commentPillPlacement == CommentPillPlacement.BesideVotes) {
                     Spacer(Modifier.width(12.dp))
                     CommentCountPill(
-                        commentCount = commentCount,
+                        commentCount = commentCount!!,
                         onClick = onCommentClick
                     )
                 }
 
                 Spacer(Modifier.weight(1f))
-                IconButton(onClick = onMoreActionsClick) {
-                    Icon(
-                        imageVector = Icons.Filled.MoreVert,
-                        contentDescription = null
+
+                if (showCommentPill && commentPillPlacement == CommentPillPlacement.End) {
+                    CommentCountPill(
+                        commentCount = commentCount!!,
+                        onClick = onCommentClick
                     )
+                }
+
+                if (showMoreActions) {
+                    if (showCommentPill && commentPillPlacement == CommentPillPlacement.End) {
+                        Spacer(Modifier.width(12.dp))
+                    }
+                    IconButton(onClick = onMoreActionsClick) {
+                        Icon(
+                            imageVector = Icons.Filled.MoreVert,
+                            contentDescription = null
+                        )
+                    }
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun VoteIconButton(
-    icon: ImageVector,
-    contentDescription: String?,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val selectedColor = MaterialTheme.colorScheme.primary
-    val defaultTint = MaterialTheme.colorScheme.onSurfaceVariant
-
-    IconButton(
-        onClick = onClick,
-        modifier = Modifier.size(36.dp),
-        colors = IconButtonDefaults.iconButtonColors(
-            containerColor = if (selected) selectedColor.copy(alpha = 0.12f) else Color.Transparent,
-            contentColor = if (selected) selectedColor else defaultTint
-        )
-    ) {
-        Icon(imageVector = icon, contentDescription = contentDescription)
     }
 }
 

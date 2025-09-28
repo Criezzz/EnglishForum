@@ -2,6 +2,7 @@ package com.example.englishforum.feature.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.englishforum.core.common.formatRelativeTime
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.data.home.FakeHomeRepository
 import com.example.englishforum.data.home.HomePost
@@ -91,20 +92,5 @@ class HomeViewModel(
             voteState = voteState,
             commentCount = max(commentCount, 0)
         )
-    }
-
-    private fun formatRelativeTime(minutesAgo: Int): String {
-        return when {
-            minutesAgo < 1 -> "Vừa xong"
-            minutesAgo < 60 -> "$minutesAgo phút trước"
-            minutesAgo < 1_440 -> {
-                val hours = minutesAgo / 60
-                "$hours giờ trước"
-            }
-            else -> {
-                val days = minutesAgo / 1_440
-                "$days ngày trước"
-            }
-        }
     }
 }

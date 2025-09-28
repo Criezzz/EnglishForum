@@ -43,6 +43,7 @@ import com.example.englishforum.feature.auth.LoginScreen
 import com.example.englishforum.feature.auth.LoginViewModel
 import com.example.englishforum.feature.auth.LoginViewModelFactory
 import com.example.englishforum.feature.home.HomeScreen
+import com.example.englishforum.feature.postdetail.PostDetailRoute
 import com.example.englishforum.feature.profile.ProfileScreen
 import com.example.englishforum.feature.settings.SettingsScreen
 import kotlinx.coroutines.launch
@@ -159,7 +160,13 @@ fun MainApp() {
 
                 composable(Destinations.Home.route) {
                     HomeScreen(
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
+                        onPostClick = { postId ->
+                            navController.navigate("post/$postId")
+                        },
+                        onCommentClick = { postId ->
+                            navController.navigate("post/$postId")
+                        }
                     )
                 }
                 composable(Destinations.Create.route) {
@@ -193,6 +200,24 @@ fun MainApp() {
                             }
                         }
                     )
+                }
+                composable(
+                    route = "post/{postId}",
+                    arguments = listOf(
+                        androidx.navigation.navArgument("postId") {
+                            type = androidx.navigation.NavType.StringType
+                        }
+                    )
+                ) { backStackEntry ->
+                    val postId = backStackEntry.arguments?.getString("postId")
+                    if (postId != null) {
+                        PostDetailRoute(
+                            modifier = Modifier.fillMaxSize(),
+                            postId = postId,
+                            onBackClick = { navController.popBackStack() },
+                            onOpenAiPracticeClick = { }
+                        )
+                    }
                 }
             }
         }

@@ -34,6 +34,7 @@ import com.example.englishforum.core.ui.theme.EnglishForumTheme
 fun HomeScreen(
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = viewModel(),
+    onPostClick: (String) -> Unit = {},
     onCommentClick: (String) -> Unit = {},
     onMoreActionsClick: (String) -> Unit = {}
 ) {
@@ -46,6 +47,7 @@ fun HomeScreen(
         onClearSearch = viewModel::onClearSearchQuery,
         onUpvote = viewModel::onUpvote,
         onDownvote = viewModel::onDownvote,
+        onPostClick = onPostClick,
         onCommentClick = onCommentClick,
         onMoreActionsClick = onMoreActionsClick
     )
@@ -59,6 +61,7 @@ private fun HomeContent(
     onClearSearch: () -> Unit,
     onUpvote: (String) -> Unit,
     onDownvote: (String) -> Unit,
+    onPostClick: (String) -> Unit,
     onCommentClick: (String) -> Unit,
     onMoreActionsClick: (String) -> Unit
 ) {
@@ -111,6 +114,7 @@ private fun HomeContent(
                         body = post.body,
                         voteState = post.voteState,
                         commentCount = post.commentCount,
+                        onCardClick = { onPostClick(post.id) },
                         onCommentClick = { onCommentClick(post.id) },
                         onUpvoteClick = { onUpvote(post.id) },
                         onDownvoteClick = { onDownvote(post.id) },
@@ -214,6 +218,7 @@ private fun HomeScreenPreview() {
             onClearSearch = {},
             onUpvote = {},
             onDownvote = {},
+            onPostClick = {},
             onCommentClick = {},
             onMoreActionsClick = {}
         )

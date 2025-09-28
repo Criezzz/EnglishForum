@@ -36,6 +36,13 @@
     <string name="home_clear_search_content_description">Xoá nội dung tìm kiếm</string>
     <string name="home_post_meta">%1$s • %2$s</string>
     <string name="home_empty_state">Không có bài viết nào phù hợp</string>
+    <string name="post_detail_comments_header">Bình luận</string>
+    <string name="post_detail_empty_state">Chưa có bình luận nào</string>
+    <string name="post_detail_missing_post">Không thể tải bài viết</string>
+    <string name="post_detail_ai_practice">Câu hỏi AI</string>
+    <string name="post_detail_ai_practice_content_description">Mở câu hỏi luyện tập cùng AI</string>
+    <string name="post_detail_author_badge">Tác giả</string>
+    <string name="post_detail_options_content_description">Mở tuỳ chọn bài viết</string>
 
     <string name="profile_settings_content_description">Mở cài đặt hồ sơ</string>
     <string name="profile_edit_content_description">Chỉnh sửa hồ sơ</string>
