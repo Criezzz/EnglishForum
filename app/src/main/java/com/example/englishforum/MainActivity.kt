@@ -42,6 +42,7 @@ import com.example.englishforum.data.settings.ThemePreferenceRepository
 import com.example.englishforum.feature.auth.LoginScreen
 import com.example.englishforum.feature.auth.LoginViewModel
 import com.example.englishforum.feature.auth.LoginViewModelFactory
+import com.example.englishforum.feature.aipractice.AiPracticeRoute
 import com.example.englishforum.feature.home.HomeScreen
 import com.example.englishforum.feature.postdetail.PostDetailRoute
 import com.example.englishforum.feature.profile.ProfileScreen
@@ -215,7 +216,25 @@ fun MainApp() {
                             modifier = Modifier.fillMaxSize(),
                             postId = postId,
                             onBackClick = { navController.popBackStack() },
-                            onOpenAiPracticeClick = { }
+                            onNavigateToAiPractice = { practicePostId ->
+                                navController.navigate("aiPractice/$practicePostId")
+                            }
+                        )
+                    }
+                }
+                composable(
+                    route = "aiPractice/{postId}",
+                    arguments = listOf(
+                        androidx.navigation.navArgument("postId") {
+                            type = androidx.navigation.NavType.StringType
+                        }
+                    )
+                ) { backStackEntry ->
+                    val postId = backStackEntry.arguments?.getString("postId")
+                    if (postId != null) {
+                        AiPracticeRoute(
+                            postId = postId,
+                            onBackClick = { navController.popBackStack() }
                         )
                     }
                 }

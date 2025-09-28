@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -55,7 +56,7 @@ fun PostDetailRoute(
     modifier: Modifier = Modifier,
     postId: String,
     onBackClick: () -> Unit,
-    onOpenAiPracticeClick: (String) -> Unit = {},
+    onNavigateToAiPractice: (String) -> Unit = {},
     viewModel: PostDetailViewModel = viewModel(
         factory = remember(postId) { PostDetailViewModelFactory(postId) }
     )
@@ -71,7 +72,7 @@ fun PostDetailRoute(
         onUpvoteComment = viewModel::onUpvoteComment,
         onDownvoteComment = viewModel::onDownvoteComment,
         onOpenAiPracticeClick = {
-            uiState.post?.id?.let(onOpenAiPracticeClick)
+            viewModel.onAiPracticeClick(onNavigateToAiPractice)
         }
     )
 }
@@ -123,14 +124,25 @@ fun PostDetailScreen(
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onOpenAiPracticeClick,
+                onClick = {
+                    if (!uiState.isAiPracticeChecking) {
+                        onOpenAiPracticeClick()
+                    }
+                },
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.AutoAwesome,
-                    contentDescription = stringResource(R.string.post_detail_ai_practice_content_description)
-                )
+                if (uiState.isAiPracticeChecking) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.AutoAwesome,
+                        contentDescription = stringResource(R.string.post_detail_ai_practice_content_description)
+                    )
+                }
             }
         }
     ) { innerPadding ->

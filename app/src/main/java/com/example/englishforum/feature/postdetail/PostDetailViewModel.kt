@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.ViewModelProvider
 import com.example.englishforum.core.common.formatRelativeTime
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.data.aipractice.AiPracticeRepository
+import com.example.englishforum.data.aipractice.FakeAiPracticeRepository
 import com.example.englishforum.data.post.FakePostDetailRepository
 import com.example.englishforum.data.post.PostComment
 import com.example.englishforum.data.post.PostDetail
@@ -19,11 +21,13 @@ import kotlinx.coroutines.launch
 
 class PostDetailViewModel(
     private val postId: String,
-    private val repository: PostDetailRepository = FakePostDetailRepository()
+    private val repository: PostDetailRepository = FakePostDetailRepository(),
+    private val aiPracticeRepository: AiPracticeRepository = FakeAiPracticeRepository()
 ) : ViewModel() {
 
     private val isLoading = MutableStateFlow(true)
     private val errorMessage = MutableStateFlow<String?>(null)
+    private val aiPracticeChecking = MutableStateFlow(false)
 
     private val postStream = repository.observePost(postId)
         .onEach { isLoading.value = false }
@@ -31,8 +35,9 @@ class PostDetailViewModel(
     val uiState: StateFlow<PostDetailUiState> = combine(
         postStream,
         isLoading,
-        errorMessage
-    ) { post, loading, error ->
+        errorMessage,
+        aiPracticeChecking
+    ) { post, loading, error, aiChecking ->
         val postUi = post?.toUiModel()
         val commentUi = if (post != null) {
             post.comments.map { comment -> comment.toUiModel(post.authorName) }
@@ -44,7 +49,8 @@ class PostDetailViewModel(
             isLoading = loading,
             post = postUi,
             comments = commentUi,
-            errorMessage = error
+            errorMessage = error,
+            isAiPracticeChecking = aiChecking
         )
     }
         .stateIn(
@@ -67,6 +73,34 @@ class PostDetailViewModel(
 
     fun onDownvoteComment(commentId: String) {
         updateCommentVote(commentId, VoteState.DOWNVOTED)
+    }
+
+    fun onAiPracticeClick(onAvailable: (String) -> Unit) {
+        val currentPostId = uiState.value.post?.id ?: return
+        if (aiPracticeChecking.value) return
+
+        viewModelScope.launch {
+            aiPracticeChecking.value = true
+            errorMessage.value = null
+
+            try {
+                val result = aiPracticeRepository.checkFeasibility(currentPostId)
+                result.onSuccess { available ->
+                    if (available) {
+                        onAvailable(currentPostId)
+                    } else {
+                        errorMessage.value = "Tính năng luyện tập AI hiện chưa khả dụng cho bài viết này."
+                    }
+                }
+                result.onFailure { throwable ->
+                    errorMessage.value = throwable.message ?: "Không thể kiểm tra tính năng luyện tập AI."
+                }
+            } catch (throwable: Throwable) {
+                errorMessage.value = throwable.message ?: "Không thể kiểm tra tính năng luyện tập AI."
+            } finally {
+                aiPracticeChecking.value = false
+            }
+        }
     }
 
     private fun updatePostVote(target: VoteState) {
@@ -92,12 +126,13 @@ class PostDetailViewModel(
 
 class PostDetailViewModelFactory(
     private val postId: String,
-    private val repository: PostDetailRepository = FakePostDetailRepository()
+    private val repository: PostDetailRepository = FakePostDetailRepository(),
+    private val aiPracticeRepository: AiPracticeRepository = FakeAiPracticeRepository()
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(PostDetailViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return PostDetailViewModel(postId, repository) as T
+            return PostDetailViewModel(postId, repository, aiPracticeRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

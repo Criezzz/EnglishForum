@@ -27,7 +27,8 @@ data class PostDetailUiState(
     val isLoading: Boolean = true,
     val post: PostDetailUi? = null,
     val comments: List<PostCommentUi> = emptyList(),
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val isAiPracticeChecking: Boolean = false
 ) {
     val isEmpty: Boolean get() = !isLoading && post == null && comments.isEmpty()
 }
