@@ -35,6 +35,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -111,7 +112,8 @@ fun CreateScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(text = stringResource(id = R.string.create_post_title)) }
+                title = { Text(text = stringResource(id = R.string.create_post_title)) },
+                windowInsets = WindowInsets(0, 0, 0, 0)
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
