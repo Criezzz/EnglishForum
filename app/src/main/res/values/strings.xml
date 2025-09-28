@@ -44,6 +44,20 @@
     <string name="post_detail_author_badge">Tác giả</string>
     <string name="post_detail_options_content_description">Mở tuỳ chọn bài viết</string>
 
+    <string name="create_post_title">Tạo bài viết</string>
+    <string name="create_post_title_label">Tiêu đề bài viết</string>
+    <string name="create_post_title_placeholder">Chủ đề bạn muốn chia sẻ</string>
+    <string name="create_post_body_label">Nội dung bài viết</string>
+    <string name="create_post_body_placeholder">Hãy kể chi tiết câu chuyện, thắc mắc hoặc mẹo học tập của bạn...</string>
+    <string name="create_post_attachment_label">Ảnh minh hoạ</string>
+    <string name="create_post_add_image">Thêm ảnh</string>
+    <string name="create_post_remove_image_content_description">Xoá %1$s</string>
+    <string name="create_post_submit">Đăng</string>
+    <string name="create_post_submit_loading">Đang đăng...</string>
+    <string name="create_post_declined_title">Bài viết bị từ chối</string>
+    <string name="create_post_declined_message">Hệ thống đã từ chối bài viết của bạn vì: %1$s</string>
+    <string name="create_post_declined_edit">Chỉnh sửa</string>
+
     <string name="ai_practice_title">Câu hỏi củng cố</string>
     <string name="ai_practice_loading_message">Đang chuẩn bị câu hỏi luyện tập...</string>
     <string name="ai_practice_empty_state">Chưa có câu hỏi luyện tập nào cho bài viết này.</string>

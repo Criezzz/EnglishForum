@@ -171,7 +171,12 @@ fun MainApp() {
                     )
                 }
                 composable(Destinations.Create.route) {
-                    PlaceholderScreen(titleRes = R.string.nav_create)
+                    com.example.englishforum.feature.create.CreateRoute(
+                        modifier = Modifier.fillMaxSize(),
+                        onNavigateToPostDetail = { newPostId ->
+                            navController.navigate("post/$newPostId")
+                        }
+                    )
                 }
                 composable(Destinations.Noti.route) {
                     PlaceholderScreen(titleRes = R.string.nav_notifications)
