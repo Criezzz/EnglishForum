@@ -149,7 +149,9 @@ fun MainApp() {
                 }
 
                 composable("register") {
-                    val vm: com.example.englishforum.feature.auth.RegisterViewModel = viewModel()
+                    val vm: com.example.englishforum.feature.auth.RegisterViewModel = viewModel(
+                        factory = com.example.englishforum.feature.auth.RegisterViewModelFactory(authRepository)
+                    )
                     com.example.englishforum.feature.auth.RegisterScreen(
                         viewModel = vm,
                         onRegisterSuccess = {

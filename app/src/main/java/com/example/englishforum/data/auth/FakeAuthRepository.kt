@@ -25,6 +25,47 @@ class FakeAuthRepository(
         }
     }
 
+    override suspend fun register(
+        name: String,
+        phone: String,
+        email: String,
+        password: String,
+        dob: String
+    ): Result<UserSession> {
+        delay(1000)
+        val normalizedName = name.trim()
+        val normalizedPhone = phone.trim()
+        val normalizedEmail = email.trim()
+        val normalizedPassword = password.trim()
+        val normalizedDob = dob.trim()
+
+        // Basic validation
+        if (normalizedName.isEmpty()) {
+            return Result.failure(IllegalArgumentException("Tên không được để trống"))
+        }
+        if (normalizedPhone.isEmpty()) {
+            return Result.failure(IllegalArgumentException("Số điện thoại không được để trống"))
+        }
+        if (normalizedEmail.isEmpty() || !normalizedEmail.contains("@")) {
+            return Result.failure(IllegalArgumentException("Email không hợp lệ"))
+        }
+        if (normalizedPassword.length < 6) {
+            return Result.failure(IllegalArgumentException("Mật khẩu phải có ít nhất 6 ký tự"))
+        }
+        if (normalizedDob.isEmpty()) {
+            return Result.failure(IllegalArgumentException("Ngày sinh không được để trống"))
+        }
+
+        // Create user session after successful registration
+        val session = UserSession(
+            userId = "user-${System.currentTimeMillis()}",
+            username = normalizedEmail,
+            token = "fake-token-${System.currentTimeMillis()}"
+        )
+        userSessionRepository?.saveSession(session)
+        return Result.success(session)
+    }
+
     override suspend fun requestOtp(contact: String): Result<Unit> {
         delay(800)
         val normalizedContact = contact.trim()
