@@ -193,7 +193,13 @@ fun MainApp() {
                 composable(Destinations.Profile.route) {
                     ProfileScreen(
                         modifier = Modifier.fillMaxSize(),
-                        onSettingsClick = { navController.navigate(Destinations.Settings.route) }
+                        onSettingsClick = { navController.navigate(Destinations.Settings.route) },
+                        onPostClick = { postId ->
+                            navController.navigate("post/post-1")
+                        },
+                        onReplyClick = { postId ->
+                            navController.navigate("post/post-1")
+                        }
                     )
                 }
                 composable(Destinations.Settings.route) {

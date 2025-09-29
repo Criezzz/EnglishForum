@@ -18,6 +18,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -53,6 +55,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.ui.components.VoteIconButton
 import com.example.englishforum.core.ui.components.card.ForumContentCard
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 
@@ -62,6 +65,8 @@ fun ProfileScreen(
     viewModel: ProfileViewModel = viewModel(),
     onSettingsClick: () -> Unit = {},
     onEditClick: () -> Unit = {},
+    onPostClick: (String) -> Unit = {},
+    onReplyClick: (String) -> Unit = {},
     onPostMoreClick: (ProfilePost) -> Unit = {},
     onReplyMoreClick: (ProfileReply) -> Unit = {}
 ) {
@@ -76,6 +81,8 @@ fun ProfileScreen(
             onEditClick()
             showEditDialog = true
         },
+        onPostClick = onPostClick,
+        onReplyClick = onReplyClick,
         onPostMoreClick = onPostMoreClick,
         onReplyMoreClick = onReplyMoreClick,
         onPostUpvote = viewModel::onPostUpvote,
@@ -104,6 +111,8 @@ private fun ProfileContent(
     uiState: ProfileUiState,
     onSettingsClick: () -> Unit,
     onEditClick: () -> Unit,
+    onPostClick: (String) -> Unit,
+    onReplyClick: (String) -> Unit,
     onPostMoreClick: (ProfilePost) -> Unit,
     onReplyMoreClick: (ProfileReply) -> Unit,
     onPostUpvote: (String) -> Unit,
@@ -155,6 +164,7 @@ private fun ProfileContent(
                             title = post.title,
                             body = post.body,
                             voteState = post.voteState,
+                            onCardClick = { onPostClick(post.id) },
                             onUpvoteClick = { onPostUpvote(post.id) },
                             onDownvoteClick = { onPostDownvote(post.id) },
                             onMoreActionsClick = { onPostMoreClick(post) }
@@ -170,17 +180,13 @@ private fun ProfileContent(
                     }
                 } else {
                     items(uiState.replies, key = { it.id }) { reply ->
-                        ForumContentCard(
+                        ProfileReplyCard(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp),
-                            meta = stringResource(R.string.profile_reply_meta, reply.questionTitle, reply.minutesAgo),
-                            voteCount = reply.voteCount,
-                            title = reply.questionTitle,
-                            body = reply.body,
-                            voteState = reply.voteState,
+                            reply = reply,
+                            onClick = { onReplyClick("post-1") },
                             onUpvoteClick = { onReplyUpvote(reply.id) },
-                            onDownvoteClick = { onReplyDownvote(reply.id) },
-                            onMoreActionsClick = { onReplyMoreClick(reply) }
+                            onDownvoteClick = { onReplyDownvote(reply.id) }
                         )
                     }
                 }
@@ -352,6 +358,76 @@ private fun ProfileStatItem(value: Int, label: String) {
 }
 
 @Composable
+private fun ProfileReplyCard(
+    reply: ProfileReply,
+    onClick: () -> Unit,
+    onUpvoteClick: () -> Unit,
+    onDownvoteClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        onClick = onClick,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = stringResource(R.string.profile_reply_meta, reply.questionTitle, reply.minutesAgo),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = reply.questionTitle,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = reply.body,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Spacer(Modifier.weight(1f))
+
+                VoteIconButton(
+                    icon = Icons.Filled.KeyboardArrowUp,
+                    contentDescription = null,
+                    selected = reply.voteState == VoteState.UPVOTED,
+                    onClick = onUpvoteClick
+                )
+                Spacer(Modifier.width(4.dp))
+
+                Text(
+                    text = reply.voteCount.toString(),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(Modifier.width(4.dp))
+                VoteIconButton(
+                    icon = Icons.Filled.KeyboardArrowDown,
+                    contentDescription = null,
+                    selected = reply.voteState == VoteState.DOWNVOTED,
+                    onClick = onDownvoteClick
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun EmptyState(text: String) {
     Surface(
         modifier = Modifier
@@ -388,7 +464,7 @@ private fun ProfileScreenPreview() {
                 ),
                 posts = listOf(
                     ProfilePost(
-                        id = "post_1",
+                        id = "post-1",
                         title = "Lorem ipsum dolor sit amet",
                         body = "Nullam justo felis, ullamcorper et lectus non, vestibulum feugiat risus.",
                         minutesAgo = 13,
@@ -396,7 +472,7 @@ private fun ProfileScreenPreview() {
                         voteState = VoteState.UPVOTED
                     ),
                     ProfilePost(
-                        id = "post_2",
+                        id = "post-2",
                         title = "In mattis tincidunt mi ac pretium",
                         body = "Nullam euismod urna in arcu mollis, at consectetur ante mattis.",
                         minutesAgo = 28,
@@ -418,6 +494,8 @@ private fun ProfileScreenPreview() {
             ),
             onSettingsClick = {},
             onEditClick = {},
+            onPostClick = {},
+            onReplyClick = {},
             onPostMoreClick = {},
             onReplyMoreClick = {},
             onPostUpvote = {},

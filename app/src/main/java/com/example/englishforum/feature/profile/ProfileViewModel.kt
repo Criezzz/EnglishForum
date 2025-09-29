@@ -27,7 +27,7 @@ class ProfileViewModel : ViewModel() {
             ),
             posts = listOf(
                 ProfilePost(
-                    id = "post_1",
+                    id = "post-1",
                     title = "Lorem ipsum dolor sit amet",
                     body = "Nullam justo felis, ullamcorper et lectus non, vestibulum feugiat risus. Aenean lacinia lacus sed erat molestie.",
                     minutesAgo = 13,
@@ -35,7 +35,7 @@ class ProfileViewModel : ViewModel() {
                     voteState = VoteState.UPVOTED
                 ),
                 ProfilePost(
-                    id = "post_2",
+                    id = "post-2",
                     title = "In mattis tincidunt mi ac pretium",
                     body = "Nullam euismod urna in arcu mollis, at consectetur ante mattis. Maecenas vel vehicula dolor. Mauris non est lobortis.",
                     minutesAgo = 28,
