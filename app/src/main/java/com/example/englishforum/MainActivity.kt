@@ -96,7 +96,8 @@ fun MainApp() {
             navController.navigate(Destinations.Home.route) {
                 popUpTo("login") { inclusive = true }
             }
-        } else if (userSession == null && currentRoute != null && currentRoute != "login") {
+        } else if (userSession == null && currentRoute != null && 
+                   currentRoute != "login" && currentRoute != "register" && currentRoute != "forgot") {
             navController.navigate("login") {
                 popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                 launchSingleTop = true
