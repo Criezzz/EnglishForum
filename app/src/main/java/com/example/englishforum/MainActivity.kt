@@ -185,8 +185,12 @@ fun MainApp() {
                 composable(Destinations.Noti.route) {
                     NotiRoute(
                         modifier = Modifier.fillMaxSize(),
-                        onNotificationClick = { postId, _ ->
-                            navController.navigate("post/$postId")
+                        onNotificationClick = { postId, commentId ->
+                            if (commentId != null) {
+                                navController.navigate("post/$postId?commentId=$commentId")
+                            } else {
+                                navController.navigate("post/$postId")
+                            }
                         }
                     )
                 }
@@ -195,10 +199,14 @@ fun MainApp() {
                         modifier = Modifier.fillMaxSize(),
                         onSettingsClick = { navController.navigate(Destinations.Settings.route) },
                         onPostClick = { postId ->
-                            navController.navigate("post/post-1")
+                            navController.navigate("post/$postId")
                         },
-                        onReplyClick = { postId ->
-                            navController.navigate("post/post-1")
+                        onReplyClick = { postId, commentId ->
+                            if (commentId != null) {
+                                navController.navigate("post/$postId?commentId=$commentId")
+                            } else {
+                                navController.navigate("post/$postId")
+                            }
                         }
                     )
                 }
@@ -223,18 +231,25 @@ fun MainApp() {
                     )
                 }
                 composable(
-                    route = "post/{postId}",
+                    route = "post/{postId}?commentId={commentId}",
                     arguments = listOf(
                         androidx.navigation.navArgument("postId") {
                             type = androidx.navigation.NavType.StringType
+                        },
+                        androidx.navigation.navArgument("commentId") {
+                            type = androidx.navigation.NavType.StringType
+                            nullable = true
+                            defaultValue = null
                         }
                     )
                 ) { backStackEntry ->
                     val postId = backStackEntry.arguments?.getString("postId")
+                    val commentId = backStackEntry.arguments?.getString("commentId")
                     if (postId != null) {
                         PostDetailRoute(
                             modifier = Modifier.fillMaxSize(),
                             postId = postId,
+                            commentId = commentId,
                             onBackClick = { navController.popBackStack() },
                             onNavigateToAiPractice = { practicePostId ->
                                 navController.navigate("aiPractice/$practicePostId")

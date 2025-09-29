@@ -18,6 +18,9 @@ class FakeNotificationRepository(
 
         val postOne = posts.firstOrNull { it.id == "post-1" }
         val commentOne = postOne?.comments?.firstOrNull { it.id == "comment-1" }
+        val commentBottom = postOne?.comments?.firstOrNull { it.id == "comment-19" }
+        
+        // Add notification for the first comment
         if (postOne != null && commentOne != null) {
             list += NotificationMessage(
                 id = "noti-1",
@@ -26,6 +29,31 @@ class FakeNotificationRepository(
                 description = "\"${commentOne.body.take(140)}\"",
                 minutesAgo = 9,
                 target = NotificationTarget.Comment(postOne.id, commentOne.id)
+            )
+        }
+        
+        // Add notification for a middle comment to test scrolling
+        val commentMiddle = postOne?.comments?.firstOrNull { it.id == "comment-14" }
+        if (postOne != null && commentMiddle != null) {
+            list += NotificationMessage(
+                id = "noti-middle",
+                actorName = commentMiddle.authorName,
+                title = "${commentMiddle.authorName} đã nhắc bạn trong bình luận",
+                description = "\"${commentMiddle.body.take(120)}\"",
+                minutesAgo = 7,
+                target = NotificationTarget.Comment(postOne.id, commentMiddle.id)
+            )
+        }
+        
+        // Add notification for a bottom comment to test scrolling
+        if (postOne != null && commentBottom != null) {
+            list += NotificationMessage(
+                id = "noti-bottom",
+                actorName = commentBottom.authorName,
+                title = "${commentBottom.authorName} đã trả lời bình luận của bạn",
+                description = "\"${commentBottom.body.take(140)}\"",
+                minutesAgo = 3,
+                target = NotificationTarget.Comment(postOne.id, commentBottom.id)
             )
         }
 

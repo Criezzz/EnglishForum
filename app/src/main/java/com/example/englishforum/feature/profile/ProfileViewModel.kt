@@ -44,19 +44,40 @@ class ProfileViewModel : ViewModel() {
             ),
             replies = listOf(
                 ProfileReply(
-                    id = "reply_1",
-                    questionTitle = "Câu hỏi về ABC",
-                    body = "Donec dictum rhoncus eros, eget fermentum dui laoreet a. Orci varius natoque penatibus et magnis dis parturient.",
+                    id = "comment-1",
+                    postId = "post-1",
+                    questionTitle = "Cách luyện phát âm tiếng Anh hàng ngày",
+                    body = "Sed vulputate tellus magna, ac fringilla ipsum ornare in. Mình thường ghi âm lại rồi so sánh với bản chuẩn để thấy lỗi phát âm.",
                     minutesAgo = 12,
                     voteCount = 6,
                     voteState = VoteState.UPVOTED
                 ),
                 ProfileReply(
-                    id = "reply_2",
-                    questionTitle = "Câu hỏi về XYZ",
-                    body = "Morbi ultrices condimentum fermentum. Pellentesque dictum sem eget diam rutrum, non dapibus massa elementum.",
+                    id = "comment-14",
+                    postId = "post-1",
+                    questionTitle = "Cách luyện phát âm tiếng Anh hàng ngày",
+                    body = "Mình khuyên các bạn nên tập phát âm theo từng phoneme trước, rồi mới lên word level. Có thể dùng Cambridge Dictionary để nghe chuẩn âm Anh và Mỹ.",
+                    minutesAgo = 30,
+                    voteCount = 15,
+                    voteState = VoteState.UPVOTED
+                ),
+                ProfileReply(
+                    id = "comment-19",
+                    postId = "post-1",
+                    questionTitle = "Cách luyện phát âm tiếng Anh hàng ngày",
+                    body = "Reading aloud mỗi ngày 20-30 phút với newspaper hoặc novel cũng rất hiệu quả. Quan trọng là consistency và patience!",
+                    minutesAgo = 5,
+                    voteCount = 13,
+                    voteState = VoteState.UPVOTED
+                ),
+                ProfileReply(
+                    id = "comment-3",
+                    postId = "post-2",
+                    questionTitle = "Chia sẻ tài liệu IELTS Reading band 7+",
+                    body = "Great compilation! I usually start learners with Cambridge 15.",
                     minutesAgo = 45,
-                    voteCount = 4
+                    voteCount = 11,
+                    voteState = VoteState.UPVOTED
                 )
             ),
             isLoading = false

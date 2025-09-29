@@ -107,6 +107,78 @@ object FakePostStore {
                 body = "Quisque a lorem vitae ante pretium feugiat id a justo.",
                 voteCount = 2,
                 voteState = VoteState.NONE
+            ),
+            PostComment(
+                id = "comment-11",
+                authorName = "pronunciation_pro",
+                minutesAgo = 3 * 60 + 30,
+                body = "Mình thường dùng app Speechify để luyện theo, nó có thể chỉ ra lỗi phát âm và cho điểm. Còn cách truyền thống thì nên tập trước gương để quan sát miệng lưỡi.",
+                voteCount = 8,
+                voteState = VoteState.UPVOTED
+            ),
+            PostComment(
+                id = "comment-12",
+                authorName = "english_learner_vn",
+                minutesAgo = 2 * 60 + 45,
+                body = "Có thể tham khảo YouTube channel của Rachel's English. Cô ấy giải thích rất chi tiết về cách di chuyển lưỡi và môi cho từng âm.",
+                voteCount = 12,
+                voteState = VoteState.NONE
+            ),
+            PostComment(
+                id = "comment-13",
+                authorName = "speaking_master",
+                minutesAgo = 2 * 60 + 15,
+                body = "Shadow reading technique rất hiệu quả! Nghe podcast hoặc audiobook rồi nói theo ngay lập tức, không cần hiểu hết ý nghĩa lúc đầu.",
+                voteCount = 5,
+                voteState = VoteState.NONE
+            ),
+            PostComment(
+                id = "comment-14",
+                authorName = "ielts_coach",
+                minutesAgo = 90,
+                body = "Mình khuyên các bạn nên tập phát âm theo từng phoneme trước, rồi mới lên word level. Có thể dùng Cambridge Dictionary để nghe chuẩn âm Anh và Mỹ.",
+                voteCount = 15,
+                voteState = VoteState.UPVOTED
+            ),
+            PostComment(
+                id = "comment-15",
+                authorName = "practice_buddy",
+                minutesAgo = 75,
+                body = "Tongue twisters cũng là một cách hay đấy! 'She sells seashells by the seashore' - lặp lại mỗi ngày 10-15 phút.",
+                voteCount = 7,
+                voteState = VoteState.NONE
+            ),
+            PostComment(
+                id = "comment-16",
+                authorName = "voice_trainer",
+                minutesAgo = 60,
+                body = "Đừng quên breathing technique! Thở đúng cách sẽ giúp giọng nói tự tin và rõ ràng hơn. Luyện tập hít thở từ bụng, không phải ngực.",
+                voteCount = 9,
+                voteState = VoteState.NONE
+            ),
+            PostComment(
+                id = "comment-17",
+                authorName = "phonetics_expert",
+                minutesAgo = 45,
+                body = "International Phonetic Alphabet (IPA) là công cụ rất hữu ích. Học IPA sẽ giúp bạn phát âm chính xác bất kỳ từ nào mà không cần nghe audio.",
+                voteCount = 11,
+                voteState = VoteState.UPVOTED
+            ),
+            PostComment(
+                id = "comment-18",
+                authorName = "accent_reducer",
+                minutesAgo = 30,
+                body = "Mọi người có thể thử minimal pairs exercise. Ví dụ: ship/sheep, bit/beat. Tập phân biệt và phát âm các cặp từ này để cải thiện độ chính xác.",
+                voteCount = 6,
+                voteState = VoteState.NONE
+            ),
+            PostComment(
+                id = "comment-19",
+                authorName = "daily_english",
+                minutesAgo = 15,
+                body = "Reading aloud mỗi ngày 20-30 phút với newspaper hoặc novel cũng rất hiệu quả. Quan trọng là consistency và patience!",
+                voteCount = 13,
+                voteState = VoteState.UPVOTED
             )
         )
 

@@ -25,6 +25,7 @@ data class ProfilePost(
 
 data class ProfileReply(
     val id: String,
+    val postId: String,
     val questionTitle: String,
     val body: String,
     val minutesAgo: Int,

@@ -66,7 +66,7 @@ fun ProfileScreen(
     onSettingsClick: () -> Unit = {},
     onEditClick: () -> Unit = {},
     onPostClick: (String) -> Unit = {},
-    onReplyClick: (String) -> Unit = {},
+    onReplyClick: (String, String?) -> Unit = { _, _ -> },
     onPostMoreClick: (ProfilePost) -> Unit = {},
     onReplyMoreClick: (ProfileReply) -> Unit = {}
 ) {
@@ -112,7 +112,7 @@ private fun ProfileContent(
     onSettingsClick: () -> Unit,
     onEditClick: () -> Unit,
     onPostClick: (String) -> Unit,
-    onReplyClick: (String) -> Unit,
+    onReplyClick: (String, String?) -> Unit,
     onPostMoreClick: (ProfilePost) -> Unit,
     onReplyMoreClick: (ProfileReply) -> Unit,
     onPostUpvote: (String) -> Unit,
@@ -184,7 +184,7 @@ private fun ProfileContent(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp),
                             reply = reply,
-                            onClick = { onReplyClick("post-1") },
+                            onClick = { onReplyClick(reply.postId, reply.id) },
                             onUpvoteClick = { onReplyUpvote(reply.id) },
                             onDownvoteClick = { onReplyDownvote(reply.id) }
                         )
@@ -482,7 +482,8 @@ private fun ProfileScreenPreview() {
                 ),
                 replies = listOf(
                     ProfileReply(
-                        id = "reply_1",
+                        id = "comment-1",
+                        postId = "post-1",
                         questionTitle = "Câu hỏi về ABC",
                         body = "Donec dictum rhoncus eros, eget fermentum dui laoreet a.",
                         minutesAgo = 12,
@@ -495,7 +496,7 @@ private fun ProfileScreenPreview() {
             onSettingsClick = {},
             onEditClick = {},
             onPostClick = {},
-            onReplyClick = {},
+            onReplyClick = { _, _ -> },
             onPostMoreClick = {},
             onReplyMoreClick = {},
             onPostUpvote = {},

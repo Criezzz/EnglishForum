@@ -1,5 +1,7 @@
 package com.example.englishforum.feature.postdetail
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -7,20 +9,24 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,19 +36,19 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.CenterAlignedTopAppBar
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.delay
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
 import com.example.englishforum.core.model.VoteState
@@ -56,6 +62,7 @@ import com.example.englishforum.core.ui.theme.EnglishForumTheme
 fun PostDetailRoute(
     modifier: Modifier = Modifier,
     postId: String,
+    commentId: String? = null,
     onBackClick: () -> Unit,
     onNavigateToAiPractice: (String) -> Unit = {},
     viewModel: PostDetailViewModel = viewModel(
@@ -67,6 +74,7 @@ fun PostDetailRoute(
     PostDetailScreen(
         modifier = modifier,
         uiState = uiState,
+        targetCommentId = commentId,
         onBackClick = onBackClick,
         onUpvotePost = viewModel::onUpvotePost,
         onDownvotePost = viewModel::onDownvotePost,
@@ -88,14 +96,34 @@ fun PostDetailScreen(
     onUpvoteComment: (String) -> Unit,
     onDownvoteComment: (String) -> Unit,
     onOpenAiPracticeClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    targetCommentId: String? = null
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val listState = rememberLazyListState()
+    var highlightedCommentId by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(uiState.errorMessage) {
         val message = uiState.errorMessage
         if (message != null) {
             snackbarHostState.showSnackbar(message)
+        }
+    }
+
+    // Handle scrolling to specific comment
+    LaunchedEffect(targetCommentId, uiState.comments) {
+        if (targetCommentId != null && uiState.comments.isNotEmpty()) {
+            val commentIndex = uiState.comments.indexOfFirst { it.id == targetCommentId }
+            if (commentIndex != -1) {
+                // Scroll to comment (index + 1 because the first item is the post)
+                // Add delay to ensure the LazyColumn has been laid out
+                delay(100)
+                listState.animateScrollToItem(commentIndex + 2) // +2 because post and comments header
+                highlightedCommentId = targetCommentId
+                // Remove highlight after 3 seconds
+                delay(3000)
+                highlightedCommentId = null
+            }
         }
     }
 
@@ -180,6 +208,7 @@ fun PostDetailScreen(
 
             else -> {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier
                         .fillMaxSize(),
                     contentPadding = PaddingValues(
@@ -235,7 +264,8 @@ fun PostDetailScreen(
                             PostCommentItem(
                                 comment = comment,
                                 onUpvote = { onUpvoteComment(comment.id) },
-                                onDownvote = { onDownvoteComment(comment.id) }
+                                onDownvote = { onDownvoteComment(comment.id) },
+                                isHighlighted = highlightedCommentId == comment.id
                             )
                         }
                     }
@@ -250,20 +280,41 @@ private fun PostCommentItem(
     comment: PostCommentUi,
     onUpvote: () -> Unit,
     onDownvote: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isHighlighted: Boolean = false
 ) {
-    val containerColor = if (comment.isAuthor) {
-        MaterialTheme.colorScheme.surfaceContainerHigh
-    } else {
-        MaterialTheme.colorScheme.surfaceContainerLow
+    val targetContainerColor = when {
+        isHighlighted -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
+        comment.isAuthor -> MaterialTheme.colorScheme.surfaceContainerHigh
+        else -> MaterialTheme.colorScheme.surfaceContainerLow
     }
+    
+    val containerColor by animateColorAsState(
+        targetValue = targetContainerColor,
+        animationSpec = tween(durationMillis = 300),
+        label = "containerColor"
+    )
+
+    val targetBorderColor = when {
+        isHighlighted -> MaterialTheme.colorScheme.secondary
+        comment.isAuthor -> MaterialTheme.colorScheme.outlineVariant
+        else -> null
+    }
+    
+    val borderColor by animateColorAsState(
+        targetValue = targetBorderColor ?: MaterialTheme.colorScheme.outline,
+        animationSpec = tween(durationMillis = 300),
+        label = "borderColor"
+    )
 
     Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.medium,
         color = containerColor,
-        tonalElevation = if (comment.isAuthor) 2.dp else 0.dp,
-        border = if (comment.isAuthor) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant) else null
+        tonalElevation = if (comment.isAuthor) 2.dp else if (isHighlighted) 1.dp else 0.dp,
+        border = if (targetBorderColor != null) {
+            BorderStroke(1.dp, borderColor)
+        } else null
     ) {
         val metaText = stringResource(
             R.string.home_post_meta,
