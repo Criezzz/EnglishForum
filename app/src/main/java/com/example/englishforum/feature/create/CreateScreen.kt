@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -35,7 +36,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -53,15 +53,19 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
+import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateRoute(
     modifier: Modifier = Modifier,
-    onNavigateToPostDetail: (String) -> Unit,
-    viewModel: CreateViewModel = viewModel()
+    onNavigateToPostDetail: (String) -> Unit
 ) {
+    val appContainer = LocalAppContainer.current
+    val viewModel: CreateViewModel = viewModel(
+        factory = remember(appContainer) { CreateViewModelFactory(appContainer.createPostRepository) }
+    )
     val uiState by viewModel.uiState.collectAsState()
 
     LaunchedEffect(uiState.successPostId) {

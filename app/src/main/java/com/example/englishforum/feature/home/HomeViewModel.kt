@@ -1,11 +1,12 @@
 package com.example.englishforum.feature.home
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.englishforum.core.common.formatRelativeTime
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.model.forum.ForumPostSummary
 import com.example.englishforum.data.home.FakeHomeRepository
-import com.example.englishforum.data.home.HomePost
 import com.example.englishforum.data.home.HomeRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -17,7 +18,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.max
 
 class HomeViewModel(
-    private val repository: HomeRepository = FakeHomeRepository()
+    private val repository: HomeRepository
 ) : ViewModel() {
 
     private val searchQuery = MutableStateFlow("")
@@ -71,7 +72,7 @@ class HomeViewModel(
         }
     }
 
-    private fun filterPosts(posts: List<HomePost>, query: String): List<HomePost> {
+    private fun filterPosts(posts: List<ForumPostSummary>, query: String): List<ForumPostSummary> {
         if (query.isBlank()) return posts
         val normalized = query.trim().lowercase()
         return posts.filter { post ->
@@ -81,7 +82,7 @@ class HomeViewModel(
         }
     }
 
-    private fun HomePost.toUiModel(): HomePostUi {
+    private fun ForumPostSummary.toUiModel(): HomePostUi {
         return HomePostUi(
             id = id,
             authorName = authorName,
@@ -92,5 +93,17 @@ class HomeViewModel(
             voteState = voteState,
             commentCount = max(commentCount, 0)
         )
+    }
+}
+
+class HomeViewModelFactory(
+    private val repository: HomeRepository = FakeHomeRepository()
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(HomeViewModel::class.java)) {
+            return HomeViewModel(repository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }

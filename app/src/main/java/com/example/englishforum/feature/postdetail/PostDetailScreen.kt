@@ -51,6 +51,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
+import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.ui.components.VoteIconButton
 import com.example.englishforum.core.ui.components.card.CommentPillPlacement
@@ -64,11 +65,18 @@ fun PostDetailRoute(
     postId: String,
     commentId: String? = null,
     onBackClick: () -> Unit,
-    onNavigateToAiPractice: (String) -> Unit = {},
-    viewModel: PostDetailViewModel = viewModel(
-        factory = remember(postId) { PostDetailViewModelFactory(postId) }
-    )
+    onNavigateToAiPractice: (String) -> Unit = {}
 ) {
+    val appContainer = LocalAppContainer.current
+    val viewModel: PostDetailViewModel = viewModel(
+        factory = remember(postId, appContainer) {
+            PostDetailViewModelFactory(
+                postId = postId,
+                repository = appContainer.postDetailRepository,
+                aiPracticeRepository = appContainer.aiPracticeRepository
+            )
+        }
+    )
     val uiState by viewModel.uiState.collectAsState()
 
     PostDetailScreen(

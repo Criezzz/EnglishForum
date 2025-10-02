@@ -1,8 +1,9 @@
 package com.example.englishforum.data.home
 
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.model.forum.ForumPostDetail
+import com.example.englishforum.core.model.forum.ForumPostSummary
 import com.example.englishforum.data.post.FakePostStore
-import com.example.englishforum.data.post.PostDetail
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -10,8 +11,8 @@ class FakeHomeRepository(
     private val store: FakePostStore = FakePostStore
 ) : HomeRepository {
 
-    override val postsStream: Flow<List<HomePost>> = store.posts.map { posts ->
-        posts.map { detail -> detail.toHomePost() }
+    override val postsStream: Flow<List<ForumPostSummary>> = store.posts.map { posts ->
+        posts.map { detail -> detail.toSummary() }
     }
 
     override suspend fun setVoteState(postId: String, target: VoteState): Result<Unit> {
@@ -22,8 +23,8 @@ class FakeHomeRepository(
         }
     }
 
-    private fun PostDetail.toHomePost(): HomePost {
-        return HomePost(
+    private fun ForumPostDetail.toSummary(): ForumPostSummary {
+        return ForumPostSummary(
             id = id,
             authorName = authorName,
             minutesAgo = minutesAgo,

@@ -55,7 +55,7 @@ data class AiPracticeUiState(
 
 class AiPracticeViewModel(
     private val postId: String,
-    private val repository: AiPracticeRepository = FakeAiPracticeRepository()
+    private val repository: AiPracticeRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AiPracticeUiState())
@@ -268,11 +268,11 @@ class AiPracticeViewModelFactory(
     private val postId: String,
     private val repository: AiPracticeRepository = FakeAiPracticeRepository()
 ) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(AiPracticeViewModel::class.java)) {
-            @Suppress("UNCHECKED_CAST")
             return AiPracticeViewModel(postId, repository) as T
         }
-        throw IllegalArgumentException("Unknown ViewModel class")
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }

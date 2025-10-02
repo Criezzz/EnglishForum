@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.englishforum.data.auth.AuthRepository
 import com.example.englishforum.data.auth.FakeAuthRepository
@@ -12,7 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class ForgotPasswordViewModel(
-    private val authRepository: AuthRepository = FakeAuthRepository()
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     var uiState by mutableStateOf(ForgotPasswordUiState())
@@ -174,6 +175,18 @@ class ForgotPasswordViewModel(
     companion object {
         private const val OTP_COUNTDOWN_SECONDS = 60
         private const val OTP_LENGTH = 6
+    }
+}
+
+class ForgotPasswordViewModelFactory(
+    private val authRepository: AuthRepository = FakeAuthRepository()
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(ForgotPasswordViewModel::class.java)) {
+            return ForgotPasswordViewModel(authRepository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }
 

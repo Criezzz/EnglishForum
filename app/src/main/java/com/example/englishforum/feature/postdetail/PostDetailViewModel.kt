@@ -1,15 +1,15 @@
 package com.example.englishforum.feature.postdetail
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
 import com.example.englishforum.core.common.formatRelativeTime
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.model.forum.ForumComment
+import com.example.englishforum.core.model.forum.ForumPostDetail
 import com.example.englishforum.data.aipractice.AiPracticeRepository
 import com.example.englishforum.data.aipractice.FakeAiPracticeRepository
 import com.example.englishforum.data.post.FakePostDetailRepository
-import com.example.englishforum.data.post.PostComment
-import com.example.englishforum.data.post.PostDetail
 import com.example.englishforum.data.post.PostDetailRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,8 +21,8 @@ import kotlinx.coroutines.launch
 
 class PostDetailViewModel(
     private val postId: String,
-    private val repository: PostDetailRepository = FakePostDetailRepository(),
-    private val aiPracticeRepository: AiPracticeRepository = FakeAiPracticeRepository()
+    private val repository: PostDetailRepository,
+    private val aiPracticeRepository: AiPracticeRepository
 ) : ViewModel() {
 
     private val isLoading = MutableStateFlow(true)
@@ -39,11 +39,7 @@ class PostDetailViewModel(
         aiPracticeChecking
     ) { post, loading, error, aiChecking ->
         val postUi = post?.toUiModel()
-        val commentUi = if (post != null) {
-            post.comments.map { comment -> comment.toUiModel(post.authorName) }
-        } else {
-            emptyList()
-        }
+        val commentUi = post?.comments?.map { comment -> comment.toUiModel(post.authorName) } ?: emptyList()
 
         PostDetailUiState(
             isLoading = loading,
@@ -138,7 +134,7 @@ class PostDetailViewModelFactory(
     }
 }
 
-private fun PostDetail.toUiModel(): PostDetailUi {
+private fun ForumPostDetail.toUiModel(): PostDetailUi {
     return PostDetailUi(
         id = id,
         authorName = authorName,
@@ -151,7 +147,7 @@ private fun PostDetail.toUiModel(): PostDetailUi {
     )
 }
 
-private fun PostComment.toUiModel(postAuthorName: String): PostCommentUi {
+private fun ForumComment.toUiModel(postAuthorName: String): PostCommentUi {
     return PostCommentUi(
         id = id,
         authorName = authorName,
@@ -159,6 +155,6 @@ private fun PostComment.toUiModel(postAuthorName: String): PostCommentUi {
         body = body,
         voteCount = voteCount,
         voteState = voteState,
-        isAuthor = authorName.equals(postAuthorName, ignoreCase = true)
+        isAuthor = isAuthor || authorName.equals(postAuthorName, ignoreCase = true)
     )
 }

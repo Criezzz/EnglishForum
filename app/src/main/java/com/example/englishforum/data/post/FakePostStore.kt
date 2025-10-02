@@ -1,6 +1,9 @@
 package com.example.englishforum.data.post
 
+import com.example.englishforum.core.common.resolveVoteChange
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.model.forum.ForumComment
+import com.example.englishforum.core.model.forum.ForumPostDetail
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -11,13 +14,13 @@ import kotlinx.coroutines.flow.update
 object FakePostStore {
 
     private val _posts = MutableStateFlow(createInitialPosts())
-    val posts: StateFlow<List<PostDetail>> = _posts.asStateFlow()
+    val posts: StateFlow<List<ForumPostDetail>> = _posts.asStateFlow()
 
-    fun observePost(postId: String): Flow<PostDetail?> {
+    fun observePost(postId: String): Flow<ForumPostDetail?> {
         return posts.map { list -> list.firstOrNull { it.id == postId } }
     }
 
-    fun addPost(post: PostDetail) {
+    fun addPost(post: ForumPostDetail) {
         _posts.update { current -> listOf(post) + current }
     }
 
@@ -59,10 +62,7 @@ object FakePostStore {
                             comment
                         }
                     }
-                    post.copy(
-                        comments = updatedComments,
-                        commentCount = updatedComments.size
-                    )
+                    post.copy(comments = updatedComments)
                 } else {
                     post
                 }
@@ -71,28 +71,9 @@ object FakePostStore {
         return postFound to commentFound
     }
 
-    private fun resolveVoteChange(currentState: VoteState, targetState: VoteState): Pair<VoteState, Int> {
-        val nextState = if (currentState == targetState) {
-            VoteState.NONE
-        } else {
-            targetState
-        }
-
-        val delta = when (currentState to nextState) {
-            VoteState.NONE to VoteState.UPVOTED -> 1
-            VoteState.NONE to VoteState.DOWNVOTED -> -1
-            VoteState.UPVOTED to VoteState.NONE -> -1
-            VoteState.DOWNVOTED to VoteState.NONE -> 1
-            VoteState.UPVOTED to VoteState.DOWNVOTED -> -2
-            VoteState.DOWNVOTED to VoteState.UPVOTED -> 2
-            else -> 0
-        }
-        return nextState to delta
-    }
-
-    private fun createInitialPosts(): List<PostDetail> {
+    private fun createInitialPosts(): List<ForumPostDetail> {
         val sampleCommentsPost1 = listOf(
-            PostComment(
+            ForumComment(
                 id = "comment-1",
                 authorName = "crystal",
                 minutesAgo = 6 * 60,
@@ -100,7 +81,7 @@ object FakePostStore {
                 voteCount = 6,
                 voteState = VoteState.NONE
             ),
-            PostComment(
+            ForumComment(
                 id = "comment-2",
                 authorName = "anotherone",
                 minutesAgo = 4 * 60,
@@ -108,7 +89,7 @@ object FakePostStore {
                 voteCount = 2,
                 voteState = VoteState.NONE
             ),
-            PostComment(
+            ForumComment(
                 id = "comment-11",
                 authorName = "pronunciation_pro",
                 minutesAgo = 3 * 60 + 30,
@@ -116,7 +97,7 @@ object FakePostStore {
                 voteCount = 8,
                 voteState = VoteState.UPVOTED
             ),
-            PostComment(
+            ForumComment(
                 id = "comment-12",
                 authorName = "english_learner_vn",
                 minutesAgo = 2 * 60 + 45,
@@ -124,7 +105,7 @@ object FakePostStore {
                 voteCount = 12,
                 voteState = VoteState.NONE
             ),
-            PostComment(
+            ForumComment(
                 id = "comment-13",
                 authorName = "speaking_master",
                 minutesAgo = 2 * 60 + 15,
@@ -132,7 +113,7 @@ object FakePostStore {
                 voteCount = 5,
                 voteState = VoteState.NONE
             ),
-            PostComment(
+            ForumComment(
                 id = "comment-14",
                 authorName = "ielts_coach",
                 minutesAgo = 90,
@@ -140,7 +121,7 @@ object FakePostStore {
                 voteCount = 15,
                 voteState = VoteState.UPVOTED
             ),
-            PostComment(
+            ForumComment(
                 id = "comment-15",
                 authorName = "practice_buddy",
                 minutesAgo = 75,
@@ -148,7 +129,7 @@ object FakePostStore {
                 voteCount = 7,
                 voteState = VoteState.NONE
             ),
-            PostComment(
+            ForumComment(
                 id = "comment-16",
                 authorName = "voice_trainer",
                 minutesAgo = 60,
@@ -156,7 +137,7 @@ object FakePostStore {
                 voteCount = 9,
                 voteState = VoteState.NONE
             ),
-            PostComment(
+            ForumComment(
                 id = "comment-17",
                 authorName = "phonetics_expert",
                 minutesAgo = 45,
@@ -164,7 +145,7 @@ object FakePostStore {
                 voteCount = 11,
                 voteState = VoteState.UPVOTED
             ),
-            PostComment(
+            ForumComment(
                 id = "comment-18",
                 authorName = "accent_reducer",
                 minutesAgo = 30,
@@ -172,7 +153,7 @@ object FakePostStore {
                 voteCount = 6,
                 voteState = VoteState.NONE
             ),
-            PostComment(
+            ForumComment(
                 id = "comment-19",
                 authorName = "daily_english",
                 minutesAgo = 15,
@@ -183,7 +164,7 @@ object FakePostStore {
         )
 
         val sampleCommentsPost2 = listOf(
-            PostComment(
+            ForumComment(
                 id = "comment-3",
                 authorName = "mentorX",
                 minutesAgo = 32,
@@ -191,127 +172,130 @@ object FakePostStore {
                 voteCount = 11,
                 voteState = VoteState.UPVOTED
             ),
-            PostComment(
+            ForumComment(
                 id = "comment-4",
                 authorName = "selfstudy",
                 minutesAgo = 124,
                 body = "Thanks for sharing, saved to my drive already.",
                 voteCount = 4,
                 voteState = VoteState.NONE
-            )
-        )
-
-        val sampleCommentsPost3 = listOf(
-            PostComment(
+            ),
+            ForumComment(
                 id = "comment-5",
-                authorName = "ieltslover",
-                minutesAgo = 75,
-                body = "Học theo chủ đề giúp mình ghi nhớ lâu hơn đó! Ví dụ tuần này mình chọn chủ đề du lịch, sẽ tạo mind map với các nhóm từ vựng nhỏ hơn (địa điểm, hoạt động, cảm xúc). Sau đó ghép từ vào câu chuyện ngắn và luyện nói trước gương. Cuối tuần mình tự kiểm tra lại bằng cách viết journal tóm tắt hành trình du lịch trong tưởng tượng.",
+                authorName = "reader91",
+                minutesAgo = 240,
+                body = "Do you also have speaking materials?",
                 voteCount = 3,
                 voteState = VoteState.NONE
             ),
-            PostComment(
+            ForumComment(
                 id = "comment-6",
-                authorName = "wordsmith",
-                minutesAgo = 190,
-                body = "Mình dùng Anki nên theo list 3000 từ khá ổn.",
+                authorName = "ielts_lover",
+                minutesAgo = 18,
+                body = "This list is gold!",
                 voteCount = 5,
                 voteState = VoteState.UPVOTED
             )
         )
 
-        val sampleCommentsPost4 = listOf(
-            PostComment(
+        val sampleCommentsPost3 = listOf(
+            ForumComment(
                 id = "comment-7",
-                authorName = "listentalk",
-                minutesAgo = 260,
-                body = "Mọi người thử kênh BBC Learning English xem nhé.",
-                voteCount = 8,
+                authorName = "grammar_guru",
+                minutesAgo = 55,
+                body = "I also struggle with this, tagging along!",
+                voteCount = 2,
                 voteState = VoteState.NONE
             ),
-            PostComment(
+            ForumComment(
                 id = "comment-8",
-                authorName = "podcastfan",
-                minutesAgo = 420,
-                body = "Podcast dùng được không mọi người?",
+                authorName = "teacherAnna",
+                minutesAgo = 47,
+                body = "Start with identifying the main clause, then break down subordinate clauses.",
+                voteCount = 7,
+                voteState = VoteState.UPVOTED
+            ),
+            ForumComment(
+                id = "comment-9",
+                authorName = "reading_addict",
+                minutesAgo = 12,
+                body = "News articles often have complex sentences, try The Economist.",
                 voteCount = 1,
                 voteState = VoteState.NONE
             )
         )
 
-        val sampleCommentsPost5 = listOf(
-            PostComment(
-                id = "comment-9",
-                authorName = "speakingtime",
-                minutesAgo = 300,
-                body = "Cho xin link Zoom với nha!",
-                voteCount = 7,
-                voteState = VoteState.NONE
-            ),
-            PostComment(
+        val sampleCommentsPost4 = listOf(
+            ForumComment(
                 id = "comment-10",
-                authorName = "friendfinder",
-                minutesAgo = 512,
-                body = "Mình cũng đang tìm partner, nhắn mình nhé.",
+                authorName = "ielts_fighter",
+                minutesAgo = 5,
+                body = "Band 7 writing is not easy, thanks for sharing!",
+                voteCount = 4,
+                voteState = VoteState.UPVOTED
+            )
+        )
+
+        val sampleCommentsPost5 = listOf(
+            ForumComment(
+                id = "comment-20",
+                authorName = "newbie",
+                minutesAgo = 80,
+                body = "Cảm ơn, mình cũng đang cần tài liệu Speaking.",
                 voteCount = 2,
                 voteState = VoteState.NONE
             )
         )
 
         return listOf(
-            PostDetail(
+            ForumPostDetail(
                 id = "post-1",
-                authorName = "Jane_Doe",
-                minutesAgo = 12,
+                authorName = "linhtran",
+                minutesAgo = 45,
                 title = "Cách luyện phát âm tiếng Anh hàng ngày",
-                body = "Mọi người có mẹo nào luyện phát âm hiệu quả khi không có người chỉnh lỗi không? Donec dictum rhoncus eros, eget fermentum dui laoreet a.",
-                voteCount = 23,
-                voteState = VoteState.NONE,
-                commentCount = sampleCommentsPost1.size,
+                body = "Mọi người có kinh nghiệm nào luyện phát âm khi không có người chỉnh lỗi không?",
+                voteCount = 128,
+                voteState = VoteState.UPVOTED,
                 comments = sampleCommentsPost1
             ),
-            PostDetail(
+            ForumPostDetail(
                 id = "post-2",
-                authorName = "Mr.Teacher",
-                minutesAgo = 38,
+                authorName = "hoangnguyen",
+                minutesAgo = 95,
                 title = "Chia sẻ tài liệu IELTS Reading band 7+",
-                body = "Mình tổng hợp vài tài liệu tự học khá hay, mọi người tải về tham khảo thử nhé.",
-                voteCount = 54,
+                body = "Mình đã tổng hợp vài bộ đề mình thấy hay trong Drive, mời mọi người download.",
+                voteCount = 84,
                 voteState = VoteState.NONE,
-                commentCount = sampleCommentsPost2.size,
                 comments = sampleCommentsPost2
             ),
-            PostDetail(
+            ForumPostDetail(
                 id = "post-3",
-                authorName = "lisa.ng",
-                minutesAgo = 51,
-                title = "Nên học từ vựng theo chủ đề hay danh sách 3000 từ?",
-                body = "Đang phân vân không biết nên follow list nào để học cho hiệu quả hơn.",
-                voteCount = 11,
-                voteState = VoteState.UPVOTED,
-                commentCount = sampleCommentsPost3.size,
+                authorName = "minhchau",
+                minutesAgo = 60 * 5,
+                title = "Luyện đọc hiểu câu dài như thế nào?",
+                body = "Những câu dài trong bài đọc IELTS thực sự khiến mình đau đầu, mọi người có tips nào không?",
+                voteCount = 45,
+                voteState = VoteState.NONE,
                 comments = sampleCommentsPost3
             ),
-            PostDetail(
+            ForumPostDetail(
                 id = "post-4",
-                authorName = "NguyenVanA",
-                minutesAgo = 89,
-                title = "Các app luyện nghe miễn phí tốt nhất hiện nay",
-                body = "Mình thử qua vài app như Elsa, Cake... có app nào mọi người thấy hay hơn không?",
-                voteCount = 31,
-                voteState = VoteState.NONE,
-                commentCount = sampleCommentsPost4.size,
+                authorName = "thuyle",
+                minutesAgo = 60 * 8,
+                title = "Viết Writing Task 2 mở bài ra sao cho hấp dẫn?",
+                body = "Mình luôn mất nhiều thời gian cho phần mở bài, làm sao để mở bài nhanh và thu hút?",
+                voteCount = 51,
+                voteState = VoteState.DOWNVOTED,
                 comments = sampleCommentsPost4
             ),
-            PostDetail(
+            ForumPostDetail(
                 id = "post-5",
-                authorName = "studybuddy",
-                minutesAgo = 143,
-                title = "Looking for a speaking partner",
-                body = "We can practice on Zoom 2-3h/week, ai quan tâm để lại comment nha!",
-                voteCount = 27,
-                voteState = VoteState.DOWNVOTED,
-                commentCount = sampleCommentsPost5.size,
+                authorName = "anhvu",
+                minutesAgo = 60 * 12,
+                title = "Nguồn luyện Listening accent Anh-Anh",
+                body = "Bạn nào có nguồn podcast hoặc video luyện accent Anh chuẩn không?",
+                voteCount = 67,
+                voteState = VoteState.NONE,
                 comments = sampleCommentsPost5
             )
         )

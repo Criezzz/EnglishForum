@@ -1,8 +1,8 @@
 package com.example.englishforum.data.create
 
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.model.forum.ForumPostDetail
 import com.example.englishforum.data.post.FakePostStore
-import com.example.englishforum.data.post.PostDetail
 import java.util.UUID
 import kotlin.random.Random
 
@@ -36,7 +36,7 @@ class FakeCreatePostRepository(
         }
 
         val newPostId = generatePostId()
-        val newPost = PostDetail(
+        val newPost = ForumPostDetail(
             id = newPostId,
             authorName = "bạn",
             minutesAgo = 0,
@@ -44,7 +44,6 @@ class FakeCreatePostRepository(
             body = trimmedBody,
             voteCount = 0,
             voteState = VoteState.NONE,
-            commentCount = 0,
             comments = emptyList()
         )
         postStore.addPost(newPost)

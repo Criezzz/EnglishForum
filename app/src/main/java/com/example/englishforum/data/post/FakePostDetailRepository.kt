@@ -1,13 +1,14 @@
 package com.example.englishforum.data.post
 
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.model.forum.ForumPostDetail
 import kotlinx.coroutines.flow.Flow
 
 class FakePostDetailRepository(
     private val store: FakePostStore = FakePostStore
 ) : PostDetailRepository {
 
-    override fun observePost(postId: String): Flow<PostDetail?> {
+    override fun observePost(postId: String): Flow<ForumPostDetail?> {
         return store.observePost(postId)
     }
 

@@ -41,6 +41,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -54,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
+import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.ui.components.VoteIconButton
 import com.example.englishforum.core.ui.components.card.ForumContentCard
@@ -62,7 +64,7 @@ import com.example.englishforum.core.ui.theme.EnglishForumTheme
 @Composable
 fun ProfileScreen(
     modifier: Modifier = Modifier,
-    viewModel: ProfileViewModel = viewModel(),
+    userId: String?,
     onSettingsClick: () -> Unit = {},
     onEditClick: () -> Unit = {},
     onPostClick: (String) -> Unit = {},
@@ -70,6 +72,16 @@ fun ProfileScreen(
     onPostMoreClick: (ProfilePost) -> Unit = {},
     onReplyMoreClick: (ProfileReply) -> Unit = {}
 ) {
+    val appContainer = LocalAppContainer.current
+    val resolvedUserId = userId ?: "user-1"
+    val viewModel: ProfileViewModel = viewModel(
+        factory = remember(appContainer, resolvedUserId) {
+            ProfileViewModelFactory(
+                repository = appContainer.profileRepository,
+                userId = resolvedUserId
+            )
+        }
+    )
     val uiState by viewModel.uiState.collectAsState()
     var showEditDialog by rememberSaveable { mutableStateOf(false) }
 

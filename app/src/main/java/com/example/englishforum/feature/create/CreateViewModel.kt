@@ -1,6 +1,7 @@
 package com.example.englishforum.feature.create
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.englishforum.data.create.CreatePostAttachment
 import com.example.englishforum.data.create.CreatePostRepository
@@ -31,7 +32,7 @@ data class CreateUiState(
 }
 
 class CreateViewModel(
-    private val repository: CreatePostRepository = FakeCreatePostRepository()
+    private val repository: CreatePostRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CreateUiState())
@@ -119,5 +120,17 @@ class CreateViewModel(
 
     fun onNavigationHandled() {
         _uiState.update { it.copy(successPostId = null) }
+    }
+}
+
+class CreateViewModelFactory(
+    private val repository: CreatePostRepository = FakeCreatePostRepository()
+) : ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+        if (modelClass.isAssignableFrom(CreateViewModel::class.java)) {
+            return CreateViewModel(repository) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }

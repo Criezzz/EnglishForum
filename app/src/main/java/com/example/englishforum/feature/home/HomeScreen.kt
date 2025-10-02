@@ -19,6 +19,7 @@ import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.ui.components.card.ForumContentCard
 import com.example.englishforum.core.ui.components.card.ForumContentCardPlaceholder
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
@@ -33,11 +35,14 @@ import com.example.englishforum.core.ui.theme.EnglishForumTheme
 @Composable
 fun HomeScreen(
     modifier: Modifier = Modifier,
-    viewModel: HomeViewModel = viewModel(),
     onPostClick: (String) -> Unit = {},
     onCommentClick: (String) -> Unit = {},
     onMoreActionsClick: (String) -> Unit = {}
 ) {
+    val appContainer = LocalAppContainer.current
+    val viewModel: HomeViewModel = viewModel(
+        factory = remember(appContainer) { HomeViewModelFactory(appContainer.homeRepository) }
+    )
     val uiState by viewModel.uiState.collectAsState()
 
     HomeContent(

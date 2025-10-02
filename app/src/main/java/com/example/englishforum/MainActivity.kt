@@ -17,6 +17,7 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -34,11 +35,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.ThemeOption
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
-import com.example.englishforum.data.auth.DataStoreUserSessionRepository
-import com.example.englishforum.data.auth.FakeAuthRepository
-import com.example.englishforum.data.settings.ThemePreferenceRepository
 import com.example.englishforum.feature.auth.LoginScreen
 import com.example.englishforum.feature.auth.LoginViewModel
 import com.example.englishforum.feature.auth.LoginViewModelFactory
@@ -67,21 +66,27 @@ private sealed class Destinations(
 }
 
 class MainActivity : ComponentActivity() {
+    private val appContainer by lazy {
+        (application as EnglishForumApplication).container
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            MainApp()
+            CompositionLocalProvider(LocalAppContainer provides appContainer) {
+                MainApp()
+            }
         }
     }
 }
 
 @Composable
 fun MainApp() {
-    val context = LocalContext.current
-    val sessionRepository = remember { DataStoreUserSessionRepository(context) }
-    val authRepository = remember { FakeAuthRepository(sessionRepository) }
-    val themeRepository = remember { ThemePreferenceRepository(context) }
+    val appContainer = LocalAppContainer.current
+    val sessionRepository = remember { appContainer.userSessionRepository }
+    val authRepository = remember { appContainer.authRepository }
+    val themeRepository = remember { appContainer.themePreferenceRepository }
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
 
@@ -96,8 +101,9 @@ fun MainApp() {
             navController.navigate(Destinations.Home.route) {
                 popUpTo("login") { inclusive = true }
             }
-        } else if (userSession == null && currentRoute != null && 
-                   currentRoute != "login" && currentRoute != "register" && currentRoute != "forgot") {
+        } else if (userSession == null && currentRoute != null &&
+            currentRoute != "login" && currentRoute != "register" && currentRoute != "forgot"
+        ) {
             navController.navigate("login") {
                 popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                 launchSingleTop = true
@@ -120,9 +126,11 @@ fun MainApp() {
                 modifier = Modifier.padding(innerPadding)
             ) {
                 composable("login") {
-                    val vm: LoginViewModel = viewModel(factory = LoginViewModelFactory(authRepository))
+                    val loginViewModel: LoginViewModel = viewModel(
+                        factory = remember(authRepository) { LoginViewModelFactory(authRepository) }
+                    )
                     LoginScreen(
-                        viewModel = vm,
+                        viewModel = loginViewModel,
                         onLoginSuccess = {
                             navController.navigate(Destinations.Home.route) {
                                 popUpTo("login") { inclusive = true }
@@ -134,9 +142,13 @@ fun MainApp() {
                 }
 
                 composable("forgot") {
-                    val vm: com.example.englishforum.feature.auth.ForgotPasswordViewModel = viewModel()
+                    val forgotViewModel: com.example.englishforum.feature.auth.ForgotPasswordViewModel = viewModel(
+                        factory = remember(authRepository) {
+                            com.example.englishforum.feature.auth.ForgotPasswordViewModelFactory(authRepository)
+                        }
+                    )
                     com.example.englishforum.feature.auth.ForgotPasswordScreen(
-                        viewModel = vm,
+                        viewModel = forgotViewModel,
                         onBackToLogin = {
                             navController.popBackStack()
                         },
@@ -149,11 +161,13 @@ fun MainApp() {
                 }
 
                 composable("register") {
-                    val vm: com.example.englishforum.feature.auth.RegisterViewModel = viewModel(
-                        factory = com.example.englishforum.feature.auth.RegisterViewModelFactory(authRepository)
+                    val registerViewModel: com.example.englishforum.feature.auth.RegisterViewModel = viewModel(
+                        factory = remember(authRepository) {
+                            com.example.englishforum.feature.auth.RegisterViewModelFactory(authRepository)
+                        }
                     )
                     com.example.englishforum.feature.auth.RegisterScreen(
-                        viewModel = vm,
+                        viewModel = registerViewModel,
                         onRegisterSuccess = {
                             navController.navigate(Destinations.Home.route) {
                                 popUpTo("register") { inclusive = true }
@@ -197,6 +211,7 @@ fun MainApp() {
                 composable(Destinations.Profile.route) {
                     ProfileScreen(
                         modifier = Modifier.fillMaxSize(),
+                        userId = userSession?.userId,
                         onSettingsClick = { navController.navigate(Destinations.Settings.route) },
                         onPostClick = { postId ->
                             navController.navigate("post/$postId")
@@ -310,15 +325,13 @@ private fun MainBottomBar(navController: androidx.navigation.NavHostController) 
     }
 }
 
-@Composable
-private fun PlaceholderScreen(titleRes: Int) {
-    Text(text = stringResource(titleRes), modifier = Modifier.padding(16.dp))
-}
-
 @Preview(showBackground = true)
 @Composable
 fun PreviewMainApp() {
-    EnglishForumTheme {
-        MainApp()
+    val context = LocalContext.current
+    CompositionLocalProvider(LocalAppContainer provides com.example.englishforum.core.di.DefaultAppContainer(context)) {
+        EnglishForumTheme {
+            MainApp()
+        }
     }
 }
