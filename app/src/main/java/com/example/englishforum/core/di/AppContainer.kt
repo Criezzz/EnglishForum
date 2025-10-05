@@ -1,12 +1,14 @@
 package com.example.englishforum.core.di
 
 import android.content.Context
+import com.example.englishforum.BuildConfig
 import com.example.englishforum.data.aipractice.AiPracticeRepository
 import com.example.englishforum.data.aipractice.FakeAiPracticeRepository
 import com.example.englishforum.data.auth.AuthRepository
 import com.example.englishforum.data.auth.DataStoreUserSessionRepository
-import com.example.englishforum.data.auth.FakeAuthRepository
 import com.example.englishforum.data.auth.UserSessionRepository
+import com.example.englishforum.data.auth.remote.AuthApi
+import com.example.englishforum.data.auth.remote.RemoteAuthRepository
 import com.example.englishforum.data.create.CreatePostRepository
 import com.example.englishforum.data.create.FakeCreatePostRepository
 import com.example.englishforum.data.home.FakeHomeRepository
@@ -19,6 +21,13 @@ import com.example.englishforum.data.post.PostDetailRepository
 import com.example.englishforum.data.profile.FakeProfileRepository
 import com.example.englishforum.data.profile.ProfileRepository
 import com.example.englishforum.data.settings.ThemePreferenceRepository
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import okhttp3.Interceptor
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.moshi.MoshiConverterFactory
 
 interface AppContainer {
     val userSessionRepository: UserSessionRepository
@@ -37,12 +46,52 @@ class DefaultAppContainer(context: Context) : AppContainer {
     private val appContext = context.applicationContext
     private val postStore = FakePostStore
 
+    private val moshi: Moshi by lazy {
+        Moshi.Builder()
+            .add(KotlinJsonAdapterFactory())
+            .build()
+    }
+
+    private val authInterceptor: Interceptor = Interceptor { chain ->
+        val request = chain.request().newBuilder()
+            .header("Accept", "application/json")
+            .build()
+        chain.proceed(request)
+    }
+
+    private val okHttpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .addInterceptor(authInterceptor)
+            .apply {
+                if (BuildConfig.DEBUG) {
+                    val logger = HttpLoggingInterceptor().apply {
+                        level = HttpLoggingInterceptor.Level.BODY
+                    }
+                    addInterceptor(logger)
+                }
+            }
+            .build()
+    }
+
+    private val retrofit: Retrofit by lazy {
+        Retrofit.Builder()
+            .baseUrl(BuildConfig.API_BASE_URL)
+            .client(okHttpClient)
+            .addConverterFactory(MoshiConverterFactory.create(moshi))
+            .build()
+    }
+
+    private val authApi: AuthApi by lazy { retrofit.create(AuthApi::class.java) }
+
     override val userSessionRepository: UserSessionRepository by lazy {
         DataStoreUserSessionRepository(appContext)
     }
 
     override val authRepository: AuthRepository by lazy {
-        FakeAuthRepository(userSessionRepository)
+        RemoteAuthRepository(
+            authApi = authApi,
+            userSessionRepository = userSessionRepository
+        )
     }
 
     override val themePreferenceRepository: ThemePreferenceRepository by lazy {

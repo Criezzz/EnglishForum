@@ -36,7 +36,7 @@ class ForgotPasswordViewModel(
 
         uiState = uiState.copy(isLoading = true, errorMessage = null, successMessage = null)
         viewModelScope.launch {
-            val result = authRepository.requestOtp(contact)
+            val result = authRepository.requestRecoveryOtp(contact)
             result.onSuccess {
                 uiState = uiState.copy(
                     isLoading = false,
@@ -86,7 +86,7 @@ class ForgotPasswordViewModel(
         }
 
         viewModelScope.launch {
-            val result = authRepository.verifyOtp(state.otp)
+            val result = authRepository.verifyRecoveryOtp(state.otp)
             result.onSuccess { isValid ->
                 if (isValid) {
                     uiState = uiState.copy(

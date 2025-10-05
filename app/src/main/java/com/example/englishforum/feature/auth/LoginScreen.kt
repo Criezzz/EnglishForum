@@ -44,6 +44,7 @@ import com.example.englishforum.R
 fun LoginScreen(
     viewModel: LoginViewModel,
     onLoginSuccess: () -> Unit,
+    onRequireVerification: () -> Unit,
     onRegisterClick: () -> Unit,
     onForgotPasswordClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -99,7 +100,14 @@ fun LoginScreen(
                 )
             },
             keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { viewModel.login(onSuccess = onLoginSuccess) })
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    viewModel.login(
+                        onSuccess = onLoginSuccess,
+                        onRequiresVerification = onRequireVerification
+                    )
+                }
+            )
         )
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -110,7 +118,12 @@ fun LoginScreen(
         }
 
         Button(
-            onClick = { viewModel.login(onSuccess = onLoginSuccess) },
+            onClick = {
+                viewModel.login(
+                    onSuccess = onLoginSuccess,
+                    onRequiresVerification = onRequireVerification
+                )
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),

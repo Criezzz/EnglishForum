@@ -24,20 +24,30 @@ class LoginViewModel(
         uiState = uiState.copy(password = value, error = null)
     }
 
-    fun login(onSuccess: () -> Unit) {
+    fun login(
+        onSuccess: () -> Unit,
+        onRequiresVerification: () -> Unit
+    ) {
         val username = uiState.username
         val password = uiState.password
 
         uiState = uiState.copy(isLoading = true, error = null)
         viewModelScope.launch {
             val result = authRepository.login(username, password)
-            uiState = uiState.copy(isLoading = false)
-
-            result.onSuccess {
-                onSuccess()
-            }.onFailure { throwable ->
-                uiState = uiState.copy(error = throwable.message ?: "Đăng nhập thất bại")
-            }
+            result
+                .onSuccess { authResult ->
+                    uiState = uiState.copy(isLoading = false)
+                    if (authResult.requiresEmailVerification) {
+                        onRequiresVerification()
+                    } else {
+                        onSuccess()
+                    }
+                }.onFailure { throwable ->
+                    uiState = uiState.copy(
+                        isLoading = false,
+                        error = throwable.message ?: "Đăng nhập thất bại"
+                    )
+                }
         }
     }
 

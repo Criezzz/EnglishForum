@@ -92,21 +92,33 @@ fun MainApp() {
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val showBottomBar = currentRoute != "login" && currentRoute != "register" && currentRoute != "forgot" && currentRoute != Destinations.Settings.route
+    val showBottomBar = currentRoute != "login" && currentRoute != "register" && currentRoute != "forgot" && currentRoute != "verify" && currentRoute != Destinations.Settings.route
     val userSession by sessionRepository.sessionFlow.collectAsState(initial = null)
     val themeOption by themeRepository.themeOptionFlow.collectAsState(initial = ThemeOption.FOLLOW_SYSTEM)
 
     LaunchedEffect(userSession, currentRoute) {
-        if (userSession != null && currentRoute == "login") {
-            navController.navigate(Destinations.Home.route) {
-                popUpTo("login") { inclusive = true }
+        val authRoutes = setOf("login", "register", "forgot", "verify")
+        val session = userSession
+        when {
+            session == null && currentRoute != null && currentRoute !in authRoutes -> {
+                navController.navigate("login") {
+                    popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                    launchSingleTop = true
+                }
             }
-        } else if (userSession == null && currentRoute != null &&
-            currentRoute != "login" && currentRoute != "register" && currentRoute != "forgot"
-        ) {
-            navController.navigate("login") {
-                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
-                launchSingleTop = true
+
+            session != null && !session.isEmailVerified && currentRoute != "verify" -> {
+                navController.navigate("verify") {
+                    popUpTo(navController.graph.findStartDestination().id) { inclusive = false }
+                    launchSingleTop = true
+                }
+            }
+
+            session != null && session.isEmailVerified && (currentRoute == "login" || currentRoute == "register" || currentRoute == "verify" || currentRoute == "forgot") -> {
+                navController.navigate(Destinations.Home.route) {
+                    popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                    launchSingleTop = true
+                }
             }
         }
     }
@@ -134,6 +146,12 @@ fun MainApp() {
                         onLoginSuccess = {
                             navController.navigate(Destinations.Home.route) {
                                 popUpTo("login") { inclusive = true }
+                            }
+                        },
+                        onRequireVerification = {
+                            navController.navigate("verify") {
+                                popUpTo("login") { inclusive = true }
+                                launchSingleTop = true
                             }
                         },
                         onRegisterClick = { navController.navigate("register") },
@@ -168,12 +186,43 @@ fun MainApp() {
                     )
                     com.example.englishforum.feature.auth.RegisterScreen(
                         viewModel = registerViewModel,
+                        onVerificationRequired = {
+                            navController.navigate("verify") {
+                                popUpTo("register") { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        },
                         onRegisterSuccess = {
                             navController.navigate(Destinations.Home.route) {
-                                popUpTo("register") { inclusive = true }
+                                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                                launchSingleTop = true
                             }
                         },
                         onCancel = { navController.popBackStack() }
+                    )
+                }
+
+                composable("verify") {
+                    val verificationViewModel: com.example.englishforum.feature.auth.EmailVerificationViewModel = viewModel(
+                        factory = remember(authRepository) {
+                            com.example.englishforum.feature.auth.EmailVerificationViewModel.Factory(authRepository)
+                        }
+                    )
+                    com.example.englishforum.feature.auth.EmailVerificationScreen(
+                        viewModel = verificationViewModel,
+                        onVerificationSuccess = {
+                            navController.navigate(Destinations.Home.route) {
+                                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        },
+                        onBackToLogin = {
+                            scope.launch { sessionRepository.clearSession() }
+                            navController.navigate("login") {
+                                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
                     )
                 }
 
