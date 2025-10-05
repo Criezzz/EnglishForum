@@ -3,6 +3,8 @@ package com.example.englishforum.feature.aipractice
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.englishforum.data.aipractice.AiPracticeFillInBlankQuestion
+import com.example.englishforum.data.aipractice.AiPracticeMultipleChoiceQuestion
 import com.example.englishforum.data.aipractice.AiPracticeOption
 import com.example.englishforum.data.aipractice.AiPracticeQuestion
 import com.example.englishforum.data.aipractice.AiPracticeRepository
@@ -23,13 +25,25 @@ data class AiPracticeOptionUi(
     val label: String
 )
 
-data class AiPracticeQuestionUi(
-    val id: String,
-    val prompt: String,
+sealed interface AiPracticeQuestionUi {
+    val id: String
+    val prompt: String
+    val hint: String?
+}
+
+data class AiPracticeMultipleChoiceQuestionUi(
+    override val id: String,
+    override val prompt: String,
     val options: List<AiPracticeOptionUi>,
     val correctOptionId: String,
-    val hint: String?
-)
+    override val hint: String?
+) : AiPracticeQuestionUi
+
+data class AiPracticeFillInBlankQuestionUi(
+    override val id: String,
+    override val prompt: String,
+    override val hint: String?
+) : AiPracticeQuestionUi
 
 data class AiPracticeSummaryUi(
     val totalQuestions: Int,
@@ -44,13 +58,15 @@ data class AiPracticeUiState(
     val currentQuestionNumber: Int = 0,
     val totalQuestionCount: Int = 0,
     val selectedOptionId: String? = null,
+    val answerInput: String = "",
     val hintVisible: Boolean = false,
     val stage: AiPracticeStage = AiPracticeStage.Answering,
     val isCurrentAnswerCorrect: Boolean? = null,
     val errorMessage: String? = null,
     val isLastQuestion: Boolean = false,
     val isCompleted: Boolean = false,
-    val summary: AiPracticeSummaryUi? = null
+    val summary: AiPracticeSummaryUi? = null,
+    val fillInCorrectAnswer: String? = null
 )
 
 class AiPracticeViewModel(
@@ -71,8 +87,18 @@ class AiPracticeViewModel(
 
     fun onOptionSelected(optionId: String) {
         _uiState.update { state ->
-            if (state.stage == AiPracticeStage.Answering) {
-                state.copy(selectedOptionId = optionId)
+            if (state.stage == AiPracticeStage.Answering && state.question is AiPracticeMultipleChoiceQuestionUi) {
+                state.copy(selectedOptionId = optionId, errorMessage = null)
+            } else {
+                state
+            }
+        }
+    }
+
+    fun onAnswerInputChanged(answer: String) {
+        _uiState.update { state ->
+            if (state.stage == AiPracticeStage.Answering && state.question is AiPracticeFillInBlankQuestionUi) {
+                state.copy(answerInput = answer, errorMessage = null)
             } else {
                 state
             }
@@ -91,22 +117,53 @@ class AiPracticeViewModel(
 
     fun onCheckAnswer() {
         val state = _uiState.value
-        val question = state.question ?: return
-        val selected = state.selectedOptionId
-        if (selected == null) {
-            _uiState.update {
-                it.copy(errorMessage = "Vui lòng chọn đáp án trước khi kiểm tra.")
-            }
-            return
-        }
+        val question = questions.getOrNull(currentIndex) ?: return
 
-        val isCorrect = selected == question.correctOptionId
-        answerRecord[question.id] = isCorrect
-        _uiState.update {
-            it.copy(
-                stage = AiPracticeStage.Feedback,
-                isCurrentAnswerCorrect = isCorrect
-            )
+        when (question) {
+            is AiPracticeMultipleChoiceQuestion -> {
+                val selected = state.selectedOptionId
+                if (selected == null) {
+                    _uiState.update {
+                        it.copy(errorMessage = "Vui lòng chọn đáp án trước khi kiểm tra.")
+                    }
+                    return
+                }
+
+                val isCorrect = selected == question.correctOptionId
+                answerRecord[question.id] = isCorrect
+                _uiState.update {
+                    it.copy(
+                        stage = AiPracticeStage.Feedback,
+                        isCurrentAnswerCorrect = isCorrect,
+                        fillInCorrectAnswer = null
+                    )
+                }
+            }
+
+            is AiPracticeFillInBlankQuestion -> {
+                val answer = state.answerInput.trim()
+                if (answer.isEmpty()) {
+                    _uiState.update {
+                        it.copy(errorMessage = "Vui lòng nhập đáp án trước khi kiểm tra.")
+                    }
+                    return
+                }
+
+                val normalizedAnswer = answer.lowercase()
+                val acceptableAnswers = listOf(question.correctAnswer) + question.acceptedAnswers
+                val isCorrect = acceptableAnswers.any { candidate ->
+                    normalizedAnswer == candidate.trim().lowercase()
+                }
+
+                answerRecord[question.id] = isCorrect
+                _uiState.update {
+                    it.copy(
+                        stage = AiPracticeStage.Feedback,
+                        isCurrentAnswerCorrect = isCorrect,
+                        fillInCorrectAnswer = if (isCorrect) null else question.correctAnswer
+                    )
+                }
+            }
         }
     }
 
@@ -121,10 +178,12 @@ class AiPracticeViewModel(
                     currentQuestionNumber = currentIndex + 1,
                     totalQuestionCount = questions.size,
                     selectedOptionId = null,
+                    answerInput = "",
                     hintVisible = false,
                     stage = AiPracticeStage.Answering,
                     isCurrentAnswerCorrect = null,
-                    isLastQuestion = currentIndex == questions.lastIndex
+                    isLastQuestion = currentIndex == questions.lastIndex,
+                    fillInCorrectAnswer = null
                 )
             }
         } else {
@@ -152,10 +211,12 @@ class AiPracticeViewModel(
                 question = null,
                 currentQuestionNumber = total,
                 selectedOptionId = null,
+                answerInput = "",
                 hintVisible = false,
                 stage = AiPracticeStage.Feedback,
                 isCurrentAnswerCorrect = null,
-                isLastQuestion = false
+                isLastQuestion = false,
+                fillInCorrectAnswer = null
             )
         }
     }
@@ -176,13 +237,15 @@ class AiPracticeViewModel(
                 currentQuestionNumber = 1,
                 totalQuestionCount = questions.size,
                 selectedOptionId = null,
+                answerInput = "",
                 hintVisible = false,
                 stage = AiPracticeStage.Answering,
                 isCurrentAnswerCorrect = null,
                 errorMessage = null,
                 isLastQuestion = questions.size == 1,
                 isCompleted = false,
-                summary = null
+                summary = null,
+                fillInCorrectAnswer = null
             )
         }
     }
@@ -208,19 +271,21 @@ class AiPracticeViewModel(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                            question = initialQuestion.toUiModel(),
-                            currentQuestionNumber = 1,
-                            totalQuestionCount = list.size,
-                            selectedOptionId = null,
-                            hintVisible = false,
-                            stage = AiPracticeStage.Answering,
-                            isCurrentAnswerCorrect = null,
-                            errorMessage = null,
-                            isLastQuestion = list.size == 1,
-                            isCompleted = false,
-                            summary = null
-                        )
-                    }
+                        question = initialQuestion.toUiModel(),
+                        currentQuestionNumber = 1,
+                        totalQuestionCount = list.size,
+                        selectedOptionId = null,
+                        answerInput = "",
+                        hintVisible = false,
+                        stage = AiPracticeStage.Answering,
+                        isCurrentAnswerCorrect = null,
+                        errorMessage = null,
+                        isLastQuestion = list.size == 1,
+                        isCompleted = false,
+                        summary = null,
+                        fillInCorrectAnswer = null
+                    )
+                }
                 } else {
                     _uiState.update {
                         it.copy(
@@ -250,13 +315,21 @@ class AiPracticeViewModel(
     }
 
     private fun AiPracticeQuestion.toUiModel(): AiPracticeQuestionUi {
-        return AiPracticeQuestionUi(
-            id = id,
-            prompt = prompt,
-            options = options.map { it.toUiModel() },
-            correctOptionId = correctOptionId,
-            hint = hint
-        )
+        return when (this) {
+            is AiPracticeMultipleChoiceQuestion -> AiPracticeMultipleChoiceQuestionUi(
+                id = id,
+                prompt = prompt,
+                options = options.map { it.toUiModel() },
+                correctOptionId = correctOptionId,
+                hint = hint
+            )
+
+            is AiPracticeFillInBlankQuestion -> AiPracticeFillInBlankQuestionUi(
+                id = id,
+                prompt = prompt,
+                hint = hint
+            )
+        }
     }
 
     private fun AiPracticeOption.toUiModel(): AiPracticeOptionUi {

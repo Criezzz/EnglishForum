@@ -71,6 +71,10 @@
     <string name="ai_practice_hint_title">Gợi ý</string>
     <string name="ai_practice_correct_feedback">Chính xác! Tiếp tục nhé.</string>
     <string name="ai_practice_incorrect_feedback">Chưa chính xác, tham khảo đáp án và thử lại câu tiếp theo.</string>
+    <string name="ai_practice_fill_in_blank_label">Đáp án của bạn</string>
+    <string name="ai_practice_fill_in_blank_placeholder">Điền từ hoặc cụm từ phù hợp</string>
+    <string name="ai_practice_fill_in_blank_supporting">Hãy nhập từ hoặc cụm từ để hoàn thiện câu.</string>
+    <string name="ai_practice_fill_in_blank_correct_answer">Đáp án đúng: %1$s</string>
     <string name="ai_practice_summary_title">Hoàn thành luyện tập</string>
     <string name="ai_practice_summary_score">Bạn trả lời đúng %1$d/%2$d câu.</string>
     <string name="ai_practice_summary_correct_label">Đúng</string>

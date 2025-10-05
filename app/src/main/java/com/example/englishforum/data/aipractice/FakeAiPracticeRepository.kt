@@ -4,7 +4,7 @@ class FakeAiPracticeRepository : AiPracticeRepository {
 
     private val practiceSets: Map<String, List<AiPracticeQuestion>> = mapOf(
         "post-1" to listOf(
-            AiPracticeQuestion(
+            AiPracticeMultipleChoiceQuestion(
                 id = "practice-1",
                 prompt = "Câu nào dưới đây dùng \"dodge the bullet\" đúng nhất?",
                 options = listOf(
@@ -16,7 +16,7 @@ class FakeAiPracticeRepository : AiPracticeRepository {
                 correctOptionId = "b",
                 hint = "Hãy tìm đáp án nói về việc tránh khỏi một điều xấu xảy ra."
             ),
-            AiPracticeQuestion(
+            AiPracticeMultipleChoiceQuestion(
                 id = "practice-2",
                 prompt = "Cụm từ \"speak of the devil\" phù hợp với tình huống nào?",
                 options = listOf(
@@ -27,11 +27,17 @@ class FakeAiPracticeRepository : AiPracticeRepository {
                 ),
                 correctOptionId = "a",
                 hint = "Cụm này thường dùng khi người vừa được nhắc tới bất ngờ xuất hiện."
+            ),
+            AiPracticeFillInBlankQuestion(
+                id = "practice-3",
+                prompt = "Điền vào chỗ trống: She finally decided to ___ the bullet and tell her boss the truth.",
+                correctAnswer = "bite",
+                hint = "Thành ngữ \"bite the bullet\" nghĩa là đối mặt với điều khó khăn."
             )
         ),
         "post-3" to listOf(
-            AiPracticeQuestion(
-                id = "practice-3",
+            AiPracticeMultipleChoiceQuestion(
+                id = "practice-4",
                 prompt = "Đâu là cách dùng phù hợp của từ \"meticulous\"?",
                 options = listOf(
                     AiPracticeOption("a", "She is meticulous about checking her essay for mistakes."),

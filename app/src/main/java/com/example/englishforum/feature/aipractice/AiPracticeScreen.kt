@@ -21,11 +21,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -78,6 +79,7 @@ fun AiPracticeRoute(
         snackbarHostState = snackbarHostState,
         onBackClick = onBackClick,
         onOptionSelected = viewModel::onOptionSelected,
+        onAnswerInputChanged = viewModel::onAnswerInputChanged,
         onHintClick = viewModel::onRequestHint,
         onCheckClick = viewModel::onCheckAnswer,
         onNextClick = viewModel::onNextQuestion,
@@ -94,6 +96,7 @@ fun AiPracticeScreen(
     snackbarHostState: SnackbarHostState,
     onBackClick: () -> Unit,
     onOptionSelected: (String) -> Unit,
+    onAnswerInputChanged: (String) -> Unit,
     onHintClick: () -> Unit,
     onCheckClick: () -> Unit,
     onNextClick: () -> Unit,
@@ -157,6 +160,7 @@ fun AiPracticeScreen(
                         .fillMaxSize(),
                     uiState = uiState,
                     onOptionSelected = onOptionSelected,
+                    onAnswerInputChanged = onAnswerInputChanged,
                     onHintClick = onHintClick,
                     onCheckClick = onCheckClick,
                     onNextClick = onNextClick,
@@ -210,6 +214,7 @@ private fun QuestionContent(
     modifier: Modifier = Modifier,
     uiState: AiPracticeUiState,
     onOptionSelected: (String) -> Unit,
+    onAnswerInputChanged: (String) -> Unit,
     onHintClick: () -> Unit,
     onCheckClick: () -> Unit,
     onNextClick: () -> Unit,
@@ -244,12 +249,24 @@ private fun QuestionContent(
             )
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            question.options.forEach { option ->
-                AiPracticeOptionItem(
-                    option = option,
+        when (question) {
+            is AiPracticeMultipleChoiceQuestionUi -> {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    question.options.forEach { option ->
+                        AiPracticeOptionItem(
+                            option = option,
+                            question = question,
+                            uiState = uiState,
+                            onOptionSelected = onOptionSelected
+                        )
+                    }
+                }
+            }
+
+            is AiPracticeFillInBlankQuestionUi -> {
+                FillInBlankAnswerSection(
                     uiState = uiState,
-                    onOptionSelected = onOptionSelected
+                    onAnswerChanged = onAnswerInputChanged
                 )
             }
         }
@@ -322,7 +339,11 @@ private fun QuestionContent(
                     }
                 },
                 enabled = when (uiState.stage) {
-                    AiPracticeStage.Answering -> uiState.selectedOptionId != null
+                    AiPracticeStage.Answering -> when (question) {
+                        is AiPracticeMultipleChoiceQuestionUi -> uiState.selectedOptionId != null
+                        is AiPracticeFillInBlankQuestionUi -> uiState.answerInput.isNotBlank()
+                    }
+
                     AiPracticeStage.Feedback -> true
                 },
                 modifier = Modifier.weight(1f)
@@ -342,6 +363,43 @@ private fun QuestionContent(
             }
         }
     }
+}
+
+@Composable
+private fun FillInBlankAnswerSection(
+    uiState: AiPracticeUiState,
+    onAnswerChanged: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val isFeedback = uiState.stage == AiPracticeStage.Feedback
+    val isCorrect = uiState.isCurrentAnswerCorrect == true
+
+    OutlinedTextField(
+        value = uiState.answerInput,
+        onValueChange = onAnswerChanged,
+        modifier = modifier.fillMaxWidth(),
+        enabled = !isFeedback,
+        singleLine = true,
+        label = { Text(text = stringResource(R.string.ai_practice_fill_in_blank_label)) },
+        placeholder = { Text(text = stringResource(R.string.ai_practice_fill_in_blank_placeholder)) },
+        isError = isFeedback && !isCorrect,
+        supportingText = {
+            when {
+                isFeedback && !isCorrect && uiState.fillInCorrectAnswer != null -> {
+                    Text(
+                        text = stringResource(
+                            R.string.ai_practice_fill_in_blank_correct_answer,
+                            uiState.fillInCorrectAnswer
+                        )
+                    )
+                }
+
+                !isFeedback -> {
+                    Text(text = stringResource(R.string.ai_practice_fill_in_blank_supporting))
+                }
+            }
+        }
+    )
 }
 
 @Composable
@@ -436,10 +494,10 @@ private fun SummaryStatRow(
 @Composable
 private fun AiPracticeOptionItem(
     option: AiPracticeOptionUi,
+    question: AiPracticeMultipleChoiceQuestionUi,
     uiState: AiPracticeUiState,
     onOptionSelected: (String) -> Unit
 ) {
-    val question = uiState.question ?: return
     val isSelected = uiState.selectedOptionId == option.id
     val isCorrectOption = uiState.stage == AiPracticeStage.Feedback && option.id == question.correctOptionId
     val isIncorrectSelection = uiState.stage == AiPracticeStage.Feedback && isSelected && !isCorrectOption
@@ -480,7 +538,7 @@ private fun AiPracticeOptionItem(
 private fun AiPracticeScreenPreview() {
     val sampleState = AiPracticeUiState(
         isLoading = false,
-        question = AiPracticeQuestionUi(
+        question = AiPracticeMultipleChoiceQuestionUi(
             id = "practice-1",
             prompt = "Câu nào dưới đây dùng \"dodge the bullet\" đúng nhất?",
             options = listOf(
@@ -497,7 +555,8 @@ private fun AiPracticeScreenPreview() {
         selectedOptionId = "c",
         hintVisible = true,
         stage = AiPracticeStage.Feedback,
-        isCurrentAnswerCorrect = false
+        isCurrentAnswerCorrect = false,
+        fillInCorrectAnswer = null
     )
 
     EnglishForumTheme {
@@ -506,6 +565,43 @@ private fun AiPracticeScreenPreview() {
             snackbarHostState = SnackbarHostState(),
             onBackClick = {},
             onOptionSelected = {},
+            onAnswerInputChanged = {},
+            onHintClick = {},
+            onCheckClick = {},
+            onNextClick = {},
+            onCompleteClick = {},
+            onRetakeClick = {},
+            onExitClick = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun AiPracticeFillInBlankPreview() {
+    val sampleState = AiPracticeUiState(
+        isLoading = false,
+        question = AiPracticeFillInBlankQuestionUi(
+            id = "practice-2",
+            prompt = "Điền vào chỗ trống: She finally decided to ___ the bullet and tell her boss the truth.",
+            hint = "Thành ngữ \"bite the bullet\" nghĩa là đối mặt với điều khó khăn."
+        ),
+        currentQuestionNumber = 2,
+        totalQuestionCount = 3,
+        answerInput = "byte",
+        hintVisible = true,
+        stage = AiPracticeStage.Feedback,
+        isCurrentAnswerCorrect = false,
+        fillInCorrectAnswer = "bite"
+    )
+
+    EnglishForumTheme {
+        AiPracticeScreen(
+            uiState = sampleState,
+            snackbarHostState = SnackbarHostState(),
+            onBackClick = {},
+            onOptionSelected = {},
+            onAnswerInputChanged = {},
             onHintClick = {},
             onCheckClick = {},
             onNextClick = {},
@@ -531,6 +627,7 @@ private fun AiPracticeSummaryPreview() {
             snackbarHostState = SnackbarHostState(),
             onBackClick = {},
             onOptionSelected = {},
+            onAnswerInputChanged = {},
             onHintClick = {},
             onCheckClick = {},
             onNextClick = {},
