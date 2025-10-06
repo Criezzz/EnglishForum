@@ -5,11 +5,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -157,59 +160,39 @@ fun ForumContentCard(
                 Spacer(Modifier.height(12.dp))
             }
             Row(
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                VoteIconButton(
-                    icon = Icons.Filled.KeyboardArrowUp,
-                    contentDescription = null,
-                    selected = voteState == VoteState.UPVOTED,
-                    onClick = onUpvoteClick
-                )
-                Spacer(Modifier.width(8.dp))
-
-                Surface(
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-                    shape = MaterialTheme.shapes.small,
-                    color = Color.Transparent
-                ) {
-                    Text(
-                        modifier = Modifier
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        text = voteCount.toString(),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-
-                Spacer(Modifier.width(8.dp))
-                VoteIconButton(
-                    icon = Icons.Filled.KeyboardArrowDown,
-                    contentDescription = null,
-                    selected = voteState == VoteState.DOWNVOTED,
-                    onClick = onDownvoteClick
+                ForumVoteActionGroup(
+                    voteCount = voteCount,
+                    voteState = voteState,
+                    onUpvoteClick = onUpvoteClick,
+                    onDownvoteClick = onDownvoteClick
                 )
 
-                val showCommentPill = commentCount != null
+                val showCommentAction = commentCount != null
 
-                if (showCommentPill && commentPillPlacement == CommentPillPlacement.BesideVotes) {
+                if (showCommentAction && commentPillPlacement == CommentPillPlacement.BesideVotes) {
                     Spacer(Modifier.width(12.dp))
-                    CommentCountPill(
+                    ForumCommentActionButton(
                         commentCount = commentCount!!,
-                        onClick = onCommentClick
+                        onClick = onCommentClick,
+                        modifier = Modifier.padding(start = 8.dp)
                     )
                 }
 
                 Spacer(Modifier.weight(1f))
 
-                if (showCommentPill && commentPillPlacement == CommentPillPlacement.End) {
-                    CommentCountPill(
+                if (showCommentAction && commentPillPlacement == CommentPillPlacement.End) {
+                    ForumCommentActionButton(
                         commentCount = commentCount!!,
-                        onClick = onCommentClick
+                        onClick = onCommentClick,
+                        modifier = Modifier.padding(start = 8.dp)
                     )
                 }
 
                 if (showMoreActions) {
-                    if (showCommentPill && commentPillPlacement == CommentPillPlacement.End) {
+                    if (showCommentAction && commentPillPlacement == CommentPillPlacement.End) {
                         Spacer(Modifier.width(12.dp))
                     }
                     IconButton(onClick = onMoreActionsClick) {
@@ -225,33 +208,140 @@ fun ForumContentCard(
 }
 
 @Composable
-private fun CommentCountPill(
-    commentCount: Int,
-    onClick: (() -> Unit)?
+private fun ForumVoteActionGroup(
+    voteCount: Int,
+    voteState: VoteState,
+    onUpvoteClick: () -> Unit,
+    onDownvoteClick: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Surface(
-        onClick = onClick ?: {},
-        enabled = onClick != null,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceContainerHighest,
-        tonalElevation = 0.dp
+    val colorScheme = MaterialTheme.colorScheme
+
+    val containerColor: Color
+    val borderColor: Color?
+    val contentColor: Color
+
+    when (voteState) {
+        VoteState.UPVOTED -> {
+            containerColor = colorScheme.primaryContainer
+            borderColor = null
+            contentColor = colorScheme.onPrimaryContainer
+        }
+        VoteState.DOWNVOTED -> {
+            containerColor = colorScheme.errorContainer
+            borderColor = null
+            contentColor = colorScheme.onErrorContainer
+        }
+        VoteState.NONE -> {
+            containerColor = Color.Transparent
+            borderColor = colorScheme.outlineVariant
+            contentColor = colorScheme.onSurface
+        }
+    }
+
+    ForumActionContainer(
+        modifier = modifier,
+        containerColor = containerColor,
+        contentColor = contentColor,
+        borderColor = borderColor
     ) {
-        Row(
-            modifier = Modifier
-                .padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        VoteIconButton(
+            icon = Icons.Filled.KeyboardArrowUp,
+            contentDescription = null,
+            selected = voteState == VoteState.UPVOTED,
+            onClick = onUpvoteClick,
+            buttonSize = 32.dp,
+            enforceMinimumTouchTarget = false,
+            selectedColorOverride = colorScheme.primary
+        )
+        Text(
+            text = voteCount.toString(),
+            style = MaterialTheme.typography.labelLarge
+        )
+        VoteIconButton(
+            icon = Icons.Filled.KeyboardArrowDown,
+            contentDescription = null,
+            selected = voteState == VoteState.DOWNVOTED,
+            onClick = onDownvoteClick,
+            buttonSize = 32.dp,
+            enforceMinimumTouchTarget = false,
+            selectedColorOverride = colorScheme.error
+        )
+    }
+}
+
+@Composable
+private fun ForumCommentActionButton(
+    commentCount: Int,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier
+) {
+    ForumActionContainer(
+        modifier = modifier,
+        onClick = onClick,
+        containerColor = Color.Transparent,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        borderColor = MaterialTheme.colorScheme.outlineVariant
+    ) {
+        Icon(
+            imageVector = Icons.Outlined.ChatBubbleOutline,
+            contentDescription = null
+        )
+        Text(
+            text = commentCount.toString(),
+            style = MaterialTheme.typography.labelLarge
+        )
+    }
+}
+
+@Composable
+private fun ForumActionContainer(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    containerColor: Color,
+    contentColor: Color,
+    borderColor: Color?,
+    content: @Composable RowScope.() -> Unit
+) {
+    val shape = RoundedCornerShape(999.dp)
+    val border = borderColor?.let { BorderStroke(1.dp, it) }
+
+    if (onClick == null) {
+        Surface(
+            modifier = modifier,
+            shape = shape,
+            color = containerColor,
+            contentColor = contentColor,
+            tonalElevation = 0.dp,
+            border = border
         ) {
-            Icon(
-                imageVector = Icons.Outlined.ChatBubbleOutline,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            Row(
+                modifier = Modifier
+                    .requiredHeight(40.dp)
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                content = content
             )
-            Text(
-                text = commentCount.toString(),
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurface
+        }
+    } else {
+        Surface(
+            modifier = modifier,
+            onClick = onClick,
+            enabled = true,
+            shape = shape,
+            color = containerColor,
+            contentColor = contentColor,
+            tonalElevation = 0.dp,
+            border = border
+        ) {
+            Row(
+                modifier = Modifier
+                    .requiredHeight(40.dp)
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                content = content
             )
         }
     }
