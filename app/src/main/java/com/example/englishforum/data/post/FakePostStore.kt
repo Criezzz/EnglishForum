@@ -4,6 +4,7 @@ import com.example.englishforum.core.common.resolveVoteChange
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumComment
 import com.example.englishforum.core.model.forum.ForumPostDetail
+import com.example.englishforum.core.model.forum.PostTag
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -256,7 +257,8 @@ object FakePostStore {
                 body = "Mọi người có kinh nghiệm nào luyện phát âm khi không có người chỉnh lỗi không?",
                 voteCount = 128,
                 voteState = VoteState.UPVOTED,
-                comments = sampleCommentsPost1
+                comments = sampleCommentsPost1,
+                tag = PostTag.Tutorial
             ),
             ForumPostDetail(
                 id = "post-2",
@@ -266,7 +268,8 @@ object FakePostStore {
                 body = "Mình đã tổng hợp vài bộ đề mình thấy hay trong Drive, mời mọi người download.",
                 voteCount = 84,
                 voteState = VoteState.NONE,
-                comments = sampleCommentsPost2
+                comments = sampleCommentsPost2,
+                tag = PostTag.Resource
             ),
             ForumPostDetail(
                 id = "post-3",
@@ -276,7 +279,8 @@ object FakePostStore {
                 body = "Những câu dài trong bài đọc IELTS thực sự khiến mình đau đầu, mọi người có tips nào không?",
                 voteCount = 45,
                 voteState = VoteState.NONE,
-                comments = sampleCommentsPost3
+                comments = sampleCommentsPost3,
+                tag = PostTag.AskQuestion
             ),
             ForumPostDetail(
                 id = "post-4",
@@ -286,7 +290,8 @@ object FakePostStore {
                 body = "Mình luôn mất nhiều thời gian cho phần mở bài, làm sao để mở bài nhanh và thu hút?",
                 voteCount = 51,
                 voteState = VoteState.DOWNVOTED,
-                comments = sampleCommentsPost4
+                comments = sampleCommentsPost4,
+                tag = PostTag.Experience
             ),
             ForumPostDetail(
                 id = "post-5",
@@ -296,7 +301,8 @@ object FakePostStore {
                 body = "Bạn nào có nguồn podcast hoặc video luyện accent Anh chuẩn không?",
                 voteCount = 67,
                 voteState = VoteState.NONE,
-                comments = sampleCommentsPost5
+                comments = sampleCommentsPost5,
+                tag = PostTag.Resource
             )
         )
     }

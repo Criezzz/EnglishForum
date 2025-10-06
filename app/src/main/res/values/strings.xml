@@ -37,7 +37,14 @@
     <string name="home_search_placeholder">Tìm kiếm</string>
     <string name="home_clear_search_content_description">Xoá nội dung tìm kiếm</string>
     <string name="home_post_meta">%1$s • %2$s</string>
+    <string name="home_post_meta_with_tag">%1$s • %2$s • %3$s</string>
     <string name="home_empty_state">Không có bài viết nào phù hợp</string>
+    <string name="home_filter_latest">Mới nhất</string>
+    <string name="home_filter_trending">Nổi bật</string>
+    <string name="post_tag_tutorial">Hướng dẫn</string>
+    <string name="post_tag_question">Hỏi đáp</string>
+    <string name="post_tag_resource">Tài liệu</string>
+    <string name="post_tag_experience">Kinh nghiệm</string>
     <string name="post_detail_comments_header">Bình luận</string>
     <string name="post_detail_empty_state">Chưa có bình luận nào</string>
     <string name="post_detail_missing_post">Không thể tải bài viết</string>
@@ -51,6 +58,8 @@
     <string name="create_post_title_placeholder">Chủ đề bạn muốn chia sẻ</string>
     <string name="create_post_body_label">Nội dung bài viết</string>
     <string name="create_post_body_placeholder">Hãy kể chi tiết câu chuyện, thắc mắc hoặc mẹo học tập của bạn...</string>
+    <string name="create_post_tag_label">Chủ đề bài viết</string>
+    <string name="create_post_tag_helper">Chọn nhãn phù hợp để mọi người tìm thấy bài viết dễ hơn.</string>
     <string name="create_post_attachment_label">Ảnh minh hoạ</string>
     <string name="create_post_add_image">Thêm ảnh</string>
     <string name="create_post_remove_image_content_description">Xoá %1$s</string>

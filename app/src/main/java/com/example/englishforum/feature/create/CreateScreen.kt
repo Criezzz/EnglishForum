@@ -4,19 +4,21 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Delete
@@ -29,6 +31,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -54,7 +58,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
+import com.example.englishforum.core.model.forum.PostTag
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
+import com.example.englishforum.core.ui.toLabelResId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,6 +89,7 @@ fun CreateRoute(
         onBodyChange = viewModel::onBodyChange,
         onAddAttachment = viewModel::onAddAttachment,
         onRemoveAttachment = viewModel::onRemoveAttachment,
+        onTagSelected = viewModel::onTagSelected,
         onSubmit = viewModel::onSubmit,
         onDeclineReasonDismissed = viewModel::onDeclineReasonDismissed,
         onErrorMessageConsumed = viewModel::onErrorMessageDisplayed
@@ -97,6 +104,7 @@ fun CreateScreen(
     onBodyChange: (String) -> Unit,
     onAddAttachment: () -> Unit,
     onRemoveAttachment: (String) -> Unit,
+    onTagSelected: (PostTag) -> Unit,
     onSubmit: () -> Unit,
     onDeclineReasonDismissed: () -> Unit,
     onErrorMessageConsumed: () -> Unit,
@@ -161,6 +169,14 @@ fun CreateScreen(
                 )
             )
 
+            if (uiState.availableTags.isNotEmpty()) {
+                TagSection(
+                    tags = uiState.availableTags,
+                    selectedTag = uiState.selectedTag,
+                    onTagSelected = onTagSelected
+                )
+            }
+
             AttachmentSection(
                 attachments = uiState.attachments,
                 onAddAttachment = onAddAttachment,
@@ -199,6 +215,58 @@ fun CreateScreen(
             reason = uiState.declineReason,
             onDismiss = onDeclineReasonDismissed
         )
+    }
+}
+
+@Composable
+private fun TagSection(
+    tags: List<PostTag>,
+    selectedTag: PostTag?,
+    onTagSelected: (PostTag) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (tags.isEmpty()) return
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = stringResource(id = R.string.create_post_tag_label),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Text(
+                text = stringResource(id = R.string.create_post_tag_helper),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(tags, key = { it.name }) { tag ->
+                val label = stringResource(id = tag.toLabelResId())
+                val isSelected = tag == selectedTag
+                FilterChip(
+                    selected = isSelected,
+                    onClick = { onTagSelected(tag) },
+                    label = { Text(text = label) },
+                    shape = MaterialTheme.shapes.large,
+                    colors = FilterChipDefaults.filterChipColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        selectedLabelColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    ),
+                    border = FilterChipDefaults.filterChipBorder(
+                        enabled = true,
+                        selected = isSelected,
+                        borderColor = MaterialTheme.colorScheme.outlineVariant
+                    )
+                )
+            }
+        }
     }
 }
 
@@ -316,7 +384,13 @@ private fun CreateScreenPreview() {
         attachments = listOf(
             CreateAttachmentUi(id = "1", label = "Ảnh 1"),
             CreateAttachmentUi(id = "2", label = "Ảnh 2")
-        )
+        ),
+        availableTags = listOf(
+            PostTag.AskQuestion,
+            PostTag.Tutorial,
+            PostTag.Resource
+        ),
+        selectedTag = PostTag.AskQuestion
     )
 
     EnglishForumTheme {
@@ -326,6 +400,7 @@ private fun CreateScreenPreview() {
             onBodyChange = {},
             onAddAttachment = {},
             onRemoveAttachment = {},
+            onTagSelected = {},
             onSubmit = {},
             onDeclineReasonDismissed = {},
             onErrorMessageConsumed = {}

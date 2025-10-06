@@ -1,15 +1,19 @@
 package com.example.englishforum.feature.home
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -27,9 +31,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.model.forum.PostTag
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.ui.components.card.ForumContentCard
 import com.example.englishforum.core.ui.components.card.ForumContentCardPlaceholder
+import com.example.englishforum.core.ui.toLabelResId
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 
 @Composable
@@ -50,6 +56,7 @@ fun HomeScreen(
         uiState = uiState,
         onSearchQueryChange = viewModel::onSearchQueryChange,
         onClearSearch = viewModel::onClearSearchQuery,
+        onFilterSelected = viewModel::onFilterSelected,
         onUpvote = viewModel::onUpvote,
         onDownvote = viewModel::onDownvote,
         onPostClick = onPostClick,
@@ -64,6 +71,7 @@ private fun HomeContent(
     uiState: HomeUiState,
     onSearchQueryChange: (String) -> Unit,
     onClearSearch: () -> Unit,
+    onFilterSelected: (HomeFeedFilter) -> Unit,
     onUpvote: (String) -> Unit,
     onDownvote: (String) -> Unit,
     onPostClick: (String) -> Unit,
@@ -73,7 +81,7 @@ private fun HomeContent(
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         item {
             HomeSearchBar(
@@ -81,6 +89,16 @@ private fun HomeContent(
                 onQueryChange = onSearchQueryChange,
                 onClear = onClearSearch
             )
+        }
+
+        if (uiState.availableFilters.isNotEmpty()) {
+            item {
+                HomeFilterChips(
+                    filters = uiState.availableFilters,
+                    selectedFilter = uiState.selectedFilter,
+                    onFilterSelected = onFilterSelected
+                )
+            }
         }
 
         when {
@@ -107,12 +125,14 @@ private fun HomeContent(
                     items = uiState.posts,
                     key = { it.id }
                 ) { post ->
+                    val tagLabel = stringResource(post.tag.toLabelResId())
                     ForumContentCard(
                         modifier = Modifier.fillMaxWidth(),
                         meta = stringResource(
-                            R.string.home_post_meta,
+                            R.string.home_post_meta_with_tag,
                             post.authorName,
-                            post.relativeTimeText
+                            post.relativeTimeText,
+                            tagLabel
                         ),
                         voteCount = post.voteCount,
                         title = post.title,
@@ -175,6 +195,41 @@ private fun HomeSearchBar(
 }
 
 @Composable
+private fun HomeFilterChips(
+    filters: List<HomeFeedFilter>,
+    selectedFilter: HomeFeedFilter,
+    onFilterSelected: (HomeFeedFilter) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LazyRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(filters, key = { it.id }) { filter ->
+            val label = stringResource(filter.labelResId())
+            val isSelected = filter.id == selectedFilter.id
+            FilterChip(
+                selected = isSelected,
+                onClick = { onFilterSelected(filter) },
+                label = { Text(text = label) },
+                shape = MaterialTheme.shapes.large,
+                colors = FilterChipDefaults.filterChipColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                border = FilterChipDefaults.filterChipBorder(
+                    enabled = true,
+                    selected = isSelected,
+                    borderColor = MaterialTheme.colorScheme.outlineVariant
+                )
+            )
+        }
+    }
+}
+
+@Composable
 private fun HomeEmptyState(
     modifier: Modifier = Modifier
 ) {
@@ -184,6 +239,15 @@ private fun HomeEmptyState(
         style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant
     )
+}
+
+@StringRes
+private fun HomeFeedFilter.labelResId(): Int {
+    return when (this) {
+        HomeFeedFilter.Latest -> R.string.home_filter_latest
+        HomeFeedFilter.Trending -> R.string.home_filter_trending
+        is HomeFeedFilter.Tag -> tag.toLabelResId()
+    }
 }
 
 @Preview(showBackground = true)
@@ -198,7 +262,8 @@ private fun HomeScreenPreview() {
             body = "Mọi người có mẹo nào luyện phát âm hiệu quả khi không có người chỉnh lỗi không?",
             voteCount = 23,
             voteState = VoteState.NONE,
-            commentCount = 8
+            commentCount = 8,
+            tag = PostTag.Tutorial
         ),
         HomePostUi(
             id = "2",
@@ -208,7 +273,8 @@ private fun HomeScreenPreview() {
             body = "We can practice trên Zoom 2-3h/tuần, ai quan tâm để lại comment nha!",
             voteCount = 17,
             voteState = VoteState.UPVOTED,
-            commentCount = 14
+            commentCount = 14,
+            tag = PostTag.AskQuestion
         )
     )
 
@@ -217,10 +283,18 @@ private fun HomeScreenPreview() {
             uiState = HomeUiState(
                 isLoading = false,
                 searchQuery = "",
-                posts = previewPosts
+                posts = previewPosts,
+                availableFilters = listOf(
+                    HomeFeedFilter.Latest,
+                    HomeFeedFilter.Trending,
+                    HomeFeedFilter.Tag(PostTag.Tutorial),
+                    HomeFeedFilter.Tag(PostTag.AskQuestion)
+                ),
+                selectedFilter = HomeFeedFilter.Latest
             ),
             onSearchQueryChange = {},
             onClearSearch = {},
+            onFilterSelected = {},
             onUpvote = {},
             onDownvote = {},
             onPostClick = {},

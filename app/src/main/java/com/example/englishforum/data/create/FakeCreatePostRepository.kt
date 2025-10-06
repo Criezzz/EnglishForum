@@ -2,6 +2,7 @@ package com.example.englishforum.data.create
 
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumPostDetail
+import com.example.englishforum.core.model.forum.PostTag
 import com.example.englishforum.data.post.FakePostStore
 import java.util.UUID
 import kotlin.random.Random
@@ -20,7 +21,8 @@ class FakeCreatePostRepository(
     override suspend fun submitPost(
         title: String,
         body: String,
-        attachments: List<CreatePostAttachment>
+        attachments: List<CreatePostAttachment>,
+        tag: PostTag
     ): Result<CreatePostResult> {
         val trimmedTitle = title.trim()
         val trimmedBody = body.trim()
@@ -44,7 +46,8 @@ class FakeCreatePostRepository(
             body = trimmedBody,
             voteCount = 0,
             voteState = VoteState.NONE,
-            comments = emptyList()
+            comments = emptyList(),
+            tag = tag
         )
         postStore.addPost(newPost)
 

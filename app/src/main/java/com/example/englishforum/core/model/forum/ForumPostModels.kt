@@ -2,6 +2,13 @@ package com.example.englishforum.core.model.forum
 
 import com.example.englishforum.core.model.VoteState
 
+enum class PostTag {
+    Tutorial,
+    AskQuestion,
+    Resource,
+    Experience
+}
+
 data class ForumPostSummary(
     val id: String,
     val authorName: String,
@@ -10,7 +17,8 @@ data class ForumPostSummary(
     val body: String,
     val voteCount: Int,
     val voteState: VoteState,
-    val commentCount: Int
+    val commentCount: Int,
+    val tag: PostTag
 )
 
 data class ForumComment(
@@ -31,7 +39,8 @@ data class ForumPostDetail(
     val body: String,
     val voteCount: Int,
     val voteState: VoteState,
-    val comments: List<ForumComment>
+    val comments: List<ForumComment>,
+    val tag: PostTag
 ) {
     val commentCount: Int = comments.size
 }
