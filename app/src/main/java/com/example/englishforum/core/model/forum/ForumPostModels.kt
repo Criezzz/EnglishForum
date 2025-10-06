@@ -44,7 +44,8 @@ data class ForumPostDetail(
     val comments: List<ForumComment>,
     val tag: PostTag,
     val authorAvatarUrl: String? = null,
-    val previewImageUrl: String? = null
+    val previewImageUrl: String? = null,
+    val galleryImages: List<String>? = null
 ) {
     val commentCount: Int = comments.size
 }

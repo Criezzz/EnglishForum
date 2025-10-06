@@ -10,7 +10,9 @@ data class PostDetailUi(
     val body: String,
     val voteCount: Int,
     val voteState: VoteState,
-    val commentCount: Int
+    val commentCount: Int,
+    val previewImageUrl: String? = null,
+    val galleryImages: List<String>? = null
 )
 
 data class PostCommentUi(

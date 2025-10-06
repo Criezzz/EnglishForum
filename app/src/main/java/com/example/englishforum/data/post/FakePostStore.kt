@@ -260,7 +260,12 @@ object FakePostStore {
                 comments = sampleCommentsPost1,
                 tag = PostTag.Tutorial,
                 authorAvatarUrl = "mock://avatar/linhtran",
-                previewImageUrl = "mock://daily-pronunciation"
+                previewImageUrl = "mock://daily-pronunciation",
+                galleryImages = listOf(
+                    "mock://gallery/pronunciation-1",
+                    "mock://gallery/pronunciation-2",
+                    "mock://gallery/pronunciation-3"
+                )
             ),
             ForumPostDetail(
                 id = "post-2",

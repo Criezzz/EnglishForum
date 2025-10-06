@@ -143,7 +143,9 @@ private fun ForumPostDetail.toUiModel(): PostDetailUi {
         body = body,
         voteCount = voteCount,
         voteState = voteState,
-        commentCount = commentCount
+        commentCount = commentCount,
+        previewImageUrl = previewImageUrl,
+        galleryImages = galleryImages
     )
 }
 
