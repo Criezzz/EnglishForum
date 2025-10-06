@@ -33,7 +33,9 @@ class FakeHomeRepository(
             voteCount = voteCount,
             voteState = voteState,
             commentCount = commentCount,
-            tag = tag
+            tag = tag,
+            authorAvatarUrl = authorAvatarUrl,
+            previewImageUrl = previewImageUrl
         )
     }
 }

@@ -18,7 +18,9 @@ data class ForumPostSummary(
     val voteCount: Int,
     val voteState: VoteState,
     val commentCount: Int,
-    val tag: PostTag
+    val tag: PostTag,
+    val authorAvatarUrl: String? = null,
+    val previewImageUrl: String? = null
 )
 
 data class ForumComment(
@@ -40,7 +42,9 @@ data class ForumPostDetail(
     val voteCount: Int,
     val voteState: VoteState,
     val comments: List<ForumComment>,
-    val tag: PostTag
+    val tag: PostTag,
+    val authorAvatarUrl: String? = null,
+    val previewImageUrl: String? = null
 ) {
     val commentCount: Int = comments.size
 }

@@ -12,7 +12,9 @@ data class HomePostUi(
     val voteCount: Int,
     val voteState: VoteState,
     val commentCount: Int,
-    val tag: PostTag
+    val tag: PostTag,
+    val authorAvatarUrl: String? = null,
+    val previewImageUrl: String? = null
 )
 
 data class HomeUiState(

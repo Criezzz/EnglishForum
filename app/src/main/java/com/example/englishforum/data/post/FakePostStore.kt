@@ -258,7 +258,9 @@ object FakePostStore {
                 voteCount = 128,
                 voteState = VoteState.UPVOTED,
                 comments = sampleCommentsPost1,
-                tag = PostTag.Tutorial
+                tag = PostTag.Tutorial,
+                authorAvatarUrl = "mock://avatar/linhtran",
+                previewImageUrl = "mock://daily-pronunciation"
             ),
             ForumPostDetail(
                 id = "post-2",
@@ -269,7 +271,9 @@ object FakePostStore {
                 voteCount = 84,
                 voteState = VoteState.NONE,
                 comments = sampleCommentsPost2,
-                tag = PostTag.Resource
+                tag = PostTag.Resource,
+                authorAvatarUrl = "mock://avatar/hoangnguyen",
+                previewImageUrl = "mock://ielts-reading-kit"
             ),
             ForumPostDetail(
                 id = "post-3",
@@ -280,7 +284,8 @@ object FakePostStore {
                 voteCount = 45,
                 voteState = VoteState.NONE,
                 comments = sampleCommentsPost3,
-                tag = PostTag.AskQuestion
+                tag = PostTag.AskQuestion,
+                authorAvatarUrl = "mock://avatar/minhchau"
             ),
             ForumPostDetail(
                 id = "post-4",
@@ -291,7 +296,8 @@ object FakePostStore {
                 voteCount = 51,
                 voteState = VoteState.DOWNVOTED,
                 comments = sampleCommentsPost4,
-                tag = PostTag.Experience
+                tag = PostTag.Experience,
+                authorAvatarUrl = "mock://avatar/thuyle"
             ),
             ForumPostDetail(
                 id = "post-5",
@@ -302,7 +308,8 @@ object FakePostStore {
                 voteCount = 67,
                 voteState = VoteState.NONE,
                 comments = sampleCommentsPost5,
-                tag = PostTag.Resource
+                tag = PostTag.Resource,
+                authorAvatarUrl = "mock://avatar/anhvu"
             )
         )
     }

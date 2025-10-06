@@ -3,6 +3,7 @@ package com.example.englishforum.core.ui.components.card
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,6 +24,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.ui.components.VoteIconButton
@@ -47,7 +49,13 @@ fun ForumContentCard(
     onMoreActionsClick: () -> Unit = {},
     showMoreActions: Boolean = true,
     commentPillPlacement: CommentPillPlacement = CommentPillPlacement.BesideVotes,
-    onCardClick: (() -> Unit)? = null
+    onCardClick: (() -> Unit)? = null,
+    leadingContent: (@Composable () -> Unit)? = null,
+    supportingContent: (@Composable ColumnScope.() -> Unit)? = null,
+    bodyMaxLines: Int = Int.MAX_VALUE,
+    bodyOverflow: TextOverflow = TextOverflow.Clip,
+    headerContent: (@Composable ColumnScope.() -> Unit)? = null,
+    bodyContent: (@Composable ColumnScope.() -> Unit)? = null
 ) {
     Surface(
         modifier = modifier,
@@ -60,31 +68,94 @@ fun ForumContentCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(16.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = meta,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                if (!title.isNullOrBlank()) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+            var hasContentBeforeActions = false
+
+            if (leadingContent != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    leadingContent()
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        if (headerContent != null) {
+                            headerContent()
+                        } else {
+                            Text(
+                                text = meta,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            if (!title.isNullOrBlank()) {
+                                Text(
+                                    text = title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
                 }
-                if (!body.isNullOrBlank()) {
+                hasContentBeforeActions = true
+            } else {
+                val defaultHeader: @Composable ColumnScope.() -> Unit = {
+                    Text(
+                        text = meta,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    if (!title.isNullOrBlank()) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+                val header = headerContent ?: defaultHeader
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp), content = header)
+                hasContentBeforeActions = true
+            }
+
+            when {
+                bodyContent != null -> {
+                    if (hasContentBeforeActions) {
+                        Spacer(Modifier.height(2.dp))
+                    }
+                    bodyContent()
+                    hasContentBeforeActions = true
+                }
+                !body.isNullOrBlank() -> {
+                    if (hasContentBeforeActions) {
+                        Spacer(Modifier.height(2.dp))
+                    }
                     Text(
                         text = body,
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = bodyMaxLines,
+                        overflow = bodyOverflow
                     )
+                    hasContentBeforeActions = true
                 }
             }
 
+            supportingContent?.let { content ->
+                if (hasContentBeforeActions) {
+                    Spacer(Modifier.height(12.dp))
+                }
+                content()
+                hasContentBeforeActions = true
+            }
+
+            if (hasContentBeforeActions) {
+                Spacer(Modifier.height(12.dp))
+            }
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {

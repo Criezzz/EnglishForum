@@ -129,7 +129,9 @@ class HomeViewModel(
             voteCount = voteCount,
             voteState = voteState,
             commentCount = max(commentCount, 0),
-            tag = tag
+            tag = tag,
+            authorAvatarUrl = authorAvatarUrl,
+            previewImageUrl = previewImageUrl
         )
     }
 }
