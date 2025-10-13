@@ -213,32 +213,49 @@ private fun NotificationListItem(
                 }
             }
 
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+            Box(
+                modifier = Modifier.weight(1f)
             ) {
-                Text(
-                    modifier = Modifier.fillMaxWidth(),
-                    text = item.headline,
-                    style = headlineStyle,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = item.headline,
+                        style = headlineStyle,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
-                NotificationMetadata(
-                    timestampText = item.timestampText,
-                    timestampColor = timestampColor,
-                    showUnreadIndicator = !item.isRead
-                )
+                    NotificationMetadata(
+                        timestampText = item.timestampText,
+                        timestampColor = timestampColor
+                    )
 
-                Text(
-                    text = item.supportingText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                    Text(
+                        text = item.supportingText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                if (!item.isRead) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(8.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        tonalElevation = 0.dp,
+                        content = {}
+                    )
+                }
             }
         }
     }
@@ -248,12 +265,10 @@ private fun NotificationListItem(
 private fun NotificationMetadata(
     timestampText: String,
     timestampColor: Color,
-    showUnreadIndicator: Boolean,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -261,15 +276,6 @@ private fun NotificationMetadata(
             style = MaterialTheme.typography.labelSmall,
             color = timestampColor
         )
-        if (showUnreadIndicator) {
-            Surface(
-                modifier = Modifier.size(8.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                tonalElevation = 0.dp,
-                content = {}
-            )
-        }
     }
 }
 
