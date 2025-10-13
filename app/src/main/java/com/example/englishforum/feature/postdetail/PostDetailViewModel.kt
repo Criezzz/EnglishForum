@@ -39,7 +39,14 @@ class PostDetailViewModel(
         aiPracticeChecking
     ) { post, loading, error, aiChecking ->
         val postUi = post?.toUiModel()
-        val commentUi = post?.comments?.map { comment -> comment.toUiModel(post.authorName) } ?: emptyList()
+        val commentUi = post?.comments?.flatMapIndexed { index, comment ->
+            comment.toUiModel(
+                postAuthorName = post.authorName,
+                depth = 0,
+                isFirstChild = index == 0,
+                isLastChild = index == (post.comments.size - 1)
+            )
+        } ?: emptyList()
 
         PostDetailUiState(
             isLoading = loading,
@@ -149,14 +156,38 @@ private fun ForumPostDetail.toUiModel(): PostDetailUi {
     )
 }
 
-private fun ForumComment.toUiModel(postAuthorName: String): PostCommentUi {
-    return PostCommentUi(
+private fun ForumComment.toUiModel(
+    postAuthorName: String,
+    depth: Int,
+    isFirstChild: Boolean,
+    isLastChild: Boolean
+): List<PostCommentUi> {
+    val commentUi = PostCommentUi(
         id = id,
         authorName = authorName,
         relativeTimeText = formatRelativeTime(minutesAgo),
         body = body,
         voteCount = voteCount,
         voteState = voteState,
-        isAuthor = isAuthor || authorName.equals(postAuthorName, ignoreCase = true)
+        isAuthor = isAuthor || authorName.equals(postAuthorName, ignoreCase = true),
+        depth = depth,
+        hasReplies = replies.isNotEmpty(),
+        isFirstChild = isFirstChild,
+        isLastChild = isLastChild
     )
+
+    if (replies.isEmpty()) {
+        return listOf(commentUi)
+    }
+
+    val nestedReplies = replies.flatMapIndexed { index, reply ->
+        reply.toUiModel(
+            postAuthorName = postAuthorName,
+            depth = depth + 1,
+            isFirstChild = index == 0,
+            isLastChild = index == replies.lastIndex
+        )
+    }
+
+    return listOf(commentUi) + nestedReplies
 }

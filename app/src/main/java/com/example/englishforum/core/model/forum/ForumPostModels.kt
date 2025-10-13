@@ -30,7 +30,8 @@ data class ForumComment(
     val body: String,
     val voteCount: Int,
     val voteState: VoteState,
-    val isAuthor: Boolean = false
+    val isAuthor: Boolean = false,
+    val replies: List<ForumComment> = emptyList()
 )
 
 data class ForumPostDetail(
@@ -47,5 +48,9 @@ data class ForumPostDetail(
     val previewImageUrl: String? = null,
     val galleryImages: List<String>? = null
 ) {
-    val commentCount: Int = comments.size
+    val commentCount: Int = comments.sumOf { it.totalThreadCount() }
+}
+
+private fun ForumComment.totalThreadCount(): Int {
+    return 1 + replies.sumOf { it.totalThreadCount() }
 }

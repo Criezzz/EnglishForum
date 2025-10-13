@@ -2,8 +2,8 @@ package com.example.englishforum.feature.postdetail
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -78,6 +78,8 @@ import com.example.englishforum.core.ui.components.VoteIconButton
 import com.example.englishforum.core.ui.components.card.CommentPillPlacement
 import com.example.englishforum.core.ui.components.card.ForumContentCard
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
+
+private val CommentThreadIndent = 20.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -332,7 +334,7 @@ fun PostDetailScreen(
                             items = uiState.comments,
                             key = { it.id }
                         ) { comment ->
-                            PostCommentItem(
+                            CommentThreadEntry(
                                 comment = comment,
                                 onUpvote = { onUpvoteComment(comment.id) },
                                 onDownvote = { onDownvoteComment(comment.id) },
@@ -347,6 +349,32 @@ fun PostDetailScreen(
 }
 
 @Composable
+private fun CommentThreadEntry(
+    comment: PostCommentUi,
+    onUpvote: () -> Unit,
+    onDownvote: () -> Unit,
+    modifier: Modifier = Modifier,
+    isHighlighted: Boolean = false
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        if (comment.depth > 0) {
+            Spacer(modifier = Modifier.width(CommentThreadIndent * comment.depth))
+        }
+        PostCommentItem(
+            comment = comment,
+            onUpvote = onUpvote,
+            onDownvote = onDownvote,
+            modifier = Modifier.weight(1f),
+            isHighlighted = isHighlighted
+        )
+    }
+}
+
+@Composable
 private fun PostCommentItem(
     comment: PostCommentUi,
     onUpvote: () -> Unit,
@@ -354,12 +382,18 @@ private fun PostCommentItem(
     modifier: Modifier = Modifier,
     isHighlighted: Boolean = false
 ) {
-    val targetContainerColor = when {
-        isHighlighted -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.3f)
-        comment.isAuthor -> MaterialTheme.colorScheme.surfaceContainerHigh
-        else -> MaterialTheme.colorScheme.surfaceContainerLow
+    val depthContainer = when (comment.depth) {
+        0 -> MaterialTheme.colorScheme.surfaceContainerLow
+        1 -> MaterialTheme.colorScheme.surfaceContainerHigh
+        else -> MaterialTheme.colorScheme.surfaceContainerHighest
     }
-    
+
+    val targetContainerColor = when {
+        isHighlighted -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)
+        comment.isAuthor -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.25f)
+        else -> depthContainer
+    }
+
     val containerColor by animateColorAsState(
         targetValue = targetContainerColor,
         animationSpec = tween(durationMillis = 300),
@@ -371,7 +405,7 @@ private fun PostCommentItem(
         comment.isAuthor -> MaterialTheme.colorScheme.outlineVariant
         else -> null
     }
-    
+
     val borderColor by animateColorAsState(
         targetValue = targetBorderColor ?: MaterialTheme.colorScheme.outline,
         animationSpec = tween(durationMillis = 300),
@@ -382,7 +416,11 @@ private fun PostCommentItem(
         modifier = modifier,
         shape = MaterialTheme.shapes.medium,
         color = containerColor,
-        tonalElevation = if (comment.isAuthor) 2.dp else if (isHighlighted) 1.dp else 0.dp,
+        tonalElevation = when {
+            isHighlighted -> 4.dp
+            comment.isAuthor -> 3.dp
+            else -> comment.depth.coerceIn(0, 4).dp
+        },
         border = if (targetBorderColor != null) {
             BorderStroke(1.dp, borderColor)
         } else null
@@ -429,28 +467,38 @@ private fun PostCommentItem(
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                VoteIconButton(
-                    icon = Icons.Outlined.KeyboardArrowUp,
-                    contentDescription = null,
-                    selected = comment.voteState == VoteState.UPVOTED,
-                    onClick = onUpvote
-                )
-                Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                    text = comment.voteCount.toString(),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.onSurface
+                    text = stringResource(R.string.post_detail_reply_action),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.primary
                 )
-                Spacer(modifier = Modifier.width(4.dp))
-                VoteIconButton(
-                    icon = Icons.Outlined.KeyboardArrowDown,
-                    contentDescription = null,
-                    selected = comment.voteState == VoteState.DOWNVOTED,
-                    onClick = onDownvote
-                )
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    VoteIconButton(
+                        icon = Icons.Outlined.KeyboardArrowUp,
+                        contentDescription = null,
+                        selected = comment.voteState == VoteState.UPVOTED,
+                        onClick = onUpvote
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = comment.voteCount.toString(),
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    VoteIconButton(
+                        icon = Icons.Outlined.KeyboardArrowDown,
+                        contentDescription = null,
+                        selected = comment.voteState == VoteState.DOWNVOTED,
+                        onClick = onDownvote
+                    )
+                }
             }
         }
     }
@@ -880,16 +928,37 @@ private fun PostDetailScreenPreview() {
                 body = "Etiam vitae ex massa. Sed vulputate tellus magna.",
                 voteCount = 6,
                 voteState = VoteState.NONE,
-                isAuthor = false
+                isAuthor = false,
+                depth = 0,
+                hasReplies = true,
+                isFirstChild = true,
+                isLastChild = false
             ),
             PostCommentUi(
-                id = "comment-2",
-                authorName = "Jane_Doe",
+                id = "comment-1-1",
+                authorName = "mentorX",
                 relativeTimeText = "1 giờ trước",
-                body = "Cảm ơn mọi người đã chia sẻ nhé!",
+                body = "Mình nghĩ bạn nên thu âm từng câu rồi đối chiếu IPA.",
                 voteCount = 12,
-                voteState = VoteState.DOWNVOTED,
-                isAuthor = true
+                voteState = VoteState.UPVOTED,
+                isAuthor = false,
+                depth = 1,
+                hasReplies = true,
+                isFirstChild = true,
+                isLastChild = false
+            ),
+            PostCommentUi(
+                id = "comment-1-1-1",
+                authorName = "Jane_Doe",
+                relativeTimeText = "45 phút trước",
+                body = "Cảm ơn tips, mình sẽ thử áp dụng ngay!",
+                voteCount = 2,
+                voteState = VoteState.NONE,
+                isAuthor = true,
+                depth = 2,
+                hasReplies = false,
+                isFirstChild = true,
+                isLastChild = true
             )
         )
     )

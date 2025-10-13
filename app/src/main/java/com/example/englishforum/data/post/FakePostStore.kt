@@ -51,17 +51,9 @@ object FakePostStore {
             current.map { post ->
                 if (post.id == postId) {
                     postFound = true
-                    val updatedComments = post.comments.map { comment ->
-                        if (comment.id == commentId) {
-                            commentFound = true
-                            val (nextState, delta) = resolveVoteChange(comment.voteState, target)
-                            comment.copy(
-                                voteState = nextState,
-                                voteCount = comment.voteCount + delta
-                            )
-                        } else {
-                            comment
-                        }
+                    val (updatedComments, found) = updateCommentThread(post.comments, commentId, target)
+                    if (found) {
+                        commentFound = true
                     }
                     post.copy(comments = updatedComments)
                 } else {
@@ -72,6 +64,39 @@ object FakePostStore {
         return postFound to commentFound
     }
 
+    private fun updateCommentThread(
+        comments: List<ForumComment>,
+        commentId: String,
+        target: VoteState
+    ): Pair<List<ForumComment>, Boolean> {
+        var found = false
+        val updated = comments.map { comment ->
+            when {
+                comment.id == commentId -> {
+                    found = true
+                    val (nextState, delta) = resolveVoteChange(comment.voteState, target)
+                    comment.copy(
+                        voteState = nextState,
+                        voteCount = comment.voteCount + delta
+                    )
+                }
+
+                comment.replies.isNotEmpty() -> {
+                    val (updatedReplies, replyFound) = updateCommentThread(comment.replies, commentId, target)
+                    if (replyFound) {
+                        found = true
+                        comment.copy(replies = updatedReplies)
+                    } else {
+                        comment
+                    }
+                }
+
+                else -> comment
+            }
+        }
+        return updated to found
+    }
+
     private fun createInitialPosts(): List<ForumPostDetail> {
         val sampleCommentsPost1 = listOf(
             ForumComment(
@@ -80,7 +105,36 @@ object FakePostStore {
                 minutesAgo = 6 * 60,
                 body = "Sed vulputate tellus magna, ac fringilla ipsum ornare in. Mình thường ghi âm lại rồi so sánh với bản chuẩn để thấy lỗi phát âm. Bạn có thể thử đọc đoạn hội thoại, thu âm từng câu, sau đó nhờ bạn bè góp ý. Nếu tự luyện, nên chia nhỏ từng cụm âm khó và lặp lại nhiều lần.",
                 voteCount = 6,
-                voteState = VoteState.NONE
+                voteState = VoteState.NONE,
+                replies = listOf(
+                    ForumComment(
+                        id = "comment-1-1",
+                        authorName = "reply_bot",
+                        minutesAgo = 5 * 60 + 20,
+                        body = "Đồng ý! Mình còn dùng thêm app Elsa Speak để đo độ chính xác sau mỗi lần thu.",
+                        voteCount = 3,
+                        voteState = VoteState.UPVOTED,
+                        replies = listOf(
+                            ForumComment(
+                                id = "comment-1-1-1",
+                                authorName = "crystal",
+                                minutesAgo = 5 * 60,
+                                body = "Elsa Speak chuẩn đó, nhưng nhớ luyện phát âm từng âm trước khi vào bài dài nha!",
+                                voteCount = 2,
+                                voteState = VoteState.NONE,
+                                isAuthor = true
+                            )
+                        )
+                    ),
+                    ForumComment(
+                        id = "comment-1-2",
+                        authorName = "practice_buddy",
+                        minutesAgo = 5 * 60,
+                        body = "Nếu luyện theo nhóm thì mọi người có tips gì để nhận xét cho nhau không?",
+                        voteCount = 1,
+                        voteState = VoteState.NONE
+                    )
+                )
             ),
             ForumComment(
                 id = "comment-2",
@@ -104,7 +158,35 @@ object FakePostStore {
                 minutesAgo = 2 * 60 + 45,
                 body = "Có thể tham khảo YouTube channel của Rachel's English. Cô ấy giải thích rất chi tiết về cách di chuyển lưỡi và môi cho từng âm.",
                 voteCount = 12,
-                voteState = VoteState.NONE
+                voteState = VoteState.NONE,
+                replies = listOf(
+                    ForumComment(
+                        id = "comment-12-1",
+                        authorName = "accent_reducer",
+                        minutesAgo = 2 * 60 + 20,
+                        body = "Chuẩn nè! Bạn cũng nên note lại khẩu hình miệng từng âm để luyện offline.",
+                        voteCount = 4,
+                        voteState = VoteState.NONE,
+                        replies = listOf(
+                            ForumComment(
+                                id = "comment-12-1-1",
+                                authorName = "english_learner_vn",
+                                minutesAgo = 2 * 60,
+                                body = "Mình đang làm flashcard khẩu hình bằng Notion, ai cần thì hú mình.",
+                                voteCount = 2,
+                                voteState = VoteState.UPVOTED
+                            ),
+                            ForumComment(
+                                id = "comment-12-1-2",
+                                authorName = "coach_mia",
+                                minutesAgo = 2 * 60 - 10,
+                                body = "Flashcard thì nên in ra và dán trong góc học tập, dễ nhớ hơn á.",
+                                voteCount = 1,
+                                voteState = VoteState.NONE
+                            )
+                        )
+                    )
+                )
             ),
             ForumComment(
                 id = "comment-13",
@@ -171,7 +253,28 @@ object FakePostStore {
                 minutesAgo = 32,
                 body = "Great compilation! I usually start learners with Cambridge 15.",
                 voteCount = 11,
-                voteState = VoteState.UPVOTED
+                voteState = VoteState.UPVOTED,
+                replies = listOf(
+                    ForumComment(
+                        id = "comment-3-1",
+                        authorName = "reading_addict",
+                        minutesAgo = 30,
+                        body = "Bạn có gợi ý nào cho band 6-7 không?",
+                        voteCount = 2,
+                        voteState = VoteState.NONE,
+                        replies = listOf(
+                            ForumComment(
+                                id = "comment-3-1-1",
+                                authorName = "mentorX",
+                                minutesAgo = 28,
+                                body = "Tập trung vào Cambridge 10-13 trước nha, độ khó vừa đủ.",
+                                voteCount = 2,
+                                voteState = VoteState.UPVOTED,
+                                isAuthor = true
+                            )
+                        )
+                    )
+                )
             ),
             ForumComment(
                 id = "comment-4",

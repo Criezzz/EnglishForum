@@ -60,6 +60,7 @@
     <string name="post_detail_ai_practice_content_description">Mở câu hỏi luyện tập cùng AI</string>
     <string name="post_detail_author_badge">Tác giả</string>
     <string name="post_detail_options_content_description">Mở tuỳ chọn bài viết</string>
+    <string name="post_detail_reply_action">Phản hồi</string>
 
     <string name="create_post_title">Tạo bài viết</string>
     <string name="create_post_title_label">Tiêu đề bài viết</string>

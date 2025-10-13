@@ -22,7 +22,11 @@ data class PostCommentUi(
     val body: String,
     val voteCount: Int,
     val voteState: VoteState,
-    val isAuthor: Boolean
+    val isAuthor: Boolean,
+    val depth: Int,
+    val hasReplies: Boolean,
+    val isFirstChild: Boolean,
+    val isLastChild: Boolean
 )
 
 data class PostDetailUiState(
