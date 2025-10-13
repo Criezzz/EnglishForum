@@ -1,5 +1,6 @@
 package com.example.englishforum.feature.create
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -24,6 +25,7 @@ data class CreateUiState(
     val title: String = "",
     val body: String = "",
     val attachments: List<CreateAttachmentUi> = emptyList(),
+    val imageUris: List<Uri> = emptyList(),
     val availableTags: List<PostTag> = emptyList(),
     val selectedTag: PostTag? = null,
     val isSubmitting: Boolean = false,
@@ -78,6 +80,23 @@ class CreateViewModel(
         }
     }
 
+    fun onImageSelected(uri: Uri) {
+        _uiState.update { state ->
+            val maxImages = 5
+            if (!state.imageUris.contains(uri) && state.imageUris.size < maxImages) {
+                state.copy(imageUris = state.imageUris + uri)
+            } else {
+                state
+            }
+        }
+    }
+
+    fun onRemoveImage(uri: Uri) {
+        _uiState.update { state ->
+            state.copy(imageUris = state.imageUris.filterNot { it == uri })
+        }
+    }
+
     fun onSubmit() {
         val currentState = _uiState.value
         if (!currentState.canSubmit || currentState.isSubmitting) return
@@ -102,6 +121,7 @@ class CreateViewModel(
                                 title = "",
                                 body = "",
                                 attachments = emptyList(),
+                                imageUris = emptyList(),
                                 availableTags = tagOptions,
                                 selectedTag = tagOptions.first(),
                                 successPostId = submitResult.postId

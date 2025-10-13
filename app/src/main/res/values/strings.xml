@@ -71,6 +71,8 @@
     <string name="create_post_tag_helper">Chọn nhãn phù hợp để mọi người tìm thấy bài viết dễ hơn.</string>
     <string name="create_post_attachment_label">Ảnh minh hoạ</string>
     <string name="create_post_add_image">Thêm ảnh</string>
+    <string name="create_post_add_image_short">Thêm ảnh</string>
+    <string name="create_post_max_images_reached">Đã đạt giới hạn tối đa 5 ảnh</string>
     <string name="create_post_remove_image_content_description">Xoá %1$s</string>
     <string name="create_post_submit">Đăng</string>
     <string name="create_post_submit_loading">Đang đăng...</string>
