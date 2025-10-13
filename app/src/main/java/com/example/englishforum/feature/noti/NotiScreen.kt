@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
@@ -216,48 +217,58 @@ private fun NotificationListItem(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                Row(
+                Text(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        modifier = Modifier.weight(1f, fill = false),
-                        text = item.headline,
-                        style = headlineStyle,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = item.timestampText,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = timestampColor
-                        )
-                        if (!item.isRead) {
-                            Surface(
-                                modifier = Modifier.size(8.dp),
-                                shape = CircleShape,
-                                color = MaterialTheme.colorScheme.primary,
-                                tonalElevation = 0.dp,
-                                content = {}
-                            )
-                        }
-                    }
-                }
+                    text = item.headline,
+                    style = headlineStyle,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                NotificationMetadata(
+                    timestampText = item.timestampText,
+                    timestampColor = timestampColor,
+                    showUnreadIndicator = !item.isRead
+                )
 
                 Text(
                     text = item.supportingText,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 3,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun NotificationMetadata(
+    timestampText: String,
+    timestampColor: Color,
+    showUnreadIndicator: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = timestampText,
+            style = MaterialTheme.typography.labelSmall,
+            color = timestampColor
+        )
+        if (showUnreadIndicator) {
+            Surface(
+                modifier = Modifier.size(8.dp),
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary,
+                tonalElevation = 0.dp,
+                content = {}
+            )
         }
     }
 }
