@@ -22,7 +22,6 @@ class HomeViewModel(
     private val repository: HomeRepository
 ) : ViewModel() {
 
-    private val searchQuery = MutableStateFlow("")
     private val loading = MutableStateFlow(true)
     private val selectedFilter = MutableStateFlow<HomeFeedFilter>(HomeFeedFilter.Latest)
 
@@ -37,14 +36,12 @@ class HomeViewModel(
 
     val uiState: StateFlow<HomeUiState> = combine(
         repository.postsStream,
-        searchQuery,
         loading,
         selectedFilter
-    ) { posts, query, isLoading, filter ->
-        val filtered = filterPosts(posts, query, filter)
+    ) { posts, isLoading, filter ->
+        val filtered = filterPosts(posts, filter)
         HomeUiState(
             isLoading = isLoading,
-            searchQuery = query,
             posts = filtered.map { it.toUiModel() },
             availableFilters = filterOptions,
             selectedFilter = filter
@@ -62,14 +59,6 @@ class HomeViewModel(
                 loading.value = false
             }
         }
-    }
-
-    fun onSearchQueryChange(query: String) {
-        searchQuery.value = query
-    }
-
-    fun onClearSearchQuery() {
-        searchQuery.value = ""
     }
 
     fun onFilterSelected(filter: HomeFeedFilter) {
@@ -93,27 +82,15 @@ class HomeViewModel(
 
     private fun filterPosts(
         posts: List<ForumPostSummary>,
-        query: String,
         filter: HomeFeedFilter
     ): List<ForumPostSummary> {
-        val processed = if (query.isBlank()) {
-            posts
-        } else {
-            val normalized = query.trim().lowercase()
-            posts.filter { post ->
-            post.title.contains(normalized, ignoreCase = true) ||
-                post.body.contains(normalized, ignoreCase = true) ||
-                post.authorName.contains(normalized, ignoreCase = true)
-        }
-        }
-
         return when (filter) {
-            HomeFeedFilter.Latest -> processed.sortedBy { it.minutesAgo }
-            HomeFeedFilter.Trending -> processed.sortedWith(
+            HomeFeedFilter.Latest -> posts.sortedBy { it.minutesAgo }
+            HomeFeedFilter.Trending -> posts.sortedWith(
                 compareByDescending<ForumPostSummary> { it.voteCount }
                     .thenBy { it.minutesAgo }
             )
-            is HomeFeedFilter.Tag -> processed
+            is HomeFeedFilter.Tag -> posts
                 .filter { it.tag == filter.tag }
                 .sortedBy { it.minutesAgo }
         }

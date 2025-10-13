@@ -19,18 +19,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -71,8 +66,6 @@ fun HomeScreen(
     HomeContent(
         modifier = modifier,
         uiState = uiState,
-        onSearchQueryChange = viewModel::onSearchQueryChange,
-        onClearSearch = viewModel::onClearSearchQuery,
         onFilterSelected = viewModel::onFilterSelected,
         onUpvote = viewModel::onUpvote,
         onDownvote = viewModel::onDownvote,
@@ -86,8 +79,6 @@ fun HomeScreen(
 private fun HomeContent(
     modifier: Modifier = Modifier,
     uiState: HomeUiState,
-    onSearchQueryChange: (String) -> Unit,
-    onClearSearch: () -> Unit,
     onFilterSelected: (HomeFeedFilter) -> Unit,
     onUpvote: (String) -> Unit,
     onDownvote: (String) -> Unit,
@@ -100,14 +91,6 @@ private fun HomeContent(
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        item {
-            HomeSearchBar(
-                query = uiState.searchQuery,
-                onQueryChange = onSearchQueryChange,
-                onClear = onClearSearch
-            )
-        }
-
         if (uiState.availableFilters.isNotEmpty()) {
             item {
                 HomeFilterChips(
@@ -220,49 +203,6 @@ private fun HomeContent(
             }
         }
     }
-}
-
-@Composable
-private fun HomeSearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    onClear: () -> Unit
-) {
-    TextField(
-        modifier = Modifier.fillMaxWidth(),
-        value = query,
-        onValueChange = onQueryChange,
-        leadingIcon = {
-            Icon(
-                imageVector = Icons.Filled.Search,
-                contentDescription = stringResource(R.string.home_search_placeholder),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = onClear) {
-                    Icon(
-                        imageVector = Icons.Filled.Close,
-                        contentDescription = stringResource(R.string.home_clear_search_content_description)
-                    )
-                }
-            }
-        },
-        placeholder = { Text(stringResource(R.string.home_search_placeholder)) },
-        singleLine = true,
-        textStyle = MaterialTheme.typography.bodyLarge,
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-            unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-            disabledIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
-            cursorColor = MaterialTheme.colorScheme.primary
-        ),
-        shape = MaterialTheme.shapes.extraLarge
-    )
 }
 
 @Composable
@@ -435,7 +375,6 @@ private fun HomeScreenPreview() {
         HomeContent(
             uiState = HomeUiState(
                 isLoading = false,
-                searchQuery = "",
                 posts = previewPosts,
                 availableFilters = listOf(
                     HomeFeedFilter.Latest,
@@ -445,8 +384,6 @@ private fun HomeScreenPreview() {
                 ),
                 selectedFilter = HomeFeedFilter.Latest
             ),
-            onSearchQueryChange = {},
-            onClearSearch = {},
             onFilterSelected = {},
             onUpvote = {},
             onDownvote = {},

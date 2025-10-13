@@ -19,7 +19,6 @@ data class HomePostUi(
 
 data class HomeUiState(
     val isLoading: Boolean = true,
-    val searchQuery: String = "",
     val posts: List<HomePostUi> = emptyList(),
     val availableFilters: List<HomeFeedFilter> = emptyList(),
     val selectedFilter: HomeFeedFilter = HomeFeedFilter.Latest
