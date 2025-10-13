@@ -6,6 +6,7 @@ import com.example.englishforum.data.auth.AuthResult
 import com.example.englishforum.data.auth.UserSession
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.auth.remote.model.TokenResponse
+import com.example.englishforum.data.auth.bearerToken
 import kotlinx.coroutines.flow.firstOrNull
 import org.json.JSONObject
 import retrofit2.HttpException
@@ -63,8 +64,6 @@ class RemoteAuthRepository(
 
     override suspend fun resetPassword(newPassword: String): Result<Unit> =
         Result.failure(UnsupportedOperationException("Khôi phục mật khẩu sẽ được cập nhật sau"))
-
-    private fun UserSession.bearerToken(): String = "${tokenType.ifBlank { "Bearer" }} $accessToken"
 
     private fun TokenResponse.toSession(
         fallbackUsername: String,

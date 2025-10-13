@@ -18,8 +18,9 @@ import com.example.englishforum.data.notification.NotificationRepository
 import com.example.englishforum.data.post.FakePostDetailRepository
 import com.example.englishforum.data.post.FakePostStore
 import com.example.englishforum.data.post.PostDetailRepository
-import com.example.englishforum.data.profile.FakeProfileRepository
 import com.example.englishforum.data.profile.ProfileRepository
+import com.example.englishforum.data.profile.remote.ProfileApi
+import com.example.englishforum.data.profile.remote.RemoteProfileRepository
 import com.example.englishforum.data.settings.ThemePreferenceRepository
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -118,7 +119,12 @@ class DefaultAppContainer(context: Context) : AppContainer {
         FakeNotificationRepository(postStore)
     }
 
+    private val profileApi: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
+
     override val profileRepository: ProfileRepository by lazy {
-        FakeProfileRepository()
+        RemoteProfileRepository(
+            profileApi = profileApi,
+            userSessionRepository = userSessionRepository
+        )
     }
 }

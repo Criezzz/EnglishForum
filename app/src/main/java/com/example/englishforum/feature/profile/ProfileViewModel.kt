@@ -7,7 +7,6 @@ import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumProfilePost
 import com.example.englishforum.core.model.forum.ForumProfileReply
 import com.example.englishforum.core.model.forum.ForumUserProfile
-import com.example.englishforum.data.profile.FakeProfileRepository
 import com.example.englishforum.data.profile.ProfileRepository
 import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -139,7 +138,7 @@ class ProfileViewModel(
 }
 
 class ProfileViewModelFactory(
-    private val repository: ProfileRepository = FakeProfileRepository(),
+    private val repository: ProfileRepository,
     private val userId: String
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
