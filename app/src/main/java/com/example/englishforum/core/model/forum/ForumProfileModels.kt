@@ -31,6 +31,7 @@ data class ForumUserProfile(
     val userId: String,
     val displayName: String,
     val avatarUrl: String? = null,
+    val bio: String? = null,
     val stats: ForumProfileStats,
     val posts: List<ForumProfilePost>,
     val replies: List<ForumProfileReply>

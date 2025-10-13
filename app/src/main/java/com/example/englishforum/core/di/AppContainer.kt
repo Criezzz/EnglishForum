@@ -111,7 +111,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
     }
 
     override val createPostRepository: CreatePostRepository by lazy {
-        FakeCreatePostRepository(postStore)
+        FakeCreatePostRepository(postStore, userSessionRepository)
     }
 
     override val notificationRepository: NotificationRepository by lazy {

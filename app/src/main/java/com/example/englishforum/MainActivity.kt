@@ -10,6 +10,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -45,7 +46,9 @@ import com.example.englishforum.feature.aipractice.AiPracticeRoute
 import com.example.englishforum.feature.home.HomeScreen
 import com.example.englishforum.feature.noti.NotiRoute
 import com.example.englishforum.feature.postdetail.PostDetailRoute
+import com.example.englishforum.feature.postedit.PostEditRoute
 import com.example.englishforum.feature.profile.ProfileScreen
+import com.example.englishforum.feature.search.SearchRoute
 import com.example.englishforum.feature.settings.SettingsScreen
 import kotlinx.coroutines.launch
 
@@ -55,13 +58,14 @@ private sealed class Destinations(
     val icon: androidx.compose.ui.graphics.vector.ImageVector? = null
 ) {
     data object Home : Destinations("home", R.string.nav_home, Icons.Filled.Home)
+    data object Search : Destinations("search", R.string.nav_search, Icons.Filled.Search)
     data object Create : Destinations("create", R.string.nav_create, Icons.Filled.AddCircle)
     data object Noti : Destinations("noti", R.string.nav_notifications, Icons.Filled.Notifications)
     data object Profile : Destinations("profile", R.string.nav_profile, Icons.Filled.Person)
     data object Settings : Destinations("settings", R.string.settings_title)
 
     companion object {
-        val bottomBar = listOf(Home, Create, Noti, Profile)
+        val bottomBar = listOf(Home, Search, Create, Noti, Profile)
     }
 }
 
@@ -237,6 +241,17 @@ fun MainApp() {
                         }
                     )
                 }
+                composable(Destinations.Search.route) {
+                    SearchRoute(
+                        modifier = Modifier.fillMaxSize(),
+                        onPostClick = { postId ->
+                            navController.navigate("post/$postId")
+                        },
+                        onCommentClick = { postId ->
+                            navController.navigate("post/$postId")
+                        }
+                    )
+                }
                 composable(Destinations.Create.route) {
                     com.example.englishforum.feature.create.CreateRoute(
                         modifier = Modifier.fillMaxSize(),
@@ -315,8 +330,32 @@ fun MainApp() {
                             postId = postId,
                             commentId = commentId,
                             onBackClick = { navController.popBackStack() },
+                            savedStateHandle = backStackEntry.savedStateHandle,
                             onNavigateToAiPractice = { practicePostId ->
                                 navController.navigate("aiPractice/$practicePostId")
+                            },
+                            onEditPostClick = { editPostId ->
+                                navController.navigate("post/$editPostId/edit")
+                            }
+                        )
+                    }
+                }
+                composable(
+                    route = "post/{postId}/edit",
+                    arguments = listOf(
+                        androidx.navigation.navArgument("postId") {
+                            type = androidx.navigation.NavType.StringType
+                        }
+                    )
+                ) { backStackEntry ->
+                    val postId = backStackEntry.arguments?.getString("postId")
+                    if (postId != null) {
+                        PostEditRoute(
+                            postId = postId,
+                            onBackClick = { navController.popBackStack() },
+                            onPostUpdated = {
+                                navController.previousBackStackEntry?.savedStateHandle?.set("post_edit_result", true)
+                                navController.popBackStack()
                             }
                         )
                     }

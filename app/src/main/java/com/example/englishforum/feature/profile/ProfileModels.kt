@@ -5,6 +5,7 @@ import com.example.englishforum.core.model.VoteState
 data class ProfileOverview(
     val displayName: String,
     val avatarUrl: String? = null,
+    val bio: String? = null,
     val stats: ProfileStats
 )
 

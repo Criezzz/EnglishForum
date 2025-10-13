@@ -2,12 +2,16 @@ package com.example.englishforum.data.create
 
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumPostDetail
+import com.example.englishforum.core.model.forum.PostTag
 import com.example.englishforum.data.post.FakePostStore
+import com.example.englishforum.data.auth.UserSessionRepository
 import java.util.UUID
 import kotlin.random.Random
+import kotlinx.coroutines.flow.firstOrNull
 
 class FakeCreatePostRepository(
-    private val postStore: FakePostStore = FakePostStore
+    private val postStore: FakePostStore = FakePostStore,
+    private val userSessionRepository: UserSessionRepository? = null
 ) : CreatePostRepository {
 
     private val random = Random(System.currentTimeMillis())
@@ -20,10 +24,14 @@ class FakeCreatePostRepository(
     override suspend fun submitPost(
         title: String,
         body: String,
-        attachments: List<CreatePostAttachment>
+        attachments: List<CreatePostAttachment>,
+        tag: PostTag
     ): Result<CreatePostResult> {
         val trimmedTitle = title.trim()
         val trimmedBody = body.trim()
+        val session = userSessionRepository?.sessionFlow?.firstOrNull()
+        val authorId = session?.userId ?: "demo-user"
+        val authorName = session?.username?.ifBlank { "bạn" } ?: "bạn"
 
         if (trimmedTitle.isEmpty() || trimmedBody.isEmpty()) {
             return Result.failure(IllegalArgumentException("Tiêu đề và nội dung không được để trống"))
@@ -38,13 +46,15 @@ class FakeCreatePostRepository(
         val newPostId = generatePostId()
         val newPost = ForumPostDetail(
             id = newPostId,
-            authorName = "bạn",
+            authorId = authorId,
+            authorName = authorName,
             minutesAgo = 0,
             title = trimmedTitle,
             body = trimmedBody,
             voteCount = 0,
             voteState = VoteState.NONE,
-            comments = emptyList()
+            comments = emptyList(),
+            tag = tag
         )
         postStore.addPost(newPost)
 

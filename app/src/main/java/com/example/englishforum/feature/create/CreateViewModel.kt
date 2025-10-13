@@ -1,8 +1,10 @@
 package com.example.englishforum.feature.create
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.englishforum.core.model.forum.PostTag
 import com.example.englishforum.data.create.CreatePostAttachment
 import com.example.englishforum.data.create.CreatePostRepository
 import com.example.englishforum.data.create.CreatePostResult
@@ -23,19 +25,40 @@ data class CreateUiState(
     val title: String = "",
     val body: String = "",
     val attachments: List<CreateAttachmentUi> = emptyList(),
+    val imageUris: List<Uri> = emptyList(),
+    val availableTags: List<PostTag> = emptyList(),
+    val selectedTag: PostTag? = null,
     val isSubmitting: Boolean = false,
     val declineReason: String? = null,
     val errorMessage: String? = null,
-    val successPostId: String? = null
+    val successPostId: String? = null,
+    val isInitialLoading: Boolean = false
 ) {
-    val canSubmit: Boolean get() = title.isNotBlank() && body.isNotBlank() && !isSubmitting
+    val canSubmit: Boolean
+        get() = title.isNotBlank() &&
+            body.isNotBlank() &&
+            selectedTag != null &&
+            !isSubmitting &&
+            !isInitialLoading
 }
 
 class CreateViewModel(
     private val repository: CreatePostRepository
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(CreateUiState())
+    private val tagOptions = listOf(
+        PostTag.AskQuestion,
+        PostTag.Tutorial,
+        PostTag.Resource,
+        PostTag.Experience
+    )
+
+    private val _uiState = MutableStateFlow(
+        CreateUiState(
+            availableTags = tagOptions,
+            selectedTag = tagOptions.first()
+        )
+    )
     val uiState: StateFlow<CreateUiState> = _uiState.asStateFlow()
 
     fun onTitleChange(newTitle: String) {
@@ -63,9 +86,27 @@ class CreateViewModel(
         }
     }
 
+    fun onImageSelected(uri: Uri) {
+        _uiState.update { state ->
+            val maxImages = 5
+            if (!state.imageUris.contains(uri) && state.imageUris.size < maxImages) {
+                state.copy(imageUris = state.imageUris + uri)
+            } else {
+                state
+            }
+        }
+    }
+
+    fun onRemoveImage(uri: Uri) {
+        _uiState.update { state ->
+            state.copy(imageUris = state.imageUris.filterNot { it == uri })
+        }
+    }
+
     fun onSubmit() {
         val currentState = _uiState.value
         if (!currentState.canSubmit || currentState.isSubmitting) return
+        val selectedTag = currentState.selectedTag ?: return
 
         viewModelScope.launch {
             _uiState.update { it.copy(isSubmitting = true, errorMessage = null, declineReason = null, successPostId = null) }
@@ -73,7 +114,8 @@ class CreateViewModel(
             val result = repository.submitPost(
                 title = currentState.title,
                 body = currentState.body,
-                attachments = attachments
+                attachments = attachments,
+                tag = selectedTag
             )
 
             result.onSuccess { submitResult ->
@@ -85,6 +127,9 @@ class CreateViewModel(
                                 title = "",
                                 body = "",
                                 attachments = emptyList(),
+                                imageUris = emptyList(),
+                                availableTags = tagOptions,
+                                selectedTag = tagOptions.first(),
                                 successPostId = submitResult.postId
                             )
                         }
@@ -120,6 +165,12 @@ class CreateViewModel(
 
     fun onNavigationHandled() {
         _uiState.update { it.copy(successPostId = null) }
+    }
+
+    fun onTagSelected(tag: PostTag) {
+        _uiState.update { state ->
+            state.copy(selectedTag = tag)
+        }
     }
 }
 

@@ -1,5 +1,6 @@
 package com.example.englishforum.feature.noti
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,8 +17,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -30,9 +35,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
@@ -53,7 +60,9 @@ fun NotiRoute(
     NotiScreen(
         modifier = modifier,
         uiState = uiState,
-        onNotificationClick = onNotificationClick
+        onNotificationClick = onNotificationClick,
+        onMarkNotificationAsRead = viewModel::markNotificationAsRead,
+        onMarkAllAsRead = viewModel::markAllNotificationsAsRead
     )
 }
 
@@ -62,6 +71,8 @@ fun NotiRoute(
 fun NotiScreen(
     uiState: NotificationUiState,
     onNotificationClick: (postId: String, commentId: String?) -> Unit,
+    onMarkNotificationAsRead: (notificationId: String) -> Unit,
+    onMarkAllAsRead: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -69,6 +80,17 @@ fun NotiScreen(
         topBar = {
             TopAppBar(
                 title = { Text(text = stringResource(id = R.string.notifications_title)) },
+                actions = {
+                    IconButton(
+                        onClick = onMarkAllAsRead,
+                        enabled = uiState.unreadCount > 0
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.DoneAll,
+                            contentDescription = stringResource(id = R.string.notifications_mark_all_read)
+                        )
+                    }
+                },
                 windowInsets = WindowInsets(0, 0, 0, 0)
             )
         }
@@ -114,7 +136,12 @@ fun NotiScreen(
                     ) { item ->
                         NotificationListItem(
                             item = item,
-                            onClick = { onNotificationClick(item.postId, item.commentId) }
+                            onClick = {
+                                if (!item.isRead) {
+                                    onMarkNotificationAsRead(item.id)
+                                }
+                                onNotificationClick(item.postId, item.commentId)
+                            }
                         )
                     }
                     item { Spacer(modifier = Modifier.height(8.dp)) }
@@ -130,12 +157,39 @@ private fun NotificationListItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val containerColor by animateColorAsState(
+        targetValue = if (item.isRead) {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHighest
+        },
+        label = "notificationContainerColor"
+    )
+    val headlineStyle = MaterialTheme.typography.titleSmall.copy(
+        fontWeight = if (item.isRead) FontWeight.Medium else FontWeight.SemiBold
+    )
+    val timestampColor = if (item.isRead) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        MaterialTheme.colorScheme.primary
+    }
+    val avatarContainerColor = if (item.isRead) {
+        MaterialTheme.colorScheme.surfaceVariant
+    } else {
+        MaterialTheme.colorScheme.secondaryContainer
+    }
+    val avatarContentColor = if (item.isRead) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    }
+
     Surface(
         modifier = modifier.fillMaxWidth(),
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
-        tonalElevation = 1.dp,
-        color = MaterialTheme.colorScheme.surfaceContainerLow
+        tonalElevation = if (item.isRead) 0.dp else 2.dp,
+        color = containerColor
     ) {
         Row(
             modifier = Modifier
@@ -147,51 +201,81 @@ private fun NotificationListItem(
             Surface(
                 modifier = Modifier.size(44.dp),
                 shape = CircleShape,
-                color = MaterialTheme.colorScheme.secondaryContainer,
+                color = avatarContainerColor,
                 tonalElevation = 0.dp
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = item.actorInitial,
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                        color = avatarContentColor
                     )
                 }
             }
 
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+            Box(
+                modifier = Modifier.weight(1f)
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text(
-                        modifier = Modifier.weight(1f, fill = false),
+                        modifier = Modifier.fillMaxWidth(),
                         text = item.headline,
-                        style = MaterialTheme.typography.titleSmall,
+                        style = headlineStyle,
                         color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Spacer(modifier = Modifier.width(12.dp))
+
+                    NotificationMetadata(
+                        timestampText = item.timestampText,
+                        timestampColor = timestampColor
+                    )
+
                     Text(
-                        text = item.timestampText,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        text = item.supportingText,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                Text(
-                    text = item.supportingText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
+                if (!item.isRead) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(8.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        tonalElevation = 0.dp,
+                        content = {}
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun NotificationMetadata(
+    timestampText: String,
+    timestampColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = timestampText,
+            style = MaterialTheme.typography.labelSmall,
+            color = timestampColor
+        )
     }
 }
 
@@ -207,7 +291,28 @@ private fun NotificationItemPreview() {
                 supportingText = "\"Thanks for sharing, saved to my drive already.\"",
                 timestampText = "12 phút trước",
                 postId = "post-1",
-                commentId = "comment-9"
+                commentId = "comment-9",
+                isRead = false
+            ),
+            onClick = {}
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun NotificationItemReadPreview() {
+    EnglishForumTheme {
+        NotificationListItem(
+            item = NotificationItemUi(
+                id = "noti-2",
+                actorInitial = "M",
+                headline = "mentorX đã nhắc bạn trong bình luận",
+                supportingText = "mentorX: Great compilation! I usually start learners with Cambridge 15.",
+                timestampText = "58 phút trước",
+                postId = "post-2",
+                commentId = "comment-3",
+                isRead = true
             ),
             onClick = {}
         )
@@ -229,7 +334,8 @@ private fun NotiScreenPreview() {
                         supportingText = "\"Sed vulputate tellus magna, ac fringilla ipsum ornare in.\"",
                         timestampText = "9 phút trước",
                         postId = "post-1",
-                        commentId = "comment-1"
+                        commentId = "comment-1",
+                        isRead = false
                     ),
                     NotificationItemUi(
                         id = "noti-2",
@@ -238,11 +344,15 @@ private fun NotiScreenPreview() {
                         supportingText = "mentorX: Great compilation! I usually start learners with Cambridge 15.",
                         timestampText = "58 phút trước",
                         postId = "post-2",
-                        commentId = "comment-3"
+                        commentId = "comment-3",
+                        isRead = true
                     )
-                )
+                ),
+                unreadCount = 1
             ),
-            onNotificationClick = { _, _ -> }
+            onNotificationClick = { _, _ -> },
+            onMarkNotificationAsRead = {},
+            onMarkAllAsRead = {}
         )
     }
 }

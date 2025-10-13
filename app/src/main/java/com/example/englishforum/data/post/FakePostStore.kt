@@ -4,6 +4,7 @@ import com.example.englishforum.core.common.resolveVoteChange
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumComment
 import com.example.englishforum.core.model.forum.ForumPostDetail
+import com.example.englishforum.core.model.forum.PostTag
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,6 +23,54 @@ object FakePostStore {
 
     fun addPost(post: ForumPostDetail) {
         _posts.update { current -> listOf(post) + current }
+    }
+
+    fun reportPost(postId: String, reason: String): Boolean {
+        return _posts.value.any { it.id == postId }
+    }
+
+    fun deletePost(postId: String): Boolean {
+        var removed = false
+        _posts.update { current ->
+            val filtered = current.filter { post ->
+                val shouldKeep = post.id != postId
+                if (!shouldKeep) {
+                    removed = true
+                }
+                shouldKeep
+            }
+            filtered
+        }
+        return removed
+    }
+
+    fun updatePostContent(
+        postId: String,
+        title: String,
+        body: String,
+        tag: PostTag,
+        previewImageUrl: String?,
+        galleryImageUrls: List<String>
+    ): Boolean {
+        var updated = false
+        val sanitizedGallery = galleryImageUrls.distinct().takeIf { it.isNotEmpty() }
+        _posts.update { current ->
+            current.map { post ->
+                if (post.id == postId) {
+                    updated = true
+                    post.copy(
+                        title = title,
+                        body = body,
+                        tag = tag,
+                        previewImageUrl = previewImageUrl,
+                        galleryImages = sanitizedGallery
+                    )
+                } else {
+                    post
+                }
+            }
+        }
+        return updated
     }
 
     fun updatePostVote(postId: String, target: VoteState): Boolean {
@@ -50,17 +99,9 @@ object FakePostStore {
             current.map { post ->
                 if (post.id == postId) {
                     postFound = true
-                    val updatedComments = post.comments.map { comment ->
-                        if (comment.id == commentId) {
-                            commentFound = true
-                            val (nextState, delta) = resolveVoteChange(comment.voteState, target)
-                            comment.copy(
-                                voteState = nextState,
-                                voteCount = comment.voteCount + delta
-                            )
-                        } else {
-                            comment
-                        }
+                    val (updatedComments, found) = updateCommentThread(post.comments, commentId, target)
+                    if (found) {
+                        commentFound = true
                     }
                     post.copy(comments = updatedComments)
                 } else {
@@ -71,6 +112,39 @@ object FakePostStore {
         return postFound to commentFound
     }
 
+    private fun updateCommentThread(
+        comments: List<ForumComment>,
+        commentId: String,
+        target: VoteState
+    ): Pair<List<ForumComment>, Boolean> {
+        var found = false
+        val updated = comments.map { comment ->
+            when {
+                comment.id == commentId -> {
+                    found = true
+                    val (nextState, delta) = resolveVoteChange(comment.voteState, target)
+                    comment.copy(
+                        voteState = nextState,
+                        voteCount = comment.voteCount + delta
+                    )
+                }
+
+                comment.replies.isNotEmpty() -> {
+                    val (updatedReplies, replyFound) = updateCommentThread(comment.replies, commentId, target)
+                    if (replyFound) {
+                        found = true
+                        comment.copy(replies = updatedReplies)
+                    } else {
+                        comment
+                    }
+                }
+
+                else -> comment
+            }
+        }
+        return updated to found
+    }
+
     private fun createInitialPosts(): List<ForumPostDetail> {
         val sampleCommentsPost1 = listOf(
             ForumComment(
@@ -79,7 +153,36 @@ object FakePostStore {
                 minutesAgo = 6 * 60,
                 body = "Sed vulputate tellus magna, ac fringilla ipsum ornare in. Mình thường ghi âm lại rồi so sánh với bản chuẩn để thấy lỗi phát âm. Bạn có thể thử đọc đoạn hội thoại, thu âm từng câu, sau đó nhờ bạn bè góp ý. Nếu tự luyện, nên chia nhỏ từng cụm âm khó và lặp lại nhiều lần.",
                 voteCount = 6,
-                voteState = VoteState.NONE
+                voteState = VoteState.NONE,
+                replies = listOf(
+                    ForumComment(
+                        id = "comment-1-1",
+                        authorName = "reply_bot",
+                        minutesAgo = 5 * 60 + 20,
+                        body = "Đồng ý! Mình còn dùng thêm app Elsa Speak để đo độ chính xác sau mỗi lần thu.",
+                        voteCount = 3,
+                        voteState = VoteState.UPVOTED,
+                        replies = listOf(
+                            ForumComment(
+                                id = "comment-1-1-1",
+                                authorName = "crystal",
+                                minutesAgo = 5 * 60,
+                                body = "Elsa Speak chuẩn đó, nhưng nhớ luyện phát âm từng âm trước khi vào bài dài nha!",
+                                voteCount = 2,
+                                voteState = VoteState.NONE,
+                                isAuthor = true
+                            )
+                        )
+                    ),
+                    ForumComment(
+                        id = "comment-1-2",
+                        authorName = "practice_buddy",
+                        minutesAgo = 5 * 60,
+                        body = "Nếu luyện theo nhóm thì mọi người có tips gì để nhận xét cho nhau không?",
+                        voteCount = 1,
+                        voteState = VoteState.NONE
+                    )
+                )
             ),
             ForumComment(
                 id = "comment-2",
@@ -103,7 +206,35 @@ object FakePostStore {
                 minutesAgo = 2 * 60 + 45,
                 body = "Có thể tham khảo YouTube channel của Rachel's English. Cô ấy giải thích rất chi tiết về cách di chuyển lưỡi và môi cho từng âm.",
                 voteCount = 12,
-                voteState = VoteState.NONE
+                voteState = VoteState.NONE,
+                replies = listOf(
+                    ForumComment(
+                        id = "comment-12-1",
+                        authorName = "accent_reducer",
+                        minutesAgo = 2 * 60 + 20,
+                        body = "Chuẩn nè! Bạn cũng nên note lại khẩu hình miệng từng âm để luyện offline.",
+                        voteCount = 4,
+                        voteState = VoteState.NONE,
+                        replies = listOf(
+                            ForumComment(
+                                id = "comment-12-1-1",
+                                authorName = "english_learner_vn",
+                                minutesAgo = 2 * 60,
+                                body = "Mình đang làm flashcard khẩu hình bằng Notion, ai cần thì hú mình.",
+                                voteCount = 2,
+                                voteState = VoteState.UPVOTED
+                            ),
+                            ForumComment(
+                                id = "comment-12-1-2",
+                                authorName = "coach_mia",
+                                minutesAgo = 2 * 60 - 10,
+                                body = "Flashcard thì nên in ra và dán trong góc học tập, dễ nhớ hơn á.",
+                                voteCount = 1,
+                                voteState = VoteState.NONE
+                            )
+                        )
+                    )
+                )
             ),
             ForumComment(
                 id = "comment-13",
@@ -170,7 +301,28 @@ object FakePostStore {
                 minutesAgo = 32,
                 body = "Great compilation! I usually start learners with Cambridge 15.",
                 voteCount = 11,
-                voteState = VoteState.UPVOTED
+                voteState = VoteState.UPVOTED,
+                replies = listOf(
+                    ForumComment(
+                        id = "comment-3-1",
+                        authorName = "reading_addict",
+                        minutesAgo = 30,
+                        body = "Bạn có gợi ý nào cho band 6-7 không?",
+                        voteCount = 2,
+                        voteState = VoteState.NONE,
+                        replies = listOf(
+                            ForumComment(
+                                id = "comment-3-1-1",
+                                authorName = "mentorX",
+                                minutesAgo = 28,
+                                body = "Tập trung vào Cambridge 10-13 trước nha, độ khó vừa đủ.",
+                                voteCount = 2,
+                                voteState = VoteState.UPVOTED,
+                                isAuthor = true
+                            )
+                        )
+                    )
+                )
             ),
             ForumComment(
                 id = "comment-4",
@@ -250,53 +402,75 @@ object FakePostStore {
         return listOf(
             ForumPostDetail(
                 id = "post-1",
+                authorId = "demo-user",
                 authorName = "linhtran",
                 minutesAgo = 45,
                 title = "Cách luyện phát âm tiếng Anh hàng ngày",
                 body = "Mọi người có kinh nghiệm nào luyện phát âm khi không có người chỉnh lỗi không?",
                 voteCount = 128,
                 voteState = VoteState.UPVOTED,
-                comments = sampleCommentsPost1
+                comments = sampleCommentsPost1,
+                tag = PostTag.Tutorial,
+                authorAvatarUrl = "mock://avatar/linhtran",
+                previewImageUrl = "mock://daily-pronunciation",
+                galleryImages = listOf(
+                    "mock://gallery/pronunciation-1",
+                    "mock://gallery/pronunciation-2",
+                    "mock://gallery/pronunciation-3"
+                )
             ),
             ForumPostDetail(
                 id = "post-2",
+                authorId = "user-hoangnguyen",
                 authorName = "hoangnguyen",
                 minutesAgo = 95,
                 title = "Chia sẻ tài liệu IELTS Reading band 7+",
                 body = "Mình đã tổng hợp vài bộ đề mình thấy hay trong Drive, mời mọi người download.",
                 voteCount = 84,
                 voteState = VoteState.NONE,
-                comments = sampleCommentsPost2
+                comments = sampleCommentsPost2,
+                tag = PostTag.Resource,
+                authorAvatarUrl = "mock://avatar/hoangnguyen",
+                previewImageUrl = "mock://ielts-reading-kit"
             ),
             ForumPostDetail(
                 id = "post-3",
+                authorId = "user-minhchau",
                 authorName = "minhchau",
                 minutesAgo = 60 * 5,
                 title = "Luyện đọc hiểu câu dài như thế nào?",
                 body = "Những câu dài trong bài đọc IELTS thực sự khiến mình đau đầu, mọi người có tips nào không?",
                 voteCount = 45,
                 voteState = VoteState.NONE,
-                comments = sampleCommentsPost3
+                comments = sampleCommentsPost3,
+                tag = PostTag.AskQuestion,
+                authorAvatarUrl = "mock://avatar/minhchau"
             ),
             ForumPostDetail(
                 id = "post-4",
+                authorId = "user-thuyle",
                 authorName = "thuyle",
                 minutesAgo = 60 * 8,
                 title = "Viết Writing Task 2 mở bài ra sao cho hấp dẫn?",
                 body = "Mình luôn mất nhiều thời gian cho phần mở bài, làm sao để mở bài nhanh và thu hút?",
                 voteCount = 51,
                 voteState = VoteState.DOWNVOTED,
-                comments = sampleCommentsPost4
+                comments = sampleCommentsPost4,
+                tag = PostTag.Experience,
+                authorAvatarUrl = "mock://avatar/thuyle"
             ),
             ForumPostDetail(
                 id = "post-5",
+                authorId = "user-anhvu",
                 authorName = "anhvu",
                 minutesAgo = 60 * 12,
                 title = "Nguồn luyện Listening accent Anh-Anh",
                 body = "Bạn nào có nguồn podcast hoặc video luyện accent Anh chuẩn không?",
                 voteCount = 67,
                 voteState = VoteState.NONE,
-                comments = sampleCommentsPost5
+                comments = sampleCommentsPost5,
+                tag = PostTag.Resource,
+                authorAvatarUrl = "mock://avatar/anhvu"
             )
         )
     }

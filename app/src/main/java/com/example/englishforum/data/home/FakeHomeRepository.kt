@@ -32,7 +32,10 @@ class FakeHomeRepository(
             body = body,
             voteCount = voteCount,
             voteState = voteState,
-            commentCount = commentCount
+            commentCount = commentCount,
+            tag = tag,
+            authorAvatarUrl = authorAvatarUrl,
+            previewImageUrl = previewImageUrl
         )
     }
 }

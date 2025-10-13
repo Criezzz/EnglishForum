@@ -60,6 +60,7 @@ dependencies {
     implementation(libs.okhttpLogging)
     implementation(libs.moshi)
     implementation(libs.moshiKotlin)
+    implementation(libs.coil.compose)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

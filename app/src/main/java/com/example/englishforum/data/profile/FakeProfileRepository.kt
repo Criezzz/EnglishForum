@@ -24,6 +24,11 @@ class FakeProfileRepository : ProfileRepository {
         return Result.success(Unit)
     }
 
+    override suspend fun updateBio(userId: String, bio: String): Result<Unit> {
+        profileState.update { current -> current.copy(bio = bio) }
+        return Result.success(Unit)
+    }
+
     override suspend fun setPostVote(userId: String, postId: String, target: VoteState): Result<Unit> {
         var updated = false
         profileState.update { current ->
@@ -69,6 +74,7 @@ class FakeProfileRepository : ProfileRepository {
             userId = "user-1",
             displayName = "A_Great_Name",
             avatarUrl = null,
+            bio = "Certified English tutor who loves helping learners build confidence in conversation.",
             stats = ForumProfileStats(
                 upvotes = 57,
                 posts = 12,

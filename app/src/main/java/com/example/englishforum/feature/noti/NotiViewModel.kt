@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class NotiViewModel(
     private val repository: NotificationRepository
@@ -19,9 +20,11 @@ class NotiViewModel(
 
     val uiState: StateFlow<NotificationUiState> = repository.notificationsStream
         .map { notifications ->
+            val items = notifications.map { it.toUiModel() }
             NotificationUiState(
                 isLoading = false,
-                notifications = notifications.map { it.toUiModel() }
+                notifications = items,
+                unreadCount = notifications.count { !it.isRead }
             )
         }
         .stateIn(
@@ -29,6 +32,21 @@ class NotiViewModel(
             started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
             initialValue = NotificationUiState()
         )
+
+    fun markNotificationAsRead(notificationId: String) {
+        val alreadyRead = uiState.value.notifications.firstOrNull { it.id == notificationId }?.isRead == true
+        if (alreadyRead) return
+        viewModelScope.launch {
+            repository.markNotificationAsRead(notificationId)
+        }
+    }
+
+    fun markAllNotificationsAsRead() {
+        if (uiState.value.unreadCount == 0) return
+        viewModelScope.launch {
+            repository.markAllAsRead()
+        }
+    }
 
     private fun ForumNotification.toUiModel(): NotificationItemUi {
         val initials = actorName
@@ -53,7 +71,8 @@ class NotiViewModel(
             supportingText = description,
             timestampText = formatRelativeTime(minutesAgo),
             postId = postId,
-            commentId = commentId
+            commentId = commentId,
+            isRead = isRead
         )
     }
 }
@@ -72,7 +91,8 @@ class NotiViewModelFactory(
 
 data class NotificationUiState(
     val isLoading: Boolean = true,
-    val notifications: List<NotificationItemUi> = emptyList()
+    val notifications: List<NotificationItemUi> = emptyList(),
+    val unreadCount: Int = 0
 )
 
 data class NotificationItemUi(
@@ -82,5 +102,6 @@ data class NotificationItemUi(
     val supportingText: String,
     val timestampText: String,
     val postId: String,
-    val commentId: String?
+    val commentId: String?,
+    val isRead: Boolean
 )
