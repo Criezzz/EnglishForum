@@ -6,7 +6,8 @@ data class ForumNotification(
     val title: String,
     val description: String,
     val minutesAgo: Int,
-    val target: ForumNotificationTarget
+    val target: ForumNotificationTarget,
+    val isRead: Boolean = false
 )
 
 sealed interface ForumNotificationTarget {

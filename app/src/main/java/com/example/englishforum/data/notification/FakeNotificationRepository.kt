@@ -1,18 +1,45 @@
 package com.example.englishforum.data.notification
 
+import com.example.englishforum.core.model.forum.ForumPostDetail
 import com.example.englishforum.core.model.notification.ForumNotification
 import com.example.englishforum.core.model.notification.ForumNotificationTarget
-import com.example.englishforum.core.model.forum.ForumPostDetail
 import com.example.englishforum.data.post.FakePostStore
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.update
 
 class FakeNotificationRepository(
     private val store: FakePostStore = FakePostStore
 ) : NotificationRepository {
 
-    override val notificationsStream: Flow<List<ForumNotification>> = store.posts.map { posts ->
-        createNotifications(posts)
+    private val readNotificationIds = MutableStateFlow<Set<String>>(emptySet())
+
+    override val notificationsStream: Flow<List<ForumNotification>> = combine(
+        store.posts,
+        readNotificationIds
+    ) { posts, readIds ->
+        val notifications = createNotifications(posts)
+        val activeReadIds = sanitizeReadIds(readIds, notifications)
+
+        notifications.map { notification ->
+            val targetReadState = notification.id in activeReadIds
+            if (notification.isRead == targetReadState) {
+                notification
+            } else {
+                notification.copy(isRead = targetReadState)
+            }
+        }
+    }
+
+    override suspend fun markNotificationAsRead(notificationId: String) {
+        readNotificationIds.update { current -> current + notificationId }
+    }
+
+    override suspend fun markAllAsRead() {
+        val allIds = createNotifications(store.posts.value).map { it.id }.toSet()
+        if (allIds.isEmpty()) return
+        readNotificationIds.update { current -> current + allIds }
     }
 
     private fun createNotifications(posts: List<ForumPostDetail>): List<ForumNotification> {
@@ -96,4 +123,14 @@ class FakeNotificationRepository(
             )
         }
     }
+
+    private fun sanitizeReadIds(
+        readIds: Set<String>,
+        notifications: List<ForumNotification>
+    ): Set<String> {
+        if (readIds.isEmpty()) return emptySet()
+        val existingIds = notifications.mapTo(mutableSetOf()) { it.id }
+        return readIds.filterTo(mutableSetOf()) { it in existingIds }
+    }
 }
+
