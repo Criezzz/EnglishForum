@@ -31,6 +31,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ArrowDropDown
@@ -60,6 +61,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBar
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -138,7 +140,11 @@ fun CreateScreen(
     onSubmit: () -> Unit,
     onDeclineReasonDismissed: () -> Unit,
     onErrorMessageConsumed: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    @StringRes topBarTitleRes: Int = R.string.create_post_title,
+    @StringRes submitLabelRes: Int = R.string.create_post_submit,
+    @StringRes submitLoadingLabelRes: Int = R.string.create_post_submit_loading,
+    onBackClick: (() -> Unit)? = null
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     
@@ -161,21 +167,41 @@ fun CreateScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text(text = stringResource(id = R.string.create_post_title)) },
+                title = { Text(text = stringResource(id = topBarTitleRes)) },
+                navigationIcon = {
+                    if (onBackClick != null) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(id = R.string.auth_back_action)
+                            )
+                        }
+                    }
+                },
                 windowInsets = WindowInsets(0, 0, 0, 0)
             )
         },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
-        val scrollState = rememberScrollState()
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(scrollState)
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
-        ) {
+        if (uiState.isInitialLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
+            }
+        } else {
+            val scrollState = rememberScrollState()
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(scrollState)
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
             // Tag selector at the top
             if (uiState.availableTags.isNotEmpty()) {
                 TagSelectorDropdown(
@@ -238,13 +264,14 @@ fun CreateScreen(
                         color = MaterialTheme.colorScheme.onPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = stringResource(id = R.string.create_post_submit_loading))
+                    Text(text = stringResource(id = submitLoadingLabelRes))
                 } else {
-                    Text(text = stringResource(id = R.string.create_post_submit))
+                    Text(text = stringResource(id = submitLabelRes))
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
 

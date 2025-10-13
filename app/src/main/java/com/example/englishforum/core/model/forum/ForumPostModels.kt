@@ -36,6 +36,7 @@ data class ForumComment(
 
 data class ForumPostDetail(
     val id: String,
+    val authorId: String,
     val authorName: String,
     val minutesAgo: Int,
     val title: String,

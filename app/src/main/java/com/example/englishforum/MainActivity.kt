@@ -46,6 +46,7 @@ import com.example.englishforum.feature.aipractice.AiPracticeRoute
 import com.example.englishforum.feature.home.HomeScreen
 import com.example.englishforum.feature.noti.NotiRoute
 import com.example.englishforum.feature.postdetail.PostDetailRoute
+import com.example.englishforum.feature.postedit.PostEditRoute
 import com.example.englishforum.feature.profile.ProfileScreen
 import com.example.englishforum.feature.search.SearchRoute
 import com.example.englishforum.feature.settings.SettingsScreen
@@ -280,8 +281,32 @@ fun MainApp() {
                             postId = postId,
                             commentId = commentId,
                             onBackClick = { navController.popBackStack() },
+                            savedStateHandle = backStackEntry.savedStateHandle,
                             onNavigateToAiPractice = { practicePostId ->
                                 navController.navigate("aiPractice/$practicePostId")
+                            },
+                            onEditPostClick = { editPostId ->
+                                navController.navigate("post/$editPostId/edit")
+                            }
+                        )
+                    }
+                }
+                composable(
+                    route = "post/{postId}/edit",
+                    arguments = listOf(
+                        androidx.navigation.navArgument("postId") {
+                            type = androidx.navigation.NavType.StringType
+                        }
+                    )
+                ) { backStackEntry ->
+                    val postId = backStackEntry.arguments?.getString("postId")
+                    if (postId != null) {
+                        PostEditRoute(
+                            postId = postId,
+                            onBackClick = { navController.popBackStack() },
+                            onPostUpdated = {
+                                navController.previousBackStackEntry?.savedStateHandle?.set("post_edit_result", true)
+                                navController.popBackStack()
                             }
                         )
                     }

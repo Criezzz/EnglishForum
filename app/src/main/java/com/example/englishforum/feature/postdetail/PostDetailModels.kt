@@ -4,6 +4,7 @@ import com.example.englishforum.core.model.VoteState
 
 data class PostDetailUi(
     val id: String,
+    val authorId: String,
     val authorName: String,
     val relativeTimeText: String,
     val title: String,
@@ -34,7 +35,11 @@ data class PostDetailUiState(
     val post: PostDetailUi? = null,
     val comments: List<PostCommentUi> = emptyList(),
     val errorMessage: String? = null,
-    val isAiPracticeChecking: Boolean = false
+    val isAiPracticeChecking: Boolean = false,
+    val userMessage: String? = null,
+    val isPerformingAction: Boolean = false,
+    val isCurrentUserPostOwner: Boolean = false,
+    val isPostDeleted: Boolean = false
 ) {
     val isEmpty: Boolean get() = !isLoading && post == null && comments.isEmpty()
 }

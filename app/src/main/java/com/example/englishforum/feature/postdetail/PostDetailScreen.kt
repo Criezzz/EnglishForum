@@ -33,23 +33,32 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DeleteForever
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -71,6 +80,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.SavedStateHandle
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.VoteState
@@ -88,7 +98,10 @@ fun PostDetailRoute(
     postId: String,
     commentId: String? = null,
     onBackClick: () -> Unit,
-    onNavigateToAiPractice: (String) -> Unit = {}
+    savedStateHandle: SavedStateHandle,
+    onNavigateToAiPractice: (String) -> Unit = {},
+    onEditPostClick: (String) -> Unit,
+    onPostDeleted: () -> Unit = onBackClick
 ) {
     val appContainer = LocalAppContainer.current
     val viewModel: PostDetailViewModel = viewModel(
@@ -96,11 +109,22 @@ fun PostDetailRoute(
             PostDetailViewModelFactory(
                 postId = postId,
                 repository = appContainer.postDetailRepository,
-                aiPracticeRepository = appContainer.aiPracticeRepository
+                aiPracticeRepository = appContainer.aiPracticeRepository,
+                userSessionRepository = appContainer.userSessionRepository
             )
         }
     )
     val uiState by viewModel.uiState.collectAsState()
+
+    val postEditResult by savedStateHandle.getStateFlow("post_edit_result", false)
+        .collectAsState(initial = false)
+
+    LaunchedEffect(postEditResult) {
+        if (postEditResult) {
+            viewModel.onPostUpdatedExternally()
+            savedStateHandle["post_edit_result"] = false
+        }
+    }
 
     PostDetailScreen(
         modifier = modifier,
@@ -113,7 +137,15 @@ fun PostDetailRoute(
         onDownvoteComment = viewModel::onDownvoteComment,
         onOpenAiPracticeClick = {
             viewModel.onAiPracticeClick(onNavigateToAiPractice)
-        }
+        },
+        onReportPost = viewModel::onReportPost,
+        onEditPostClick = { onEditPostClick(postId) },
+        onDeletePost = {
+            viewModel.onDeletePost()
+        },
+        onUserMessageShown = viewModel::onUserMessageShown,
+        onPostDeletionHandled = viewModel::onPostDeletionHandled,
+        onPostDeleted = onPostDeleted
     )
 }
 
@@ -127,17 +159,48 @@ fun PostDetailScreen(
     onUpvoteComment: (String) -> Unit,
     onDownvoteComment: (String) -> Unit,
     onOpenAiPracticeClick: () -> Unit,
+    onReportPost: (String) -> Unit,
+    onEditPostClick: () -> Unit,
+    onDeletePost: () -> Unit,
+    onUserMessageShown: () -> Unit,
+    onPostDeletionHandled: () -> Unit,
+    onPostDeleted: () -> Unit,
     modifier: Modifier = Modifier,
     targetCommentId: String? = null
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     var highlightedCommentId by remember { mutableStateOf<String?>(null) }
+    var isOptionsExpanded by remember { mutableStateOf(false) }
+    var showReportDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    val post = uiState.post
 
     LaunchedEffect(uiState.errorMessage) {
         val message = uiState.errorMessage
         if (message != null) {
             snackbarHostState.showSnackbar(message)
+        }
+    }
+
+    LaunchedEffect(uiState.userMessage) {
+        val message = uiState.userMessage
+        if (message != null) {
+            snackbarHostState.showSnackbar(message)
+            onUserMessageShown()
+        }
+    }
+
+    LaunchedEffect(uiState.isPostDeleted) {
+        if (uiState.isPostDeleted) {
+            onPostDeleted()
+            onPostDeletionHandled()
+        }
+    }
+
+    LaunchedEffect(uiState.isPerformingAction) {
+        if (uiState.isPerformingAction) {
+            isOptionsExpanded = false
         }
     }
 
@@ -172,11 +235,37 @@ fun PostDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { }) {
-                        Icon(
-                            imageVector = Icons.Filled.MoreVert,
-                            contentDescription = stringResource(R.string.post_detail_options_content_description)
-                        )
+                    if (post != null) {
+                        Box {
+                            IconButton(
+                                onClick = { isOptionsExpanded = true },
+                                enabled = !uiState.isPerformingAction
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.MoreVert,
+                                    contentDescription = stringResource(R.string.post_detail_options_content_description)
+                                )
+                            }
+                            PostDetailOptionsMenu(
+                                expanded = isOptionsExpanded,
+                                showReport = !uiState.isCurrentUserPostOwner,
+                                isOwner = uiState.isCurrentUserPostOwner,
+                                enabled = !uiState.isPerformingAction,
+                                onDismissRequest = { isOptionsExpanded = false },
+                                onReportClick = {
+                                    isOptionsExpanded = false
+                                    showReportDialog = true
+                                },
+                                onEditClick = {
+                                    isOptionsExpanded = false
+                                    onEditPostClick()
+                                },
+                                onDeleteClick = {
+                                    isOptionsExpanded = false
+                                    showDeleteDialog = true
+                                }
+                            )
+                        }
                     }
                 },
                 windowInsets = WindowInsets(0, 0, 0, 0)
@@ -346,6 +435,168 @@ fun PostDetailScreen(
             }
         }
     }
+
+    if (showReportDialog) {
+        ReportPostDialog(
+            onDismiss = { showReportDialog = false }
+        ) { reason ->
+            showReportDialog = false
+            onReportPost(reason)
+        }
+    }
+
+    if (showDeleteDialog) {
+        DeletePostConfirmationDialog(
+            onDismiss = { showDeleteDialog = false },
+            onConfirm = {
+                showDeleteDialog = false
+                onDeletePost()
+            }
+        )
+    }
+}
+
+@Composable
+private fun PostDetailOptionsMenu(
+    expanded: Boolean,
+    showReport: Boolean,
+    isOwner: Boolean,
+    enabled: Boolean,
+    onDismissRequest: () -> Unit,
+    onReportClick: () -> Unit,
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
+    DropdownMenu(
+        expanded = expanded,
+        onDismissRequest = onDismissRequest
+    ) {
+        if (showReport) {
+            DropdownMenuItem(
+                text = { Text(text = stringResource(R.string.post_detail_action_report)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Flag,
+                        contentDescription = null
+                    )
+                },
+                enabled = enabled,
+                onClick = onReportClick
+            )
+        }
+
+        if (isOwner) {
+            DropdownMenuItem(
+                text = { Text(text = stringResource(R.string.post_detail_action_edit)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Edit,
+                        contentDescription = null
+                    )
+                },
+                enabled = enabled,
+                onClick = onEditClick
+            )
+
+            DropdownMenuItem(
+                text = { Text(text = stringResource(R.string.post_detail_action_delete)) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = null
+                    )
+                },
+                enabled = enabled,
+                onClick = onDeleteClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun ReportPostDialog(
+    onDismiss: () -> Unit,
+    onSubmit: (String) -> Unit
+) {
+    var reason by remember { mutableStateOf("") }
+    val isSubmitEnabled = reason.trim().isNotEmpty()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = stringResource(R.string.post_detail_report_dialog_title))
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(
+                    text = stringResource(R.string.post_detail_report_dialog_body),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it },
+                    label = { Text(text = stringResource(R.string.post_detail_report_reason_label)) },
+                    placeholder = { Text(text = stringResource(R.string.post_detail_report_reason_placeholder)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSubmit(reason.trim()) },
+                enabled = isSubmitEnabled
+            ) {
+                Text(text = stringResource(R.string.post_detail_report_submit))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.auth_cancel_action))
+            }
+        }
+    )
+}
+
+@Composable
+private fun DeletePostConfirmationDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Outlined.DeleteForever,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            )
+        },
+        title = {
+            Text(text = stringResource(R.string.post_detail_delete_dialog_title))
+        },
+        text = {
+            Text(
+                text = stringResource(R.string.post_detail_delete_dialog_body),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(
+                    text = stringResource(R.string.post_detail_delete_confirm),
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.auth_cancel_action))
+            }
+        }
+    )
 }
 
 @Composable
@@ -907,6 +1158,7 @@ private fun PostDetailScreenPreview() {
         isLoading = false,
         post = PostDetailUi(
             id = "post-1",
+            authorId = "user-preview",
             authorName = "Jane_Doe",
             relativeTimeText = "6 giờ trước",
             title = "Lorem ipsum dolor sit amet, consectetur adipiscing elit",
@@ -971,7 +1223,13 @@ private fun PostDetailScreenPreview() {
             onDownvotePost = {},
             onUpvoteComment = {},
             onDownvoteComment = {},
-            onOpenAiPracticeClick = {}
+            onOpenAiPracticeClick = {},
+            onReportPost = {},
+            onEditPostClick = {},
+            onDeletePost = {},
+            onUserMessageShown = {},
+            onPostDeletionHandled = {},
+            onPostDeleted = {}
         )
     }
 }

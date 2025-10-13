@@ -61,6 +61,20 @@
     <string name="post_detail_author_badge">Tác giả</string>
     <string name="post_detail_options_content_description">Mở tuỳ chọn bài viết</string>
     <string name="post_detail_reply_action">Phản hồi</string>
+    <string name="post_detail_action_report">Báo cáo bài viết</string>
+    <string name="post_detail_action_edit">Chỉnh sửa bài viết</string>
+    <string name="post_detail_action_delete">Xoá bài viết</string>
+    <string name="post_detail_report_dialog_title">Báo cáo bài viết</string>
+    <string name="post_detail_report_dialog_body">Hãy cho chúng tôi biết lý do bạn muốn báo cáo bài viết này.</string>
+    <string name="post_detail_report_reason_label">Lý do báo cáo</string>
+    <string name="post_detail_report_reason_placeholder">Nhập mô tả ngắn gọn...</string>
+    <string name="post_detail_report_submit">Gửi báo cáo</string>
+    <string name="post_detail_delete_dialog_title">Xoá bài viết?</string>
+    <string name="post_detail_delete_dialog_body">Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xoá bài viết này?</string>
+    <string name="post_detail_delete_confirm">Xoá</string>
+    <string name="post_edit_title">Chỉnh sửa bài viết</string>
+    <string name="post_edit_save">Lưu thay đổi</string>
+    <string name="post_edit_saving">Đang lưu...</string>
 
     <string name="create_post_title">Tạo bài viết</string>
     <string name="create_post_title_label">Tiêu đề bài viết</string>

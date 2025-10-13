@@ -25,6 +25,54 @@ object FakePostStore {
         _posts.update { current -> listOf(post) + current }
     }
 
+    fun reportPost(postId: String, reason: String): Boolean {
+        return _posts.value.any { it.id == postId }
+    }
+
+    fun deletePost(postId: String): Boolean {
+        var removed = false
+        _posts.update { current ->
+            val filtered = current.filter { post ->
+                val shouldKeep = post.id != postId
+                if (!shouldKeep) {
+                    removed = true
+                }
+                shouldKeep
+            }
+            filtered
+        }
+        return removed
+    }
+
+    fun updatePostContent(
+        postId: String,
+        title: String,
+        body: String,
+        tag: PostTag,
+        previewImageUrl: String?,
+        galleryImageUrls: List<String>
+    ): Boolean {
+        var updated = false
+        val sanitizedGallery = galleryImageUrls.distinct().takeIf { it.isNotEmpty() }
+        _posts.update { current ->
+            current.map { post ->
+                if (post.id == postId) {
+                    updated = true
+                    post.copy(
+                        title = title,
+                        body = body,
+                        tag = tag,
+                        previewImageUrl = previewImageUrl,
+                        galleryImages = sanitizedGallery
+                    )
+                } else {
+                    post
+                }
+            }
+        }
+        return updated
+    }
+
     fun updatePostVote(postId: String, target: VoteState): Boolean {
         var found = false
         _posts.update { current ->
@@ -354,6 +402,7 @@ object FakePostStore {
         return listOf(
             ForumPostDetail(
                 id = "post-1",
+                authorId = "demo-user",
                 authorName = "linhtran",
                 minutesAgo = 45,
                 title = "Cách luyện phát âm tiếng Anh hàng ngày",
@@ -372,6 +421,7 @@ object FakePostStore {
             ),
             ForumPostDetail(
                 id = "post-2",
+                authorId = "user-hoangnguyen",
                 authorName = "hoangnguyen",
                 minutesAgo = 95,
                 title = "Chia sẻ tài liệu IELTS Reading band 7+",
@@ -385,6 +435,7 @@ object FakePostStore {
             ),
             ForumPostDetail(
                 id = "post-3",
+                authorId = "user-minhchau",
                 authorName = "minhchau",
                 minutesAgo = 60 * 5,
                 title = "Luyện đọc hiểu câu dài như thế nào?",
@@ -397,6 +448,7 @@ object FakePostStore {
             ),
             ForumPostDetail(
                 id = "post-4",
+                authorId = "user-thuyle",
                 authorName = "thuyle",
                 minutesAgo = 60 * 8,
                 title = "Viết Writing Task 2 mở bài ra sao cho hấp dẫn?",
@@ -409,6 +461,7 @@ object FakePostStore {
             ),
             ForumPostDetail(
                 id = "post-5",
+                authorId = "user-anhvu",
                 authorName = "anhvu",
                 minutesAgo = 60 * 12,
                 title = "Nguồn luyện Listening accent Anh-Anh",

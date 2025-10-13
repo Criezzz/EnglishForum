@@ -31,9 +31,15 @@ data class CreateUiState(
     val isSubmitting: Boolean = false,
     val declineReason: String? = null,
     val errorMessage: String? = null,
-    val successPostId: String? = null
+    val successPostId: String? = null,
+    val isInitialLoading: Boolean = false
 ) {
-    val canSubmit: Boolean get() = title.isNotBlank() && body.isNotBlank() && selectedTag != null && !isSubmitting
+    val canSubmit: Boolean
+        get() = title.isNotBlank() &&
+            body.isNotBlank() &&
+            selectedTag != null &&
+            !isSubmitting &&
+            !isInitialLoading
 }
 
 class CreateViewModel(
