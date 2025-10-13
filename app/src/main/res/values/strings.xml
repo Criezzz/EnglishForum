@@ -115,6 +115,10 @@
     <string name="profile_edit_save">Lưu thay đổi</string>
     <string name="profile_edit_close_content_description">Đóng chỉnh sửa hồ sơ</string>
     <string name="profile_edit_clear_name">Xoá tên</string>
+    <string name="profile_bio_empty">Chưa có nội dung giới thiệu</string>
+    <string name="profile_edit_bio_label">Giới thiệu</string>
+    <string name="profile_edit_bio_placeholder">Chia sẻ đôi điều về bạn</string>
+    <string name="profile_edit_bio_supporting">Tối đa 4 dòng, có thể để trống nếu bạn muốn</string>
 
     <string name="settings_title">Cài đặt</string>
     <string name="settings_theme">Giao diện</string>

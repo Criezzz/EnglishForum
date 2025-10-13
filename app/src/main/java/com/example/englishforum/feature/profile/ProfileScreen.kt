@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -107,9 +108,10 @@ fun ProfileScreen(
     if (showEditDialog && overview != null) {
         ProfileEditDialog(
             currentName = overview.displayName,
+            currentBio = overview.bio.orEmpty(),
             onDismiss = { showEditDialog = false },
-            onSave = { name ->
-                viewModel.updateDisplayName(name)
+            onSave = { name, bio ->
+                viewModel.updateProfile(name, bio)
                 showEditDialog = false
             },
             onChangePhoto = {}
@@ -281,7 +283,7 @@ private fun ProfileHeader(
                         .fillMaxWidth()
                         .padding(horizontal = 24.dp, vertical = 20.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -323,6 +325,8 @@ private fun ProfileHeader(
                         color = MaterialTheme.colorScheme.onSurface
                     )
 
+                    ProfileBioSection(bio = overview.bio)
+
                     ProfileStatsRow(stats = overview.stats)
                 }
             }
@@ -339,6 +343,28 @@ private fun ProfileHeader(
             }
         }
     }
+}
+
+@Composable
+private fun ProfileBioSection(bio: String?) {
+    val trimmed = bio?.trim().orEmpty()
+    val hasBio = trimmed.isNotEmpty()
+    val displayText = if (hasBio) trimmed else stringResource(R.string.profile_bio_empty)
+    val textColor = if (hasBio) {
+        MaterialTheme.colorScheme.onSurface
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+
+    Text(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp),
+        text = displayText,
+        style = MaterialTheme.typography.bodyMedium,
+        color = textColor,
+        textAlign = TextAlign.Center
+    )
 }
 
 @Composable
@@ -468,6 +494,7 @@ private fun ProfileScreenPreview() {
             uiState = ProfileUiState(
                 overview = ProfileOverview(
                     displayName = "A_Great_Name",
+                    bio = "Certified English tutor who loves helping learners build confidence in conversation.",
                     stats = ProfileStats(
                         upvotes = 57,
                         posts = 12,
@@ -522,11 +549,13 @@ private fun ProfileScreenPreview() {
 @Composable
 private fun ProfileEditDialog(
     currentName: String,
+    currentBio: String,
     onDismiss: () -> Unit,
-    onSave: (String) -> Unit,
+    onSave: (String, String) -> Unit,
     onChangePhoto: () -> Unit
 ) {
     var editedName by rememberSaveable(currentName) { mutableStateOf(currentName) }
+    var editedBio by rememberSaveable(currentBio) { mutableStateOf(currentBio) }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -603,9 +632,28 @@ private fun ProfileEditDialog(
                     }
                 )
 
+                OutlinedTextField(
+                    value = editedBio,
+                    onValueChange = { editedBio = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 120.dp),
+                    label = { Text(stringResource(R.string.profile_edit_bio_label)) },
+                    placeholder = { Text(stringResource(R.string.profile_edit_bio_placeholder)) },
+                    supportingText = {
+                        Text(
+                            text = stringResource(R.string.profile_edit_bio_supporting),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    },
+                    shape = MaterialTheme.shapes.large,
+                    maxLines = 4
+                )
+
                 val trimmedName = editedName.trim()
+                val trimmedBio = editedBio.trim()
                 Button(
-                    onClick = { onSave(trimmedName) },
+                    onClick = { onSave(trimmedName, trimmedBio) },
                     enabled = trimmedName.isNotBlank(),
                     shape = MaterialTheme.shapes.large,
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)

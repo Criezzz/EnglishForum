@@ -9,6 +9,8 @@ interface ProfileRepository {
 
     suspend fun updateDisplayName(userId: String, displayName: String): Result<Unit>
 
+    suspend fun updateBio(userId: String, bio: String): Result<Unit>
+
     suspend fun setPostVote(userId: String, postId: String, target: VoteState): Result<Unit>
 
     suspend fun setReplyVote(userId: String, replyId: String, target: VoteState): Result<Unit>

@@ -41,6 +41,30 @@ class ProfileViewModel(
         }
     }
 
+    fun updateBio(newBio: String) {
+        val sanitized = newBio.trim()
+        viewModelScope.launch {
+            repository.updateBio(userId, sanitized)
+        }
+    }
+
+    fun updateProfile(newName: String, newBio: String) {
+        val trimmedName = newName.trim()
+        if (trimmedName.isEmpty()) return
+        val sanitizedBio = newBio.trim()
+        val currentOverview = _uiState.value.overview
+
+        viewModelScope.launch {
+            if (currentOverview?.displayName != trimmedName) {
+                repository.updateDisplayName(userId, trimmedName)
+            }
+            val currentBio = currentOverview?.bio.orEmpty()
+            if (currentBio != sanitizedBio) {
+                repository.updateBio(userId, sanitizedBio)
+            }
+        }
+    }
+
     fun onPostUpvote(postId: String) {
         updatePostVote(postId, VoteState.UPVOTED)
     }
@@ -74,6 +98,7 @@ class ProfileViewModel(
             overview = ProfileOverview(
                 displayName = displayName,
                 avatarUrl = avatarUrl,
+                bio = bio,
                 stats = ProfileStats(
                     upvotes = stats.upvotes,
                     posts = stats.posts,
