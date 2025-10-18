@@ -16,6 +16,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -49,6 +51,9 @@ import com.example.englishforum.feature.postdetail.PostDetailRoute
 import com.example.englishforum.feature.postedit.PostEditRoute
 import com.example.englishforum.feature.profile.ProfileScreen
 import com.example.englishforum.feature.search.SearchRoute
+import com.example.englishforum.feature.session.SessionMonitorState
+import com.example.englishforum.feature.session.SessionMonitorViewModel
+import com.example.englishforum.feature.session.SessionMonitorViewModelFactory
 import com.example.englishforum.feature.settings.SettingsScreen
 import kotlinx.coroutines.launch
 
@@ -91,6 +96,8 @@ fun MainApp() {
     val sessionRepository = remember { appContainer.userSessionRepository }
     val authRepository = remember { appContainer.authRepository }
     val themeRepository = remember { appContainer.themePreferenceRepository }
+    val sessionValidator = remember { appContainer.sessionValidator }
+    val networkMonitor = remember { appContainer.networkMonitor }
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
 
@@ -99,6 +106,38 @@ fun MainApp() {
     val showBottomBar = currentRoute != "login" && currentRoute != "register" && currentRoute != "forgot" && currentRoute != "verify" && currentRoute != Destinations.Settings.route
     val userSession by sessionRepository.sessionFlow.collectAsState(initial = null)
     val themeOption by themeRepository.themeOptionFlow.collectAsState(initial = ThemeOption.FOLLOW_SYSTEM)
+    val sessionMonitorViewModel: SessionMonitorViewModel = viewModel(
+        factory = remember(sessionRepository, sessionValidator, networkMonitor) {
+            SessionMonitorViewModelFactory(
+                userSessionRepository = sessionRepository,
+                sessionValidator = sessionValidator,
+                networkMonitor = networkMonitor
+            )
+        }
+    )
+    val sessionMonitorState by sessionMonitorViewModel.state.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val sessionExpiredMessage = stringResource(R.string.session_expired_message)
+    val sessionOfflineMessage = stringResource(R.string.session_offline_message)
+    val sessionCheckErrorMessage = stringResource(R.string.session_check_error_message)
+
+    LaunchedEffect(sessionMonitorState) {
+        when (val state = sessionMonitorState) {
+            SessionMonitorState.Invalidated -> {
+                snackbarHostState.showSnackbar(sessionExpiredMessage)
+            }
+
+            SessionMonitorState.Offline -> {
+                snackbarHostState.showSnackbar(sessionOfflineMessage)
+            }
+
+            is SessionMonitorState.Error -> {
+                snackbarHostState.showSnackbar(state.message ?: sessionCheckErrorMessage)
+            }
+
+            else -> Unit
+        }
+    }
 
     LaunchedEffect(userSession, currentRoute) {
         val authRoutes = setOf("login", "register", "forgot", "verify")
@@ -130,6 +169,7 @@ fun MainApp() {
     EnglishForumTheme(themeOption = themeOption) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
             bottomBar = {
                 if (showBottomBar) {
                     MainBottomBar(navController)

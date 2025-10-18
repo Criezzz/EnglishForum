@@ -2,13 +2,16 @@ package com.example.englishforum.core.di
 
 import android.content.Context
 import com.example.englishforum.BuildConfig
+import com.example.englishforum.core.network.NetworkMonitor
 import com.example.englishforum.data.aipractice.AiPracticeRepository
 import com.example.englishforum.data.aipractice.FakeAiPracticeRepository
 import com.example.englishforum.data.auth.AuthRepository
 import com.example.englishforum.data.auth.DataStoreUserSessionRepository
+import com.example.englishforum.data.auth.SessionValidator
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.auth.remote.AuthApi
 import com.example.englishforum.data.auth.remote.RemoteAuthRepository
+import com.example.englishforum.data.auth.remote.RemoteSessionValidator
 import com.example.englishforum.data.create.CreatePostRepository
 import com.example.englishforum.data.create.FakeCreatePostRepository
 import com.example.englishforum.data.home.FakeHomeRepository
@@ -40,6 +43,8 @@ interface AppContainer {
     val createPostRepository: CreatePostRepository
     val notificationRepository: NotificationRepository
     val profileRepository: ProfileRepository
+    val sessionValidator: SessionValidator
+    val networkMonitor: NetworkMonitor
 }
 
 class DefaultAppContainer(context: Context) : AppContainer {
@@ -126,5 +131,13 @@ class DefaultAppContainer(context: Context) : AppContainer {
             profileApi = profileApi,
             userSessionRepository = userSessionRepository
         )
+    }
+
+    override val sessionValidator: SessionValidator by lazy {
+        RemoteSessionValidator(profileApi = profileApi)
+    }
+
+    override val networkMonitor: NetworkMonitor by lazy {
+        NetworkMonitor(appContext)
     }
 }

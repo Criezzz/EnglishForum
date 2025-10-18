@@ -146,4 +146,7 @@
     <string name="settings_theme_dark">Giao diện tối</string>
     <string name="settings_theme_apply">Áp dụng</string>
     <string name="settings_logout">Đăng xuất</string>
+    <string name="session_expired_message">Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.</string>
+    <string name="session_offline_message">Không thể kiểm tra phiên vì mất kết nối mạng.</string>
+    <string name="session_check_error_message">Không thể xác minh phiên do lỗi máy chủ.</string>
 </resources>
