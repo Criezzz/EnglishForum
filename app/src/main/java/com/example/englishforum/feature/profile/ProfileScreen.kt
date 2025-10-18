@@ -38,6 +38,7 @@ import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -84,7 +85,15 @@ fun ProfileScreen(
         }
     )
     val uiState by viewModel.uiState.collectAsState()
+    val editState by viewModel.editState.collectAsState()
     var showEditDialog by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(editState) {
+        if (editState is ProfileEditState.Success) {
+            showEditDialog = false
+            viewModel.resetEditState()
+        }
+    }
 
     ProfileContent(
         modifier = modifier,
@@ -92,6 +101,7 @@ fun ProfileScreen(
         onSettingsClick = onSettingsClick,
         onEditClick = {
             onEditClick()
+            viewModel.resetEditState()
             showEditDialog = true
         },
         onPostClick = onPostClick,
@@ -109,10 +119,14 @@ fun ProfileScreen(
         ProfileEditDialog(
             currentName = overview.displayName,
             currentBio = overview.bio.orEmpty(),
-            onDismiss = { showEditDialog = false },
+            isSaving = editState is ProfileEditState.InProgress,
+            errorMessage = (editState as? ProfileEditState.Error)?.message,
+            onDismiss = {
+                showEditDialog = false
+                viewModel.resetEditState()
+            },
             onSave = { name, bio ->
                 viewModel.updateProfile(name, bio)
-                showEditDialog = false
             },
             onChangePhoto = {}
         )
@@ -550,12 +564,14 @@ private fun ProfileScreenPreview() {
 private fun ProfileEditDialog(
     currentName: String,
     currentBio: String,
+    isSaving: Boolean,
+    errorMessage: String?,
     onDismiss: () -> Unit,
     onSave: (String, String) -> Unit,
     onChangePhoto: () -> Unit
 ) {
     var editedName by rememberSaveable(currentName) { mutableStateOf(currentName) }
-    var editedBio by rememberSaveable(currentBio) { mutableStateOf(currentBio) }
+    var editedBio by rememberSaveable(currentBio) { mutableStateOf(currentBio.take(MAX_PROFILE_BIO_LENGTH)) }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -634,36 +650,75 @@ private fun ProfileEditDialog(
 
                 OutlinedTextField(
                     value = editedBio,
-                    onValueChange = { editedBio = it },
+                    onValueChange = { newValue ->
+                        editedBio = if (newValue.length <= MAX_PROFILE_BIO_LENGTH) {
+                            newValue
+                        } else {
+                            newValue.take(MAX_PROFILE_BIO_LENGTH)
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 120.dp),
                     label = { Text(stringResource(R.string.profile_edit_bio_label)) },
                     placeholder = { Text(stringResource(R.string.profile_edit_bio_placeholder)) },
                     supportingText = {
-                        Text(
-                            text = stringResource(R.string.profile_edit_bio_supporting),
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.profile_edit_bio_supporting, MAX_PROFILE_BIO_LENGTH),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "${editedBio.length}/$MAX_PROFILE_BIO_LENGTH",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     },
                     shape = MaterialTheme.shapes.large,
                     maxLines = 4
                 )
 
+                if (!errorMessage.isNullOrBlank()) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
                 val trimmedName = editedName.trim()
                 val trimmedBio = editedBio.trim()
                 Button(
                     onClick = { onSave(trimmedName, trimmedBio) },
-                    enabled = trimmedName.isNotBlank(),
+                    enabled = trimmedName.isNotBlank() && !isSaving,
                     shape = MaterialTheme.shapes.large,
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(text = stringResource(R.string.profile_edit_save))
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(text = stringResource(R.string.profile_edit_saving))
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(text = stringResource(R.string.profile_edit_save))
+                    }
                 }
             }
         }

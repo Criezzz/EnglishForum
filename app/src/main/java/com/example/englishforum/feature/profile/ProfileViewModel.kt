@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
+internal const val MAX_PROFILE_BIO_LENGTH = 280
+
 class ProfileViewModel(
     private val repository: ProfileRepository,
     private val userId: String
@@ -23,6 +25,9 @@ class ProfileViewModel(
 
     private val _uiState = MutableStateFlow(ProfileUiState())
     val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+
+    private val _editState = MutableStateFlow<ProfileEditState>(ProfileEditState.Idle)
+    val editState: StateFlow<ProfileEditState> = _editState.asStateFlow()
 
     init {
         repository.observeProfile(userId)
@@ -49,19 +54,61 @@ class ProfileViewModel(
 
     fun updateProfile(newName: String, newBio: String) {
         val trimmedName = newName.trim()
-        if (trimmedName.isEmpty()) return
         val sanitizedBio = newBio.trim()
         val currentOverview = _uiState.value.overview
 
         viewModelScope.launch {
-            if (currentOverview?.displayName != trimmedName) {
-                repository.updateDisplayName(userId, trimmedName)
+            val nameChanged = currentOverview?.displayName != trimmedName
+            val bioChanged = currentOverview?.bio.orEmpty() != sanitizedBio
+
+            if (!nameChanged && !bioChanged) {
+                _editState.value = ProfileEditState.Success
+                return@launch
             }
-            val currentBio = currentOverview?.bio.orEmpty()
-            if (currentBio != sanitizedBio) {
-                repository.updateBio(userId, sanitizedBio)
+
+            if (trimmedName.isEmpty()) {
+                _editState.value = ProfileEditState.Error("Display name cannot be empty")
+                return@launch
+            }
+
+            if (bioChanged && sanitizedBio.isEmpty()) {
+                _editState.value = ProfileEditState.Error("Bio cannot be empty")
+                return@launch
+            }
+
+            if (bioChanged && sanitizedBio.containsUnsupportedCharacters()) {
+                _editState.value = ProfileEditState.Error("Bio cannot include unsupported characters like emoji")
+                return@launch
+            }
+
+            if (bioChanged && sanitizedBio.length > MAX_PROFILE_BIO_LENGTH) {
+                _editState.value = ProfileEditState.Error("Bio cannot exceed $MAX_PROFILE_BIO_LENGTH characters")
+                return@launch
+            }
+
+            _editState.value = ProfileEditState.InProgress
+
+            var failure: Throwable? = null
+            if (nameChanged) {
+                val nameResult = repository.updateDisplayName(userId, trimmedName)
+                failure = nameResult.exceptionOrNull()
+            }
+            if (failure == null && bioChanged) {
+                val bioResult = repository.updateBio(userId, sanitizedBio)
+                failure = bioResult.exceptionOrNull()
+            }
+
+            if (failure != null) {
+                val message = failure.message ?: "Could not update profile"
+                _editState.value = ProfileEditState.Error(message)
+            } else {
+                _editState.value = ProfileEditState.Success
             }
         }
+    }
+
+    fun resetEditState() {
+        _editState.value = ProfileEditState.Idle
     }
 
     fun onPostUpvote(postId: String) {
@@ -136,6 +183,8 @@ class ProfileViewModel(
         )
     }
 }
+
+private fun String.containsUnsupportedCharacters(): Boolean = any { Character.isSurrogate(it) }
 
 class ProfileViewModelFactory(
     private val repository: ProfileRepository,

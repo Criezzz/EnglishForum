@@ -40,3 +40,10 @@ data class ProfileUiState(
     val replies: List<ProfileReply> = emptyList(),
     val isLoading: Boolean = true
 )
+
+sealed interface ProfileEditState {
+    data object Idle : ProfileEditState
+    data object InProgress : ProfileEditState
+    data object Success : ProfileEditState
+    data class Error(val message: String) : ProfileEditState
+}
