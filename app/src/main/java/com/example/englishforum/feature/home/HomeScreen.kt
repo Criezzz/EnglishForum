@@ -1,6 +1,11 @@
 package com.example.englishforum.feature.home
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,18 +25,22 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -48,6 +57,7 @@ import com.example.englishforum.core.ui.theme.EnglishForumTheme
 import kotlin.math.abs
 
 private const val HOME_POST_BODY_MAX_LINES = 6
+private const val HOME_PLACEHOLDER_COUNT = 3
 private val HOME_POST_AVATAR_SIZE = 44.dp
 
 @Composable
@@ -66,6 +76,7 @@ fun HomeScreen(
     HomeContent(
         modifier = modifier,
         uiState = uiState,
+        onRefresh = viewModel::onRefresh,
         onFilterSelected = viewModel::onFilterSelected,
         onUpvote = viewModel::onUpvote,
         onDownvote = viewModel::onDownvote,
@@ -75,10 +86,12 @@ fun HomeScreen(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalAnimationApi::class)
 @Composable
 private fun HomeContent(
     modifier: Modifier = Modifier,
     uiState: HomeUiState,
+    onRefresh: () -> Unit,
     onFilterSelected: (HomeFeedFilter) -> Unit,
     onUpvote: (String) -> Unit,
     onDownvote: (String) -> Unit,
@@ -86,119 +99,148 @@ private fun HomeContent(
     onCommentClick: (String) -> Unit,
     onMoreActionsClick: (String) -> Unit
 ) {
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        if (uiState.availableFilters.isNotEmpty()) {
-            item {
-                HomeFilterChips(
-                    filters = uiState.availableFilters,
-                    selectedFilter = uiState.selectedFilter,
-                    onFilterSelected = onFilterSelected
-                )
-            }
-        }
-
+    val pullState = rememberPullToRefreshState()
+    val feedContentState = remember(uiState.isLoading, uiState.isRefreshing, uiState.posts) {
         when {
-            uiState.isLoading -> {
-                items(3) {
-                    ForumContentCardPlaceholder(
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-            }
+            uiState.isLoading || uiState.isRefreshing -> HomeFeedContent.Loading
+            uiState.posts.isEmpty() -> HomeFeedContent.Empty
+            else -> HomeFeedContent.Data(uiState.posts)
+        }
+    }
 
-            uiState.posts.isEmpty() -> {
-                item {
-                    HomeEmptyState(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 32.dp)
-                    )
+    PullToRefreshBox(
+        modifier = modifier.fillMaxSize(),
+        state = pullState,
+        isRefreshing = uiState.isRefreshing,
+        onRefresh = onRefresh,
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullState,
+                isRefreshing = uiState.isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+        }
+    ) {
+        AnimatedContent(
+            targetState = feedContentState,
+            transitionSpec = { fadeIn() togetherWith fadeOut() },
+            label = "home_feed_content"
+        ) { state ->
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                if (uiState.availableFilters.isNotEmpty()) {
+                    item {
+                        HomeFilterChips(
+                            filters = uiState.availableFilters,
+                            selectedFilter = uiState.selectedFilter,
+                            onFilterSelected = onFilterSelected
+                        )
+                    }
                 }
-            }
 
-            else -> {
-                items(
-                    items = uiState.posts,
-                    key = { it.id }
-                ) { post ->
-                    val tagLabel = stringResource(post.tag.toLabelResId())
-                    ForumContentCard(
-                        modifier = Modifier.fillMaxWidth(),
-                        meta = stringResource(
-                            R.string.home_post_meta_with_tag,
-                            post.authorName,
-                            post.relativeTimeText,
-                            tagLabel
-                        ),
-                        voteCount = post.voteCount,
-                        title = null,
-                        body = null,
-                        voteState = post.voteState,
-                        commentCount = post.commentCount,
-                        onCardClick = { onPostClick(post.id) },
-                        onCommentClick = { onCommentClick(post.id) },
-                        onUpvoteClick = { onUpvote(post.id) },
-                        onDownvoteClick = { onDownvote(post.id) },
-                        onMoreActionsClick = { onMoreActionsClick(post.id) },
-                        leadingContent = {
-                            HomePostAvatar(
-                                name = post.authorName,
-                                modifier = Modifier.size(HOME_POST_AVATAR_SIZE)
+                when (state) {
+                    HomeFeedContent.Loading -> {
+                        items(HOME_PLACEHOLDER_COUNT) {
+                            ForumContentCardPlaceholder(
+                                modifier = Modifier.fillMaxWidth()
                             )
-                        },
-                        headerContent = {
-                            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = post.authorName,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                    Spacer(Modifier.weight(1f))
-                                    HomePostTagLabel(label = tagLabel)
-                                }
-                                Text(
-                                    text = post.relativeTimeText,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        },
-                        bodyContent = {
-                            var previousDisplayed = false
-                            if (post.title.isNotBlank()) {
-                                Spacer(Modifier.height(6.dp))
-                                Text(
-                                    text = post.title,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                previousDisplayed = true
-                            }
-                            if (post.body.isNotBlank()) {
-                                Spacer(Modifier.height(if (previousDisplayed) 4.dp else 6.dp))
-                                Text(
-                                    text = post.body,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = HOME_POST_BODY_MAX_LINES,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        },
-                        supportingContent = {
-                            if (post.previewImageUrl != null) {
-                                HomePostImagePlaceholder()
-                            }
                         }
-                    )
+                    }
+
+                    HomeFeedContent.Empty -> {
+                        item {
+                            HomeEmptyState(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 32.dp)
+                            )
+                        }
+                    }
+
+                    is HomeFeedContent.Data -> {
+                        items(
+                            items = state.posts,
+                            key = { it.id }
+                        ) { post ->
+                            val tagLabel = stringResource(post.tag.toLabelResId())
+                            ForumContentCard(
+                                modifier = Modifier.fillMaxWidth(),
+                                meta = stringResource(
+                                    R.string.home_post_meta_with_tag,
+                                    post.authorName,
+                                    post.relativeTimeText,
+                                    tagLabel
+                                ),
+                                voteCount = post.voteCount,
+                                title = null,
+                                body = null,
+                                voteState = post.voteState,
+                                commentCount = post.commentCount,
+                                onCardClick = { onPostClick(post.id) },
+                                onCommentClick = { onCommentClick(post.id) },
+                                onUpvoteClick = { onUpvote(post.id) },
+                                onDownvoteClick = { onDownvote(post.id) },
+                                onMoreActionsClick = { onMoreActionsClick(post.id) },
+                                leadingContent = {
+                                    HomePostAvatar(
+                                        name = post.authorName,
+                                        modifier = Modifier.size(HOME_POST_AVATAR_SIZE)
+                                    )
+                                },
+                                headerContent = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = post.authorName,
+                                                style = MaterialTheme.typography.titleSmall,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                            Spacer(Modifier.weight(1f))
+                                            HomePostTagLabel(label = tagLabel)
+                                        }
+                                        Text(
+                                            text = post.relativeTimeText,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                bodyContent = {
+                                    var previousDisplayed = false
+                                    if (post.title.isNotBlank()) {
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(
+                                            text = post.title,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        previousDisplayed = true
+                                    }
+                                    if (post.body.isNotBlank()) {
+                                        Spacer(Modifier.height(if (previousDisplayed) 4.dp else 6.dp))
+                                        Text(
+                                            text = post.body,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            maxLines = HOME_POST_BODY_MAX_LINES,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                },
+                                supportingContent = {
+                                    if (post.previewImageUrl != null) {
+                                        HomePostImagePlaceholder()
+                                    }
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -333,6 +375,12 @@ private fun HomeEmptyState(
     )
 }
 
+private sealed interface HomeFeedContent {
+    data object Loading : HomeFeedContent
+    data object Empty : HomeFeedContent
+    data class Data(val posts: List<HomePostUi>) : HomeFeedContent
+}
+
 @StringRes
 private fun HomeFeedFilter.labelResId(): Int {
     return when (this) {
@@ -375,6 +423,7 @@ private fun HomeScreenPreview() {
         HomeContent(
             uiState = HomeUiState(
                 isLoading = false,
+                isRefreshing = false,
                 posts = previewPosts,
                 availableFilters = listOf(
                     HomeFeedFilter.Latest,
@@ -384,6 +433,7 @@ private fun HomeScreenPreview() {
                 ),
                 selectedFilter = HomeFeedFilter.Latest
             ),
+            onRefresh = {},
             onFilterSelected = {},
             onUpvote = {},
             onDownvote = {},

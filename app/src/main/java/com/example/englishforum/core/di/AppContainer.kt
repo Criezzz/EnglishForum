@@ -14,8 +14,9 @@ import com.example.englishforum.data.auth.remote.RemoteAuthRepository
 import com.example.englishforum.data.auth.remote.RemoteSessionValidator
 import com.example.englishforum.data.create.CreatePostRepository
 import com.example.englishforum.data.create.FakeCreatePostRepository
-import com.example.englishforum.data.home.FakeHomeRepository
 import com.example.englishforum.data.home.HomeRepository
+import com.example.englishforum.data.home.remote.PostsApi
+import com.example.englishforum.data.home.remote.RemoteHomeRepository
 import com.example.englishforum.data.notification.FakeNotificationRepository
 import com.example.englishforum.data.notification.NotificationRepository
 import com.example.englishforum.data.post.FakePostDetailRepository
@@ -104,8 +105,13 @@ class DefaultAppContainer(context: Context) : AppContainer {
         ThemePreferenceRepository(appContext)
     }
 
+    private val postsApi: PostsApi by lazy { retrofit.create(PostsApi::class.java) }
+
     override val homeRepository: HomeRepository by lazy {
-        FakeHomeRepository(postStore)
+        RemoteHomeRepository(
+            postsApi = postsApi,
+            userSessionRepository = userSessionRepository
+        )
     }
 
     override val postDetailRepository: PostDetailRepository by lazy {
