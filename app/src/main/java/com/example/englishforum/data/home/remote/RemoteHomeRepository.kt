@@ -10,6 +10,7 @@ import com.example.englishforum.data.auth.bearerToken
 import com.example.englishforum.data.home.HomeRepository
 import com.example.englishforum.data.home.remote.model.AttachmentResponse
 import com.example.englishforum.data.home.remote.model.FeedPostResponse
+import com.example.englishforum.data.post.ForumPostSummaryStore
 import java.io.IOException
 import java.time.Duration
 import java.time.Instant
@@ -22,11 +23,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -35,14 +33,14 @@ import retrofit2.HttpException
 class RemoteHomeRepository(
     private val postsApi: PostsApi,
     private val userSessionRepository: UserSessionRepository,
+    private val postStore: ForumPostSummaryStore,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : HomeRepository {
 
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
-    private val postsState = MutableStateFlow<List<ForumPostSummary>>(emptyList())
     private var lastSessionUserId: String? = null
 
-    override val postsStream = postsState.asStateFlow()
+    override val postsStream = postStore.postsStream
 
     init {
         scope.launch { observeSessionChanges() }
@@ -61,7 +59,7 @@ class RemoteHomeRepository(
         val numericId = postId.toIntOrNull()
             ?: return Result.failure(IllegalArgumentException("Định danh bài viết không hợp lệ"))
 
-        val snapshot = postsState.value
+        val snapshot = postStore.currentPosts
         val currentPost = snapshot.firstOrNull { it.id == postId }
             ?: return Result.failure(IllegalArgumentException("Bài viết không còn khả dụng"))
 
@@ -80,17 +78,11 @@ class RemoteHomeRepository(
 
         return voteResult
             .map {
-                postsState.update { current ->
-                    current.map { post ->
-                        if (post.id == postId) {
-                            post.copy(
-                                voteState = nextState,
-                                voteCount = (post.voteCount + delta).coerceAtLeast(0)
-                            )
-                        } else {
-                            post
-                        }
-                    }
+                postStore.updatePost(postId) { post ->
+                    post.copy(
+                        voteState = nextState,
+                        voteCount = post.voteCount + delta
+                    )
                 }
                 Unit
             }
@@ -101,8 +93,8 @@ class RemoteHomeRepository(
         userSessionRepository.sessionFlow.collectLatest { session ->
             if (session == null) {
                 lastSessionUserId = null
-                postsState.value = emptyList()
-            } else if (session.userId != lastSessionUserId || postsState.value.isEmpty()) {
+                postStore.clear()
+            } else if (session.userId != lastSessionUserId || postStore.currentPosts.isEmpty()) {
                 lastSessionUserId = session.userId
                 refreshFeed(session).getOrElse { }
             }
@@ -122,12 +114,12 @@ class RemoteHomeRepository(
 
         return feedResult
             .map { response ->
-                postsState.value = response.map { it.toDomain() }
+                postStore.replaceAll(response.map { it.toDomain() })
                 Unit
             }
             .mapFailure { throwable ->
-                if (postsState.value.isEmpty()) {
-                    postsState.value = emptyList()
+                if (postStore.currentPosts.isEmpty()) {
+                    postStore.clear()
                 }
                 throwable.toFeedException()
             }

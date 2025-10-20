@@ -32,6 +32,7 @@ data class PostCommentUi(
 
 data class PostDetailUiState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val post: PostDetailUi? = null,
     val comments: List<PostCommentUi> = emptyList(),
     val errorMessage: String? = null,

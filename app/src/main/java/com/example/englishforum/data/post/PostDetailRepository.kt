@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.Flow
 interface PostDetailRepository {
     fun observePost(postId: String): Flow<ForumPostDetail?>
 
+    suspend fun refreshPost(postId: String): Result<Unit>
+
     suspend fun setPostVote(postId: String, target: VoteState): Result<Unit>
 
     suspend fun setCommentVote(postId: String, commentId: String, target: VoteState): Result<Unit>

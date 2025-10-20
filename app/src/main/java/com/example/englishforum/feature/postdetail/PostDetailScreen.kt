@@ -59,6 +59,9 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -145,7 +148,8 @@ fun PostDetailRoute(
         },
         onUserMessageShown = viewModel::onUserMessageShown,
         onPostDeletionHandled = viewModel::onPostDeletionHandled,
-        onPostDeleted = onPostDeleted
+        onPostDeleted = onPostDeleted,
+        onRefresh = viewModel::onRefresh
     )
 }
 
@@ -165,6 +169,7 @@ fun PostDetailScreen(
     onUserMessageShown: () -> Unit,
     onPostDeletionHandled: () -> Unit,
     onPostDeleted: () -> Unit,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
     targetCommentId: String? = null
 ) {
@@ -175,6 +180,7 @@ fun PostDetailScreen(
     var showReportDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     val post = uiState.post
+    val pullRefreshState = rememberPullToRefreshState()
 
     LaunchedEffect(uiState.errorMessage) {
         val message = uiState.errorMessage
@@ -297,138 +303,159 @@ fun PostDetailScreen(
         }
     ) { innerPadding ->
         val topPadding = innerPadding.calculateTopPadding()
-        val bottomPadding = innerPadding.calculateBottomPadding()
 
-        when {
-            uiState.isLoading && uiState.post == null -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
+        PullToRefreshBox(
+            modifier = Modifier.fillMaxSize(),
+            state = pullRefreshState,
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = {
+                if (!uiState.isLoading) {
+                    onRefresh()
                 }
-            }
-
-            uiState.post == null -> {
-                Box(
+            },
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullRefreshState,
+                    isRefreshing = uiState.isRefreshing,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = stringResource(R.string.post_detail_missing_post),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                        .align(Alignment.TopCenter)
+                        .padding(top = topPadding)
+                )
+            }
+        ) {
+            when {
+                uiState.isLoading && uiState.post == null -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
                 }
-            }
 
-            else -> {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxSize(),
-                    contentPadding = PaddingValues(
-                        start = 16.dp,
-                        end = 16.dp,
-                        top = 16.dp + topPadding,
-                        bottom = 120.dp + bottomPadding
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    item {
-                        ForumContentCard(
-                            meta = stringResource(
-                                R.string.home_post_meta,
-                                uiState.post.authorName,
-                        uiState.post.relativeTimeText
-                            ),
-                            voteCount = uiState.post.voteCount,
-                            title = uiState.post.title,
-                            body = uiState.post.body,
-                            voteState = uiState.post.voteState,
-                            commentCount = uiState.post.commentCount,
-                            onUpvoteClick = onUpvotePost,
-                            onDownvoteClick = onDownvotePost,
-                            showMoreActions = false,
-                            commentPillPlacement = CommentPillPlacement.End,
-                            supportingContent = {
-                                val galleryImages = uiState.post.galleryImages
-                                val previewImageUrl = uiState.post.previewImageUrl
-                                var showFullScreenViewer by remember { mutableStateOf(false) }
-                                var selectedImageIndex by remember { mutableIntStateOf(0) }
-                                
-                                when {
-                                    !galleryImages.isNullOrEmpty() -> {
-                                        PostImageGallery(
-                                            images = galleryImages,
-                                            onImageClick = { index ->
-                                                selectedImageIndex = index
-                                                showFullScreenViewer = true
-                                            }
-                                        )
-                                        
-                                        if (showFullScreenViewer) {
-                                            FullScreenImageViewer(
+                uiState.post == null -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.post_detail_missing_post),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                else -> {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = 16.dp,
+                            bottom = 120.dp
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        item {
+                            ForumContentCard(
+                                meta = stringResource(
+                                    R.string.home_post_meta,
+                                    uiState.post.authorName,
+                                    uiState.post.relativeTimeText
+                                ),
+                                voteCount = uiState.post.voteCount,
+                                title = uiState.post.title,
+                                body = uiState.post.body,
+                                voteState = uiState.post.voteState,
+                                commentCount = uiState.post.commentCount,
+                                onUpvoteClick = onUpvotePost,
+                                onDownvoteClick = onDownvotePost,
+                                showMoreActions = false,
+                                commentPillPlacement = CommentPillPlacement.End,
+                                supportingContent = {
+                                    val galleryImages = uiState.post.galleryImages
+                                    val previewImageUrl = uiState.post.previewImageUrl
+                                    var showFullScreenViewer by remember { mutableStateOf(false) }
+                                    var selectedImageIndex by remember { mutableIntStateOf(0) }
+
+                                    when {
+                                        !galleryImages.isNullOrEmpty() -> {
+                                            PostImageGallery(
                                                 images = galleryImages,
-                                                initialPage = selectedImageIndex,
-                                                onDismiss = { showFullScreenViewer = false }
+                                                onImageClick = { index ->
+                                                    selectedImageIndex = index
+                                                    showFullScreenViewer = true
+                                                }
                                             )
-                                        }
-                                    }
-                                    previewImageUrl != null -> {
-                                        PostSingleImage(
-                                            onClick = {
-                                                selectedImageIndex = 0
-                                                showFullScreenViewer = true
+
+                                            if (showFullScreenViewer) {
+                                                FullScreenImageViewer(
+                                                    images = galleryImages,
+                                                    initialPage = selectedImageIndex,
+                                                    onDismiss = { showFullScreenViewer = false }
+                                                )
                                             }
-                                        )
-                                        
-                                        if (showFullScreenViewer) {
-                                            FullScreenImageViewer(
-                                                images = listOf(previewImageUrl),
-                                                initialPage = 0,
-                                                onDismiss = { showFullScreenViewer = false }
+                                        }
+
+                                        previewImageUrl != null -> {
+                                            PostSingleImage(
+                                                onClick = {
+                                                    selectedImageIndex = 0
+                                                    showFullScreenViewer = true
+                                                }
                                             )
+
+                                            if (showFullScreenViewer) {
+                                                FullScreenImageViewer(
+                                                    images = listOf(previewImageUrl),
+                                                    initialPage = 0,
+                                                    onDismiss = { showFullScreenViewer = false }
+                                                )
+                                            }
                                         }
                                     }
                                 }
-                            }
-                        )
-                    }
-
-                    item {
-                        Text(
-                            text = stringResource(R.string.post_detail_comments_header),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                    }
-
-                    if (uiState.comments.isEmpty()) {
-                        item {
-                            Text(
-                                text = stringResource(R.string.post_detail_empty_state),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 32.dp)
                             )
                         }
-                    } else {
-                        items(
-                            items = uiState.comments,
-                            key = { it.id }
-                        ) { comment ->
-                            CommentThreadEntry(
-                                comment = comment,
-                                onUpvote = { onUpvoteComment(comment.id) },
-                                onDownvote = { onDownvoteComment(comment.id) },
-                                isHighlighted = highlightedCommentId == comment.id
+
+                        item {
+                            Text(
+                                text = stringResource(R.string.post_detail_comments_header),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(top = 8.dp)
                             )
+                        }
+
+                        if (uiState.comments.isEmpty()) {
+                            item {
+                                Text(
+                                    text = stringResource(R.string.post_detail_empty_state),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(vertical = 32.dp)
+                                )
+                            }
+                        } else {
+                            items(
+                                items = uiState.comments,
+                                key = { it.id }
+                            ) { comment ->
+                                CommentThreadEntry(
+                                    comment = comment,
+                                    onUpvote = { onUpvoteComment(comment.id) },
+                                    onDownvote = { onDownvoteComment(comment.id) },
+                                    isHighlighted = highlightedCommentId == comment.id
+                                )
+                            }
                         }
                     }
                 }
@@ -1229,7 +1256,8 @@ private fun PostDetailScreenPreview() {
             onDeletePost = {},
             onUserMessageShown = {},
             onPostDeletionHandled = {},
-            onPostDeleted = {}
+            onPostDeleted = {},
+            onRefresh = {}
         )
     }
 }

@@ -19,9 +19,11 @@ import com.example.englishforum.data.home.remote.PostsApi
 import com.example.englishforum.data.home.remote.RemoteHomeRepository
 import com.example.englishforum.data.notification.FakeNotificationRepository
 import com.example.englishforum.data.notification.NotificationRepository
-import com.example.englishforum.data.post.FakePostDetailRepository
-import com.example.englishforum.data.post.FakePostStore
 import com.example.englishforum.data.post.PostDetailRepository
+import com.example.englishforum.data.post.ForumPostSummaryStore
+import com.example.englishforum.data.post.FakePostStore
+import com.example.englishforum.data.post.remote.PostDetailApi
+import com.example.englishforum.data.post.remote.RemotePostDetailRepository
 import com.example.englishforum.data.profile.ProfileRepository
 import com.example.englishforum.data.profile.remote.ProfileApi
 import com.example.englishforum.data.profile.remote.RemoteProfileRepository
@@ -52,6 +54,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     private val appContext = context.applicationContext
     private val postStore = FakePostStore
+    private val postSummaryStore = ForumPostSummaryStore()
 
     private val moshi: Moshi by lazy {
         Moshi.Builder()
@@ -106,16 +109,22 @@ class DefaultAppContainer(context: Context) : AppContainer {
     }
 
     private val postsApi: PostsApi by lazy { retrofit.create(PostsApi::class.java) }
+    private val postDetailApi: PostDetailApi by lazy { retrofit.create(PostDetailApi::class.java) }
 
     override val homeRepository: HomeRepository by lazy {
         RemoteHomeRepository(
             postsApi = postsApi,
-            userSessionRepository = userSessionRepository
+            userSessionRepository = userSessionRepository,
+            postStore = postSummaryStore
         )
     }
 
     override val postDetailRepository: PostDetailRepository by lazy {
-        FakePostDetailRepository(postStore)
+        RemotePostDetailRepository(
+            api = postDetailApi,
+            userSessionRepository = userSessionRepository,
+            summaryStore = postSummaryStore
+        )
     }
 
     override val aiPracticeRepository: AiPracticeRepository by lazy {

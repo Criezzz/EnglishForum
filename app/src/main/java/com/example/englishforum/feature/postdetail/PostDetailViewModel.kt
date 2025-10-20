@@ -9,6 +9,7 @@ import com.example.englishforum.core.model.forum.ForumComment
 import com.example.englishforum.core.model.forum.ForumPostDetail
 import com.example.englishforum.data.aipractice.AiPracticeRepository
 import com.example.englishforum.data.aipractice.FakeAiPracticeRepository
+import com.example.englishforum.data.auth.UserSession
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.post.FakePostDetailRepository
 import com.example.englishforum.data.post.PostDetailRepository
@@ -28,22 +29,45 @@ class PostDetailViewModel(
 ) : ViewModel() {
 
     private val isLoading = MutableStateFlow(true)
+    private var hasLoadedInitialPost = false
     private val errorMessage = MutableStateFlow<String?>(null)
     private val aiPracticeChecking = MutableStateFlow(false)
     private val userMessage = MutableStateFlow<String?>(null)
     private val isProcessingAction = MutableStateFlow(false)
     private val postDeleted = MutableStateFlow(false)
+    private val isRefreshing = MutableStateFlow(false)
 
     private val postStream = repository.observePost(postId)
-        .onEach { isLoading.value = false }
+        .onEach { post ->
+            if (post != null) {
+                hasLoadedInitialPost = true
+                isLoading.value = false
+            } else if (hasLoadedInitialPost) {
+                isLoading.value = false
+            }
+        }
 
-    private val baseState = combine(
+    private val baseInputs = combine(
         postStream,
         userSessionRepository.sessionFlow,
         isLoading,
         errorMessage,
         aiPracticeChecking
     ) { post, session, loading, error, aiChecking ->
+        BaseStateInputs(
+            post = post,
+            session = session,
+            isLoading = loading,
+            errorMessage = error,
+            isAiChecking = aiChecking
+        )
+    }
+
+    private val baseState = combine(
+        baseInputs,
+        isRefreshing
+    ) { inputs, refreshing ->
+        val post = inputs.post
         val postUi = post?.toUiModel()
         val commentUi = if (post != null) {
             post.comments.flatMapIndexed { index, comment ->
@@ -57,14 +81,20 @@ class PostDetailViewModel(
         } else {
             emptyList()
         }
-        val isOwner = post?.authorId != null && session?.userId == post.authorId
+        val isOwner = post?.let { detail ->
+            inputs.session?.let { user ->
+                detail.authorId.equals(user.userId, ignoreCase = true) ||
+                    detail.authorId.equals(user.username, ignoreCase = true)
+            } ?: false
+        } ?: false
 
         PostDetailUiState(
-            isLoading = loading,
+            isLoading = inputs.isLoading,
+            isRefreshing = refreshing,
             post = postUi,
             comments = commentUi,
-            errorMessage = error,
-            isAiPracticeChecking = aiChecking,
+            errorMessage = inputs.errorMessage,
+            isAiPracticeChecking = inputs.isAiChecking,
             isCurrentUserPostOwner = isOwner
         )
     }
@@ -204,6 +234,24 @@ class PostDetailViewModel(
     fun onPostUpdatedExternally() {
         userMessage.value = "Đã cập nhật bài viết."
     }
+
+    fun onRefresh() {
+        if (isRefreshing.value) return
+        viewModelScope.launch {
+            isRefreshing.value = true
+            errorMessage.value = null
+            try {
+                val result = repository.refreshPost(postId)
+                if (result.isFailure) {
+                    errorMessage.value = result.exceptionOrNull()?.message ?: "Không thể tải lại bài viết."
+                }
+            } catch (throwable: Throwable) {
+                errorMessage.value = throwable.message ?: "Không thể tải lại bài viết."
+            } finally {
+                isRefreshing.value = false
+            }
+        }
+    }
 }
 
 class PostDetailViewModelFactory(
@@ -220,6 +268,14 @@ class PostDetailViewModelFactory(
         throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
+
+private data class BaseStateInputs(
+    val post: ForumPostDetail?,
+    val session: UserSession?,
+    val isLoading: Boolean,
+    val errorMessage: String?,
+    val isAiChecking: Boolean
+)
 
 private fun ForumPostDetail.toUiModel(): PostDetailUi {
     return PostDetailUi(
