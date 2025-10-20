@@ -18,6 +18,12 @@ interface PostDetailRepository {
 
     suspend fun deletePost(postId: String): Result<Unit>
 
+    suspend fun addComment(
+        postId: String,
+        content: String,
+        replyToCommentId: String? = null
+    ): Result<Unit>
+
     suspend fun updatePost(
         postId: String,
         title: String,

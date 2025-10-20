@@ -48,6 +48,22 @@ class FakePostDetailRepository(
         }
     }
 
+    override suspend fun addComment(
+        postId: String,
+        content: String,
+        replyToCommentId: String?
+    ): Result<Unit> {
+        val sanitized = content.trim()
+        if (sanitized.isEmpty()) {
+            return Result.failure(IllegalArgumentException("Nội dung bình luận không được để trống"))
+        }
+        return if (store.addComment(postId, sanitized, replyToCommentId = replyToCommentId)) {
+            Result.success(Unit)
+        } else {
+            Result.failure(IllegalArgumentException("Post not found"))
+        }
+    }
+
     override suspend fun updatePost(
         postId: String,
         title: String,

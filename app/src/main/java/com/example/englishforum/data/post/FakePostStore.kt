@@ -112,6 +112,85 @@ object FakePostStore {
         return postFound to commentFound
     }
 
+    fun addComment(
+        postId: String,
+        content: String,
+        authorName: String = "Bạn",
+        replyToCommentId: String? = null
+    ): Boolean {
+        val sanitizedContent = content.trim()
+        if (sanitizedContent.isEmpty()) return false
+
+        val newComment = ForumComment(
+            id = generateLocalCommentId(),
+            authorName = authorName,
+            minutesAgo = 0,
+            body = sanitizedContent,
+            voteCount = 0,
+            voteState = VoteState.NONE,
+            isAuthor = false,
+            replies = emptyList()
+        )
+
+        var inserted = false
+        _posts.update { current ->
+            current.map { post ->
+                if (post.id == postId) {
+                    val updatedComments = if (replyToCommentId == null) {
+                        inserted = true
+                        listOf(newComment) + post.comments
+                    } else {
+                        val (thread, added) = insertReply(post.comments, replyToCommentId, newComment)
+                        if (added) {
+                            inserted = true
+                            thread
+                        } else {
+                            inserted = true
+                            listOf(newComment) + post.comments
+                        }
+                    }
+                    post.copy(comments = updatedComments)
+                } else {
+                    post
+                }
+            }
+        }
+        return inserted
+    }
+
+    private fun generateLocalCommentId(): String {
+        return "local-comment-${System.currentTimeMillis()}"
+    }
+
+    private fun insertReply(
+        comments: List<ForumComment>,
+        targetId: String,
+        reply: ForumComment
+    ): Pair<List<ForumComment>, Boolean> {
+        var added = false
+        val updated = comments.map { comment ->
+            when {
+                comment.id == targetId -> {
+                    added = true
+                    comment.copy(replies = comment.replies + reply)
+                }
+
+                comment.replies.isNotEmpty() -> {
+                    val (nestedReplies, nestedAdded) = insertReply(comment.replies, targetId, reply)
+                    if (nestedAdded) {
+                        added = true
+                        comment.copy(replies = nestedReplies)
+                    } else {
+                        comment
+                    }
+                }
+
+                else -> comment
+            }
+        }
+        return updated to added
+    }
+
     private fun updateCommentThread(
         comments: List<ForumComment>,
         commentId: String,

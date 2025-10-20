@@ -36,6 +36,15 @@ internal interface PostDetailApi {
         @Field("vote_type") voteType: Int
     ): MessageResponse
 
+    @FormUrlEncoded
+    @POST("/posts/{post_id}/comments")
+    suspend fun postComment(
+        @Header("Authorization") bearer: String,
+        @Path("post_id") postId: Int,
+        @Field("content") content: String,
+        @Query("reply_comment_id") replyCommentId: Int? = null
+    ): MessageResponse
+
     @POST("/comments/{comment_id}/vote")
     suspend fun voteComment(
         @Header("Authorization") bearer: String,

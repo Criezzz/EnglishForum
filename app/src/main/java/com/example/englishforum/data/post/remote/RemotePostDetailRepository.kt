@@ -155,6 +155,50 @@ internal class RemotePostDetailRepository(
             .mapFailure { it.toFriendlyException() }
     }
 
+    override suspend fun addComment(
+        postId: String,
+        content: String,
+        replyToCommentId: String?
+    ): Result<Unit> {
+        val session = currentSessionOrNull()
+            ?: return Result.failure(IllegalStateException(SESSION_EXPIRED_MESSAGE))
+        val numericPostId = postId.toIntOrNull()
+            ?: return Result.failure(IllegalArgumentException(INVALID_POST_ID_MESSAGE))
+
+        val trimmedContent = content.trim()
+        if (trimmedContent.isEmpty()) {
+            return Result.failure(IllegalArgumentException(EMPTY_COMMENT_CONTENT_MESSAGE))
+        }
+
+        val numericReplyId = when {
+            replyToCommentId.isNullOrBlank() -> null
+            else -> {
+                val lookup = commentIdLookup[postId]
+                lookup?.get(replyToCommentId)
+                    ?: replyToCommentId.toIntOrNull()
+                    ?: return Result.failure(IllegalArgumentException(REPLY_TARGET_NOT_FOUND_MESSAGE))
+            }
+        }
+
+        val submission = withContext(ioDispatcher) {
+            runCatching {
+                api.postComment(
+                    bearer = session.bearerToken(),
+                    postId = numericPostId,
+                    content = trimmedContent,
+                    replyCommentId = numericReplyId
+                )
+            }
+        }
+
+        return submission
+            .mapCatching {
+                fetchAndStorePost(postId).getOrThrow()
+                Unit
+            }
+            .mapFailure { it.toFriendlyException() }
+    }
+
     override suspend fun updatePost(
         postId: String,
         title: String,
@@ -463,6 +507,8 @@ internal class RemotePostDetailRepository(
         private const val POST_NOT_AVAILABLE_MESSAGE = "Bài viết không còn khả dụng"
         private const val REPORT_UNSUPPORTED_MESSAGE = "Tính năng báo cáo bài viết tạm thời chưa khả dụng"
         private const val EMPTY_POST_FIELDS_MESSAGE = "Tiêu đề và nội dung không được để trống"
+        private const val EMPTY_COMMENT_CONTENT_MESSAGE = "Nội dung bình luận không được để trống"
+        private const val REPLY_TARGET_NOT_FOUND_MESSAGE = "Không tìm thấy bình luận để trả lời"
         private const val CONNECTION_ERROR_MESSAGE = "Không thể kết nối tới máy chủ. Vui lòng kiểm tra lại mạng."
         private const val GENERIC_ERROR_MESSAGE = "Đã xảy ra lỗi, vui lòng thử lại"
         private const val DEFAULT_AUTHOR_NAME = "Ẩn danh"

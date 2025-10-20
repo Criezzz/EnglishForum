@@ -61,6 +61,11 @@
     <string name="post_detail_author_badge">Tác giả</string>
     <string name="post_detail_options_content_description">Mở tuỳ chọn bài viết</string>
     <string name="post_detail_reply_action">Phản hồi</string>
+    <string name="post_detail_comment_header_label">Thêm bình luận</string>
+    <string name="post_detail_comment_placeholder">Chia sẻ suy nghĩ của bạn...</string>
+    <string name="post_detail_comment_send_content_description">Gửi bình luận</string>
+    <string name="post_detail_replying_to_header">Đang phản hồi %1$s</string>
+    <string name="post_detail_cancel_reply_content_description">Huỷ phản hồi</string>
     <string name="post_detail_action_report">Báo cáo bài viết</string>
     <string name="post_detail_action_edit">Chỉnh sửa bài viết</string>
     <string name="post_detail_action_delete">Xoá bài viết</string>

@@ -4,6 +4,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -138,6 +139,10 @@ fun PostDetailRoute(
         onDownvotePost = viewModel::onDownvotePost,
         onUpvoteComment = viewModel::onUpvoteComment,
         onDownvoteComment = viewModel::onDownvoteComment,
+        onCommentDraftChanged = viewModel::onCommentDraftChanged,
+        onSubmitComment = viewModel::onSubmitComment,
+        onCancelReplyTarget = viewModel::onCancelReplyTarget,
+        onReplyToComment = viewModel::onReplyToComment,
         onOpenAiPracticeClick = {
             viewModel.onAiPracticeClick(onNavigateToAiPractice)
         },
@@ -147,6 +152,7 @@ fun PostDetailRoute(
             viewModel.onDeletePost()
         },
         onUserMessageShown = viewModel::onUserMessageShown,
+        onNewCommentHighlightShown = viewModel::onNewCommentHighlightShown,
         onPostDeletionHandled = viewModel::onPostDeletionHandled,
         onPostDeleted = onPostDeleted,
         onRefresh = viewModel::onRefresh
@@ -162,11 +168,16 @@ fun PostDetailScreen(
     onDownvotePost: () -> Unit,
     onUpvoteComment: (String) -> Unit,
     onDownvoteComment: (String) -> Unit,
+    onCommentDraftChanged: (String) -> Unit,
+    onSubmitComment: () -> Unit,
+    onCancelReplyTarget: () -> Unit,
+    onReplyToComment: (String, String) -> Unit,
     onOpenAiPracticeClick: () -> Unit,
     onReportPost: (String) -> Unit,
     onEditPostClick: () -> Unit,
     onDeletePost: () -> Unit,
     onUserMessageShown: () -> Unit,
+    onNewCommentHighlightShown: () -> Unit,
     onPostDeletionHandled: () -> Unit,
     onPostDeleted: () -> Unit,
     onRefresh: () -> Unit,
@@ -197,6 +208,24 @@ fun PostDetailScreen(
         }
     }
 
+    // Handle highlighting newly posted comment
+    LaunchedEffect(uiState.newlyPostedCommentId, uiState.comments) {
+        val newCommentId = uiState.newlyPostedCommentId
+        if (newCommentId != null && uiState.comments.isNotEmpty()) {
+            val commentIndex = uiState.comments.indexOfFirst { it.id == newCommentId }
+            if (commentIndex != -1) {
+                // Scroll to the new comment (index + 2 because post and comments header)
+                delay(100)
+                listState.animateScrollToItem(commentIndex + 2)
+                highlightedCommentId = newCommentId
+                // Remove highlight after 3 seconds
+                delay(3000)
+                highlightedCommentId = null
+                onNewCommentHighlightShown()
+            }
+        }
+    }
+
     LaunchedEffect(uiState.isPostDeleted) {
         if (uiState.isPostDeleted) {
             onPostDeleted()
@@ -224,6 +253,12 @@ fun PostDetailScreen(
                 delay(3000)
                 highlightedCommentId = null
             }
+        }
+    }
+
+    LaunchedEffect(uiState.commentComposer.replyTarget) {
+        if (uiState.commentComposer.replyTarget == null && targetCommentId == null) {
+            highlightedCommentId = null
         }
     }
 
@@ -277,7 +312,28 @@ fun PostDetailScreen(
                 windowInsets = WindowInsets(0, 0, 0, 0)
             )
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        snackbarHost = { 
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                contentAlignment = Alignment.BottomCenter
+            ) {
+                SnackbarHost(hostState = snackbarHostState)
+            }
+        },
+        bottomBar = {
+            PostDetailCommentComposer(
+                state = uiState.commentComposer,
+                enabled = uiState.post != null && !uiState.isPostDeleted,
+                onDraftChange = onCommentDraftChanged,
+                onSendClick = onSubmitComment,
+                onDismissReply = {
+                    highlightedCommentId = null
+                    onCancelReplyTarget()
+                }
+            )
+        },
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
@@ -360,7 +416,7 @@ fun PostDetailScreen(
                             start = 16.dp,
                             end = 16.dp,
                             top = 16.dp,
-                            bottom = 120.dp
+                            bottom = 24.dp
                         ),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
@@ -379,7 +435,7 @@ fun PostDetailScreen(
                                 onUpvoteClick = onUpvotePost,
                                 onDownvoteClick = onDownvotePost,
                                 showMoreActions = false,
-                                commentPillPlacement = CommentPillPlacement.End,
+                                    commentPillPlacement = CommentPillPlacement.End,
                                 supportingContent = {
                                     val galleryImages = uiState.post.galleryImages
                                     val previewImageUrl = uiState.post.previewImageUrl
@@ -453,6 +509,10 @@ fun PostDetailScreen(
                                     comment = comment,
                                     onUpvote = { onUpvoteComment(comment.id) },
                                     onDownvote = { onDownvoteComment(comment.id) },
+                                    onReply = {
+                                        highlightedCommentId = comment.id
+                                        onReplyToComment(comment.id, comment.authorName)
+                                    },
                                     isHighlighted = highlightedCommentId == comment.id
                                 )
                             }
@@ -631,6 +691,7 @@ private fun CommentThreadEntry(
     comment: PostCommentUi,
     onUpvote: () -> Unit,
     onDownvote: () -> Unit,
+    onReply: () -> Unit,
     modifier: Modifier = Modifier,
     isHighlighted: Boolean = false
 ) {
@@ -646,6 +707,7 @@ private fun CommentThreadEntry(
             comment = comment,
             onUpvote = onUpvote,
             onDownvote = onDownvote,
+            onReply = onReply,
             modifier = Modifier.weight(1f),
             isHighlighted = isHighlighted
         )
@@ -657,6 +719,7 @@ private fun PostCommentItem(
     comment: PostCommentUi,
     onUpvote: () -> Unit,
     onDownvote: () -> Unit,
+    onReply: () -> Unit,
     modifier: Modifier = Modifier,
     isHighlighted: Boolean = false
 ) {
@@ -751,7 +814,14 @@ private fun PostCommentItem(
                 Text(
                     text = stringResource(R.string.post_detail_reply_action),
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    color = if (isHighlighted) {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
+                    modifier = Modifier
+                        .clickable(enabled = !isHighlighted) { onReply() }
+                        .padding(vertical = 4.dp)
                 )
 
                 Row(
@@ -1250,11 +1320,16 @@ private fun PostDetailScreenPreview() {
             onDownvotePost = {},
             onUpvoteComment = {},
             onDownvoteComment = {},
+            onCommentDraftChanged = {},
+            onSubmitComment = {},
+            onCancelReplyTarget = {},
+            onReplyToComment = { _, _ -> },
             onOpenAiPracticeClick = {},
             onReportPost = {},
             onEditPostClick = {},
             onDeletePost = {},
             onUserMessageShown = {},
+            onNewCommentHighlightShown = {},
             onPostDeletionHandled = {},
             onPostDeleted = {},
             onRefresh = {}

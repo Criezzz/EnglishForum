@@ -103,7 +103,13 @@ fun MainApp() {
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val showBottomBar = currentRoute != "login" && currentRoute != "register" && currentRoute != "forgot" && currentRoute != "verify" && currentRoute != Destinations.Settings.route
+    val isPostDetailRoute = currentRoute?.startsWith("post/") == true || currentRoute == "post/{postId}?commentId={commentId}"
+    val showBottomBar = currentRoute != "login" &&
+        currentRoute != "register" &&
+        currentRoute != "forgot" &&
+        currentRoute != "verify" &&
+        currentRoute != Destinations.Settings.route &&
+        !isPostDetailRoute
     val userSession by sessionRepository.sessionFlow.collectAsState(initial = null)
     val themeOption by themeRepository.themeOptionFlow.collectAsState(initial = ThemeOption.FOLLOW_SYSTEM)
     val sessionMonitorViewModel: SessionMonitorViewModel = viewModel(

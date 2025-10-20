@@ -36,6 +36,10 @@ class PostDetailViewModel(
     private val isProcessingAction = MutableStateFlow(false)
     private val postDeleted = MutableStateFlow(false)
     private val isRefreshing = MutableStateFlow(false)
+    private val commentDraft = MutableStateFlow("")
+    private val replyTarget = MutableStateFlow<CommentReplyTargetUi?>(null)
+    private val isSubmittingComment = MutableStateFlow(false)
+    private val newlyPostedCommentId = MutableStateFlow<String?>(null)
 
     private val postStream = repository.observePost(postId)
         .onEach { post ->
@@ -65,8 +69,11 @@ class PostDetailViewModel(
 
     private val baseState = combine(
         baseInputs,
-        isRefreshing
-    ) { inputs, refreshing ->
+        isRefreshing,
+        commentDraft,
+        isSubmittingComment,
+        replyTarget
+    ) { inputs, refreshing, draft, submittingComment, target ->
         val post = inputs.post
         val postUi = post?.toUiModel()
         val commentUi = if (post != null) {
@@ -95,7 +102,12 @@ class PostDetailViewModel(
             comments = commentUi,
             errorMessage = inputs.errorMessage,
             isAiPracticeChecking = inputs.isAiChecking,
-            isCurrentUserPostOwner = isOwner
+            isCurrentUserPostOwner = isOwner,
+            commentComposer = CommentComposerUi(
+                draft = draft,
+                isSubmitting = submittingComment,
+                replyTarget = target
+            )
         )
     }
 
@@ -103,12 +115,14 @@ class PostDetailViewModel(
         baseState,
         userMessage,
         isProcessingAction,
-        postDeleted
-    ) { base, message, processing, deleted ->
+        postDeleted,
+        newlyPostedCommentId
+    ) { base, message, processing, deleted, newCommentId ->
         base.copy(
             userMessage = message,
             isPerformingAction = processing,
-            isPostDeleted = deleted
+            isPostDeleted = deleted,
+            newlyPostedCommentId = newCommentId
         )
     }
         .stateIn(
@@ -251,6 +265,70 @@ class PostDetailViewModel(
                 isRefreshing.value = false
             }
         }
+    }
+
+    fun onCommentDraftChanged(text: String) {
+        commentDraft.value = text
+    }
+
+    fun onSubmitComment() {
+        val originalDraft = commentDraft.value
+        val trimmedDraft = originalDraft.trim()
+        if (trimmedDraft.isEmpty() || isSubmittingComment.value) {
+            if (trimmedDraft.isEmpty() && originalDraft != trimmedDraft) {
+                commentDraft.value = trimmedDraft
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            isSubmittingComment.value = true
+            errorMessage.value = null
+            
+            // Store existing comment IDs before submission
+            val existingCommentIds = uiState.value.comments.map { it.id }.toSet()
+            val targetId = replyTarget.value?.commentId
+            
+            try {
+                val result = repository.addComment(postId, trimmedDraft, targetId)
+                result.onSuccess {
+                    commentDraft.value = ""
+                    replyTarget.value = null
+                    
+                    // Wait a bit for the post to refresh and find the new comment
+                    kotlinx.coroutines.delay(300)
+                    val newComments = uiState.value.comments
+                    
+                    // Find the comment that wasn't in the list before
+                    val newComment = newComments.firstOrNull { it.id !in existingCommentIds }
+                    if (newComment != null) {
+                        newlyPostedCommentId.value = newComment.id
+                    }
+                }
+                result.onFailure { throwable ->
+                    errorMessage.value = throwable.message ?: "Không thể đăng bình luận."
+                }
+            } catch (throwable: Throwable) {
+                errorMessage.value = throwable.message ?: "Không thể đăng bình luận."
+            } finally {
+                isSubmittingComment.value = false
+            }
+        }
+    }
+
+    fun onCancelReplyTarget() {
+        replyTarget.value = null
+    }
+
+    fun onReplyToComment(commentId: String, authorName: String) {
+        replyTarget.value = CommentReplyTargetUi(
+            commentId = commentId,
+            authorName = authorName
+        )
+    }
+
+    fun onNewCommentHighlightShown() {
+        newlyPostedCommentId.value = null
     }
 }
 
