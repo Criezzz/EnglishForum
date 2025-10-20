@@ -21,6 +21,7 @@ data class FeedPostResponse(
 
 data class AttachmentResponse(
     @Json(name = "media_url") val mediaUrl: String? = null,
+    @Json(name = "media_filename") val mediaFilename: String? = null,
     @Json(name = "media_type") val mediaType: String? = null,
     @Json(name = "media_metadata") val mediaMetadata: String? = null,
     val index: Int? = null

@@ -13,7 +13,8 @@ import com.example.englishforum.data.auth.remote.AuthApi
 import com.example.englishforum.data.auth.remote.RemoteAuthRepository
 import com.example.englishforum.data.auth.remote.RemoteSessionValidator
 import com.example.englishforum.data.create.CreatePostRepository
-import com.example.englishforum.data.create.FakeCreatePostRepository
+import com.example.englishforum.data.create.remote.CreatePostApi
+import com.example.englishforum.data.create.remote.RemoteCreatePostRepository
 import com.example.englishforum.data.home.HomeRepository
 import com.example.englishforum.data.home.remote.PostsApi
 import com.example.englishforum.data.home.remote.RemoteHomeRepository
@@ -35,6 +36,7 @@ import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
+import java.util.concurrent.TimeUnit
 
 interface AppContainer {
     val userSessionRepository: UserSessionRepository
@@ -72,6 +74,9 @@ class DefaultAppContainer(context: Context) : AppContainer {
     private val okHttpClient: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
+            .connectTimeout(NETWORK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .readTimeout(NETWORK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .writeTimeout(NETWORK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
             .apply {
                 if (BuildConfig.DEBUG) {
                     val logger = HttpLoggingInterceptor().apply {
@@ -131,8 +136,14 @@ class DefaultAppContainer(context: Context) : AppContainer {
         FakeAiPracticeRepository()
     }
 
+    private val createPostApi: CreatePostApi by lazy { retrofit.create(CreatePostApi::class.java) }
+
     override val createPostRepository: CreatePostRepository by lazy {
-        FakeCreatePostRepository(postStore, userSessionRepository)
+        RemoteCreatePostRepository(
+            api = createPostApi,
+            userSessionRepository = userSessionRepository,
+            contentResolver = appContext.contentResolver
+        )
     }
 
     override val notificationRepository: NotificationRepository by lazy {
@@ -154,5 +165,9 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val networkMonitor: NetworkMonitor by lazy {
         NetworkMonitor(appContext)
+    }
+
+    companion object {
+        private const val NETWORK_TIMEOUT_SECONDS = 60L
     }
 }

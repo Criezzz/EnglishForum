@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -38,6 +39,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -49,6 +51,7 @@ import com.example.englishforum.core.model.forum.PostTag
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.ui.components.card.ForumContentCard
 import com.example.englishforum.core.ui.components.card.ForumContentCardPlaceholder
+import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImage
 import com.example.englishforum.core.ui.toLabelResId
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 import kotlin.math.abs
@@ -255,8 +258,9 @@ private fun HomeFeedList(
                             }
                         },
                         supportingContent = {
-                            if (post.previewImageUrl != null) {
-                                HomePostImagePlaceholder()
+                            val previewImageUrl = post.previewImageUrl
+                            if (previewImageUrl != null) {
+                                HomePostImage(imageUrl = previewImageUrl)
                             }
                         }
                     )
@@ -338,7 +342,8 @@ private fun HomePostAvatar(
 }
 
 @Composable
-private fun HomePostImagePlaceholder(
+private fun HomePostImage(
+    imageUrl: String,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -349,16 +354,34 @@ private fun HomePostImagePlaceholder(
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp
     ) {
-        Box(
+        AuthenticatedRemoteImage(
+            url = imageUrl,
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Image,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
+            contentScale = ContentScale.Crop,
+            loading = {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            error = {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Image,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        )
     }
 }
 

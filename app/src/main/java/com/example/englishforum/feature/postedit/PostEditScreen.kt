@@ -48,6 +48,7 @@ fun PostEditRoute(
         onSubmit = viewModel::onSubmit,
         onDeclineReasonDismissed = viewModel::onDeclineDialogDismissed,
         onErrorMessageConsumed = viewModel::onErrorMessageConsumed,
+        onSuccessMessageConsumed = viewModel::onSuccessMessageConsumed,
         topBarTitleRes = R.string.post_edit_title,
         submitLabelRes = R.string.post_edit_save,
         submitLoadingLabelRes = R.string.post_edit_saving,

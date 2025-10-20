@@ -3,6 +3,7 @@ package com.example.englishforum.data.create
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumPostDetail
 import com.example.englishforum.core.model.forum.PostTag
+import com.example.englishforum.data.create.CreatePostImage
 import com.example.englishforum.data.post.FakePostStore
 import com.example.englishforum.data.auth.UserSessionRepository
 import java.util.UUID
@@ -25,6 +26,7 @@ class FakeCreatePostRepository(
         title: String,
         body: String,
         attachments: List<CreatePostAttachment>,
+        images: List<CreatePostImage>,
         tag: PostTag
     ): Result<CreatePostResult> {
         val trimmedTitle = title.trim()
@@ -58,7 +60,12 @@ class FakeCreatePostRepository(
         )
         postStore.addPost(newPost)
 
-        return Result.success(CreatePostResult.Success(newPostId))
+        return Result.success(
+            CreatePostResult.Success(
+                postId = newPostId,
+                message = "Đăng bài thành công"
+            )
+        )
     }
 
     private fun generatePostId(): String {

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.englishforum.core.model.forum.PostTag
 import com.example.englishforum.data.create.CreatePostAttachment
+import com.example.englishforum.data.create.CreatePostImage
 import com.example.englishforum.data.create.CreatePostRepository
 import com.example.englishforum.data.create.CreatePostResult
 import com.example.englishforum.data.create.FakeCreatePostRepository
@@ -32,6 +33,7 @@ data class CreateUiState(
     val declineReason: String? = null,
     val errorMessage: String? = null,
     val successPostId: String? = null,
+    val successMessage: String? = null,
     val isInitialLoading: Boolean = false
 ) {
     val canSubmit: Boolean
@@ -109,12 +111,24 @@ class CreateViewModel(
         val selectedTag = currentState.selectedTag ?: return
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isSubmitting = true, errorMessage = null, declineReason = null, successPostId = null) }
+            _uiState.update {
+                it.copy(
+                    isSubmitting = true,
+                    errorMessage = null,
+                    declineReason = null,
+                    successPostId = null,
+                    successMessage = null
+                )
+            }
             val attachments = currentState.attachments.map { CreatePostAttachment(it.id, it.label) }
+            val imageUploads = currentState.imageUris.map { uri ->
+                CreatePostImage(uri = uri)
+            }
             val result = repository.submitPost(
                 title = currentState.title,
                 body = currentState.body,
                 attachments = attachments,
+                images = imageUploads,
                 tag = selectedTag
             )
 
@@ -122,6 +136,8 @@ class CreateViewModel(
                 when (submitResult) {
                     is CreatePostResult.Success -> {
                         _uiState.update { state ->
+                            val postId = submitResult.postId
+                            val feedback = submitResult.message.ifBlank { DEFAULT_SUCCESS_MESSAGE }
                             state.copy(
                                 isSubmitting = false,
                                 title = "",
@@ -130,7 +146,8 @@ class CreateViewModel(
                                 imageUris = emptyList(),
                                 availableTags = tagOptions,
                                 selectedTag = tagOptions.first(),
-                                successPostId = submitResult.postId
+                                successPostId = postId,
+                                successMessage = if (postId == null) feedback else null
                             )
                         }
                     }
@@ -138,7 +155,8 @@ class CreateViewModel(
                         _uiState.update { state ->
                             state.copy(
                                 isSubmitting = false,
-                                declineReason = submitResult.reason
+                                declineReason = submitResult.reason,
+                                successMessage = null
                             )
                         }
                     }
@@ -148,7 +166,8 @@ class CreateViewModel(
                 _uiState.update { state ->
                     state.copy(
                         isSubmitting = false,
-                        errorMessage = throwable.message ?: "Không thể đăng bài lúc này"
+                        errorMessage = throwable.message ?: "Không thể đăng bài lúc này",
+                        successMessage = null
                     )
                 }
             }
@@ -167,10 +186,18 @@ class CreateViewModel(
         _uiState.update { it.copy(successPostId = null) }
     }
 
+    fun onSuccessMessageDisplayed() {
+        _uiState.update { it.copy(successMessage = null) }
+    }
+
     fun onTagSelected(tag: PostTag) {
         _uiState.update { state ->
             state.copy(selectedTag = tag)
         }
+    }
+
+    companion object {
+        private const val DEFAULT_SUCCESS_MESSAGE = "Đăng bài thành công"
     }
 }
 

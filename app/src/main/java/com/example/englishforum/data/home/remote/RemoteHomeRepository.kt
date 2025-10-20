@@ -1,5 +1,6 @@
 package com.example.englishforum.data.home.remote
 
+import com.example.englishforum.BuildConfig
 import com.example.englishforum.core.common.resolveVoteChange
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumPostSummary
@@ -158,9 +159,23 @@ class RemoteHomeRepository(
         if (this.isNullOrEmpty()) return null
         return this
             .sortedWith(compareBy<AttachmentResponse> { it.index ?: Int.MAX_VALUE })
-            .firstNotNullOfOrNull { attachment ->
-                attachment.mediaUrl?.takeIf { it.isNotBlank() }
-            }
+            .firstNotNullOfOrNull { attachment -> attachment.resolveMediaUrl() }
+    }
+
+    private fun List<AttachmentResponse>?.resolveGalleryUrls(): List<String>? {
+        if (this.isNullOrEmpty()) return null
+        val urls = this
+            .sortedWith(compareBy<AttachmentResponse> { it.index ?: Int.MAX_VALUE })
+            .mapNotNull { attachment -> attachment.resolveMediaUrl() }
+        return urls.takeIf { it.isNotEmpty() }
+    }
+
+    private fun AttachmentResponse.resolveMediaUrl(): String? {
+        val explicitUrl = mediaUrl?.takeIf { it.isNotBlank() }
+        if (explicitUrl != null) return explicitUrl
+        val filename = mediaFilename?.takeIf { it.isNotBlank() } ?: return null
+        val normalizedBase = BuildConfig.API_BASE_URL.trimEnd('/')
+        return "$normalizedBase/download/$filename"
     }
 
     private fun VoteState.toVoteValue(): Int = when (this) {

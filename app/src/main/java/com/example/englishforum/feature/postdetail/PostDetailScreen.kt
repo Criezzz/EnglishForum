@@ -77,6 +77,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
@@ -85,6 +86,7 @@ import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.SavedStateHandle
+import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImage
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.VoteState
@@ -463,6 +465,7 @@ fun PostDetailScreen(
 
                                         previewImageUrl != null -> {
                                             PostSingleImage(
+                                                imageUrl = previewImageUrl,
                                                 onClick = {
                                                     selectedImageIndex = 0
                                                     showFullScreenViewer = true
@@ -854,6 +857,7 @@ private fun PostCommentItem(
 
 @Composable
 private fun PostSingleImage(
+    imageUrl: String,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
@@ -866,17 +870,35 @@ private fun PostSingleImage(
         tonalElevation = 0.dp,
         onClick = onClick
     ) {
-        Box(
+        AuthenticatedRemoteImage(
+            url = imageUrl,
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Image,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(48.dp)
-            )
-        }
+            contentScale = ContentScale.Crop,
+            loading = {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            error = {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Image,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
+            }
+        )
     }
 }
 
@@ -1005,27 +1027,35 @@ private fun PostGalleryImageItem(
         tonalElevation = 0.dp,
         onClick = onClick
     ) {
-        Box(
+        AuthenticatedRemoteImage(
+            url = imageUrl,
             modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Image,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(48.dp)
-                )
-                Text(
-                    text = imageUrl.substringAfterLast("/"),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            contentScale = ContentScale.Crop,
+            loading = {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            error = {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Image,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(48.dp)
+                    )
+                }
             }
-        }
+        )
     }
 }
 
@@ -1059,8 +1089,8 @@ private fun ZoomableImage(
             },
         contentAlignment = Alignment.Center
     ) {
-        // Full-size image placeholder - maintains aspect ratio
-        Surface(
+        AuthenticatedRemoteImage(
+            url = imageUrl,
             modifier = Modifier
                 .fillMaxWidth()
                 .aspectRatio(16f / 9f)
@@ -1070,15 +1100,22 @@ private fun ZoomableImage(
                     translationX = offsetX,
                     translationY = offsetY
                 ),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+            contentScale = ContentScale.Fit,
+            loading = {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            error = {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Image,
@@ -1086,14 +1123,9 @@ private fun ZoomableImage(
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(64.dp)
                     )
-                    Text(
-                        text = imageUrl.substringAfterLast("/"),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
             }
-        }
+        )
     }
 }
 
