@@ -88,17 +88,24 @@ class FakeAuthRepository(
         }
     }
 
-    override suspend fun verifyRecoveryOtp(code: String): Result<Boolean> {
+    override suspend fun verifyRecoveryOtp(contact: String, code: String): Result<String> {
         kotlinx.coroutines.delay(500)
         val sanitizedCode = code.filter { it.isDigit() }
         if (sanitizedCode.length < VALID_OTP.length) {
             return Result.failure(IllegalArgumentException("Mã OTP phải gồm 6 số"))
         }
-        return Result.success(sanitizedCode == VALID_OTP)
+        return if (sanitizedCode == VALID_OTP) {
+            Result.success(RESET_TOKEN)
+        } else {
+            Result.failure(IllegalArgumentException("Mã OTP không đúng"))
+        }
     }
 
-    override suspend fun resetPassword(newPassword: String): Result<Unit> {
+    override suspend fun resetPassword(resetToken: String, newPassword: String): Result<Unit> {
         kotlinx.coroutines.delay(800)
+        if (resetToken != RESET_TOKEN) {
+            return Result.failure(IllegalArgumentException("Token không hợp lệ"))
+        }
         val normalizedPassword = newPassword.trim()
         return if (normalizedPassword.length >= 6) {
             Result.success(Unit)
@@ -109,5 +116,6 @@ class FakeAuthRepository(
 
     private companion object {
         const val VALID_OTP = "000000"
+        const val RESET_TOKEN = "fake-reset-token"
     }
 }

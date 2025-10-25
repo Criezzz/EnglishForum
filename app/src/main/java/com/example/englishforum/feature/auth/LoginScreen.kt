@@ -23,6 +23,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -38,6 +39,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.englishforum.R
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -47,6 +49,8 @@ fun LoginScreen(
     onRequireVerification: () -> Unit,
     onRegisterClick: () -> Unit,
     onForgotPasswordClick: () -> Unit,
+    resetSuccessMessage: String? = null,
+    onResetMessageShown: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -69,6 +73,22 @@ fun LoginScreen(
         )
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        resetSuccessMessage?.let { message ->
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        LaunchedEffect(resetSuccessMessage) {
+            if (resetSuccessMessage != null) {
+                delay(4000)
+                onResetMessageShown()
+            }
+        }
 
         OutlinedTextField(
             value = uiState.username,

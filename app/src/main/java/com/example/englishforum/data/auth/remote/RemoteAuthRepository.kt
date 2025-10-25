@@ -7,24 +7,36 @@ import com.example.englishforum.data.auth.UserSession
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.auth.remote.model.TokenResponse
 import com.example.englishforum.data.auth.bearerToken
+import com.example.englishforum.data.profile.remote.ProfileApi
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.filterNotNull
 import org.json.JSONObject
 import retrofit2.HttpException
 import java.nio.charset.StandardCharsets
 
 class RemoteAuthRepository(
     private val authApi: AuthApi,
-    private val userSessionRepository: UserSessionRepository
+    private val userSessionRepository: UserSessionRepository,
+    private val profileApi: ProfileApi
 ) : AuthRepository {
 
     override suspend fun login(username: String, password: String): Result<AuthResult> = runCatching {
         val response = authApi.login(username = username.trim(), password = password)
-        val session = response.toSession(
+        val baseSession = response.toSession(
             fallbackUsername = username.trim(),
             isEmailVerified = true
         )
-        userSessionRepository.saveSession(session)
-        AuthResult(session = session, requiresEmailVerification = false)
+        val verificationStatus = determineVerificationStatus(baseSession)
+        val resolvedSession = when (verificationStatus) {
+            VerificationStatus.Verified -> baseSession.copy(isEmailVerified = true)
+            VerificationStatus.RequiresVerification -> baseSession.copy(isEmailVerified = false)
+            VerificationStatus.Unknown -> baseSession
+        }
+        userSessionRepository.saveSession(resolvedSession)
+        AuthResult(
+            session = resolvedSession,
+            requiresEmailVerification = verificationStatus == VerificationStatus.RequiresVerification
+        )
     }.recoverHttpFailure()
 
     override suspend fun register(username: String, email: String, password: String): Result<AuthResult> = runCatching {
@@ -42,7 +54,7 @@ class RemoteAuthRepository(
     }.recoverHttpFailure()
 
     override suspend fun verifyEmail(otp: String): Result<Unit> = runCatching {
-        val session = userSessionRepository.sessionFlow.firstOrNull()
+        val session = userSessionRepository.sessionFlow.filterNotNull().firstOrNull()
             ?: throw IllegalStateException("Bạn chưa đăng nhập")
         authApi.verifyEmail(bearer = session.bearerToken(), otp = otp.trim())
         userSessionRepository.markEmailVerified()
@@ -50,20 +62,32 @@ class RemoteAuthRepository(
     }.recoverHttpFailure()
 
     override suspend fun resendVerificationOtp(): Result<Unit> = runCatching {
-        val session = userSessionRepository.sessionFlow.firstOrNull()
+        val session = userSessionRepository.sessionFlow.filterNotNull().firstOrNull()
             ?: throw IllegalStateException("Bạn chưa đăng nhập")
         authApi.resendVerification(bearer = session.bearerToken())
         Unit
     }.recoverHttpFailure()
 
-    override suspend fun requestRecoveryOtp(contact: String): Result<Unit> =
-        Result.failure(UnsupportedOperationException("Khôi phục mật khẩu sẽ được cập nhật sau"))
+    override suspend fun requestRecoveryOtp(contact: String): Result<Unit> = runCatching {
+        authApi.requestPasswordRecovery(contact.trim())
+        Unit
+    }.recoverHttpFailure()
 
-    override suspend fun verifyRecoveryOtp(code: String): Result<Boolean> =
-        Result.failure(UnsupportedOperationException("Khôi phục mật khẩu sẽ được cập nhật sau"))
+    override suspend fun verifyRecoveryOtp(contact: String, code: String): Result<String> = runCatching {
+        val response = authApi.verifyRecoveryOtp(
+            otp = code.trim(),
+            contact = contact.trim()
+        )
+        response.resetToken
+    }.recoverHttpFailure()
 
-    override suspend fun resetPassword(newPassword: String): Result<Unit> =
-        Result.failure(UnsupportedOperationException("Khôi phục mật khẩu sẽ được cập nhật sau"))
+    override suspend fun resetPassword(resetToken: String, newPassword: String): Result<Unit> = runCatching {
+        authApi.resetPassword(
+            resetToken = resetToken,
+            newPassword = newPassword.trim()
+        )
+        Unit
+    }.recoverHttpFailure()
 
     private fun TokenResponse.toSession(
         fallbackUsername: String,
@@ -125,5 +149,36 @@ class RemoteAuthRepository(
         } catch (_: Exception) {
             raw ?: "Đã xảy ra lỗi, vui lòng thử lại"
         }
+    }
+
+    private suspend fun determineVerificationStatus(session: UserSession): VerificationStatus {
+        return runCatching {
+            profileApi.getCurrentUser(session.bearerToken())
+        }.fold(
+            onSuccess = { VerificationStatus.Verified },
+            onFailure = { throwable ->
+                if (throwable is HttpException && throwable.code() == 401) {
+                    val raw = throwable.response()?.errorBody()?.string()
+                    val message = parseErrorMessage(raw)
+                    return if (raw.containsVerificationHint() || message.containsVerificationHint()) {
+                        VerificationStatus.RequiresVerification
+                    } else {
+                        VerificationStatus.Unknown
+                    }
+                }
+                VerificationStatus.Unknown
+            }
+        )
+    }
+
+    private fun String?.containsVerificationHint(): Boolean {
+        if (this.isNullOrBlank()) return false
+        return contains("verify your email", ignoreCase = true)
+    }
+
+    private enum class VerificationStatus {
+        Verified,
+        RequiresVerification,
+        Unknown
     }
 }

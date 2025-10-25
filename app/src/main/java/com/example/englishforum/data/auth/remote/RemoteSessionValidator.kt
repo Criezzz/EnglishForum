@@ -28,11 +28,28 @@ class RemoteSessionValidator(
     }
 
     private fun Throwable.toSessionValidationResult(): SessionValidationResult = when (this) {
-        is HttpException -> when (code()) {
-            401, 403 -> SessionValidationResult.Invalid
-            else -> SessionValidationResult.Error("Server error ${code()}")
-        }
+        is HttpException -> sessionValidationResultForHttpException(this)
         is IOException -> SessionValidationResult.Offline
         else -> SessionValidationResult.Error(message)
+    }
+
+    private fun sessionValidationResultForHttpException(exception: HttpException): SessionValidationResult {
+        return when (exception.code()) {
+            401, 403 -> {
+                val errorBody = exception.response()?.errorBody()?.string()
+                if (errorBody.containsVerificationHint()) {
+                    SessionValidationResult.RequiresEmailVerification
+                } else {
+                    SessionValidationResult.Invalid
+                }
+            }
+
+            else -> SessionValidationResult.Error("Server error ${exception.code()}")
+        }
+    }
+
+    private fun String?.containsVerificationHint(): Boolean {
+        if (this.isNullOrBlank()) return false
+        return contains("verify your email", ignoreCase = true)
     }
 }

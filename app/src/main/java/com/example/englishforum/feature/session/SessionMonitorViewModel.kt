@@ -62,10 +62,24 @@ class SessionMonitorViewModel(
             return
         }
 
+        if (!session.isEmailVerified) {
+            _state.value = SessionMonitorState.RequiresVerification
+            return
+        }
+
         _state.value = SessionMonitorState.Checking
         when (val result = sessionValidator.validate(session)) {
             SessionValidationResult.Valid -> {
                 _state.value = SessionMonitorState.Valid
+            }
+
+            SessionValidationResult.RequiresEmailVerification -> {
+                _state.value = SessionMonitorState.RequiresVerification
+                if (session.isEmailVerified) {
+                    withContext(ioDispatcher) {
+                        userSessionRepository.saveSession(session.copy(isEmailVerified = false))
+                    }
+                }
             }
 
             SessionValidationResult.Invalid -> {
@@ -100,6 +114,7 @@ sealed interface SessionMonitorState {
     data object Valid : SessionMonitorState
     data object Offline : SessionMonitorState
     data object Invalidated : SessionMonitorState
+    data object RequiresVerification : SessionMonitorState
     data class Error(val message: String?) : SessionMonitorState
 }
 

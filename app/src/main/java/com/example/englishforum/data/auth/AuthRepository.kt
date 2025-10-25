@@ -15,9 +15,9 @@ interface AuthRepository {
 
     suspend fun requestRecoveryOtp(contact: String): Result<Unit>
 
-    suspend fun verifyRecoveryOtp(code: String): Result<Boolean>
+    suspend fun verifyRecoveryOtp(contact: String, code: String): Result<String>
 
-    suspend fun resetPassword(newPassword: String): Result<Unit>
+    suspend fun resetPassword(resetToken: String, newPassword: String): Result<Unit>
 }
 
 data class AuthResult(

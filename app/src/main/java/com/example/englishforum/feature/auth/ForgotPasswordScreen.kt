@@ -177,8 +177,8 @@ private fun OtpStep(
             onValueChange = viewModel::onOtpChange,
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
-            readOnly = uiState.isOtpVerified,
-            enabled = !uiState.isOtpVerified,
+            readOnly = uiState.isOtpVerified || uiState.isLoading,
+            enabled = !uiState.isOtpVerified && !uiState.isLoading,
             label = { Text(text = stringResource(R.string.auth_otp_label)) },
             textStyle = MaterialTheme.typography.titleLarge.copy(textAlign = TextAlign.Center),
             keyboardOptions = KeyboardOptions(

@@ -101,6 +101,7 @@ fun MainApp() {
     val networkMonitor = remember { appContainer.networkMonitor }
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -131,6 +132,7 @@ fun MainApp() {
     val sessionExpiredMessage = stringResource(R.string.session_expired_message)
     val sessionOfflineMessage = stringResource(R.string.session_offline_message)
     val sessionCheckErrorMessage = stringResource(R.string.session_check_error_message)
+    val sessionRequiresVerificationMessage = stringResource(R.string.session_requires_verification_message)
 
     LaunchedEffect(sessionMonitorState) {
         when (val state = sessionMonitorState) {
@@ -140,6 +142,10 @@ fun MainApp() {
 
             SessionMonitorState.Offline -> {
                 snackbarHostState.showSnackbar(sessionOfflineMessage)
+            }
+
+            SessionMonitorState.RequiresVerification -> {
+                snackbarHostState.showSnackbar(sessionRequiresVerificationMessage)
             }
 
             is SessionMonitorState.Error -> {
@@ -192,7 +198,10 @@ fun MainApp() {
                 startDestination = "login",
                 modifier = Modifier.padding(innerPadding)
             ) {
-                composable("login") {
+                composable("login") { backStackEntry ->
+                    val resetMessage by backStackEntry.savedStateHandle
+                        .getStateFlow<String?>("passwordResetMessage", null)
+                        .collectAsState()
                     val loginViewModel: LoginViewModel = viewModel(
                         factory = remember(authRepository) { LoginViewModelFactory(authRepository) }
                     )
@@ -210,7 +219,11 @@ fun MainApp() {
                             }
                         },
                         onRegisterClick = { navController.navigate("register") },
-                        onForgotPasswordClick = { navController.navigate("forgot") }
+                        onForgotPasswordClick = { navController.navigate("forgot") },
+                        resetSuccessMessage = resetMessage,
+                        onResetMessageShown = {
+                            backStackEntry.savedStateHandle["passwordResetMessage"] = null
+                        }
                     )
                 }
 
@@ -226,8 +239,16 @@ fun MainApp() {
                             navController.popBackStack()
                         },
                         onResetSuccess = {
-                            navController.navigate(Destinations.Home.route) {
-                                popUpTo("login") { inclusive = true }
+                            val resetMessage = context.getString(R.string.auth_password_reset_success_message)
+                            scope.launch {
+                                navController.navigate("login") {
+                                    popUpTo("login") { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                                navController.currentBackStackEntry?.savedStateHandle?.set(
+                                    "passwordResetMessage",
+                                    resetMessage
+                                )
                             }
                         }
                     )

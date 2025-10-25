@@ -109,7 +109,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val authRepository: AuthRepository by lazy {
         RemoteAuthRepository(
             authApi = authApi,
-            userSessionRepository = userSessionRepository
+            userSessionRepository = userSessionRepository,
+            profileApi = profileApi
         )
     }
 
