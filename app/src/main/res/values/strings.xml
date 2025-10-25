@@ -44,6 +44,8 @@
     <string name="search_intro_supporting">Nhập từ khoá để tìm bài viết, tác giả hoặc thẻ phù hợp.</string>
     <string name="search_empty_state_title">Không tìm thấy kết quả</string>
     <string name="search_empty_state_supporting">Thử điều chỉnh từ khoá hoặc xem các thẻ khác.</string>
+    <string name="search_section_users">Người dùng</string>
+    <string name="search_section_posts">Bài viết</string>
     <string name="home_post_meta">%1$s • %2$s</string>
     <string name="home_post_meta_with_tag">%1$s • %2$s • %3$s</string>
     <string name="home_empty_state">Không có bài viết nào phù hợp</string>

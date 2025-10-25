@@ -50,7 +50,7 @@ class RemoteSearchRepository(
                     bearer = session.bearerToken(),
                     keyword = sanitized.toBackendPattern()
                 )
-                response.toDomain()
+                response.toDomain(session)
             }
         }.mapFailure { it.toSearchRepositoryException() }
     }
@@ -64,29 +64,39 @@ class RemoteSearchRepository(
         return userSessionRepository.sessionFlow.firstOrNull()
     }
 
-    private fun SearchResponse.toDomain(): SearchResult {
+    private fun SearchResponse.toDomain(session: UserSession): SearchResult {
         val normalizedBase = BuildConfig.API_BASE_URL.trimEnd('/')
-        val usersDomain = users.orEmpty()
-            .mapNotNull { it.toDomain(normalizedBase) }
-        val usersLookup = usersDomain
-            .associateBy { it.id.toIntOrNull() }
+        val userEntries = users.orEmpty()
+            .mapNotNull { it.toDomainEntry(normalizedBase) }
+        val usersLookup = mutableMapOf<Int?, SearchUser>().apply {
+            userEntries.forEach { (id, user) -> this[id] = user }
+        }
         val postsDomain = posts.orEmpty()
             .mapNotNull { it.toDomain(normalizedBase, usersLookup) }
+        val usersDomain = userEntries
+            .map { it.second }
+            .filterNot { it.isCurrentUser(session) }
         return SearchResult(
             posts = postsDomain,
             users = usersDomain
         )
     }
 
-    private fun SearchUserResponse.toDomain(baseUrl: String): SearchUser? {
-        val identifier = userId ?: return null
+    private fun SearchUserResponse.toDomainEntry(baseUrl: String): Pair<Int?, SearchUser>? {
         val normalizedUsername = username?.takeIf { it.isNotBlank() } ?: return null
-        return SearchUser(
-            id = identifier.toString(),
+        val identifier = userId?.toString() ?: normalizedUsername
+        val user = SearchUser(
+            id = identifier,
             username = normalizedUsername,
             avatarUrl = avatarFilename.toDownloadUrl(baseUrl),
             bio = bio?.ifBlank { null }
         )
+        return userId to user
+    }
+
+    private fun SearchUser.isCurrentUser(session: UserSession): Boolean {
+        return id.equals(session.userId, ignoreCase = true) ||
+            username.equals(session.username, ignoreCase = true)
     }
 
     private fun SearchPostResponse.toDomain(

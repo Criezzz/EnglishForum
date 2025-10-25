@@ -7,6 +7,7 @@ import com.example.englishforum.core.common.formatRelativeTime
 import com.example.englishforum.core.common.resolveVoteChange
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumPostSummary
+import com.example.englishforum.core.model.search.SearchUser
 import com.example.englishforum.data.search.SearchRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -28,18 +29,21 @@ class SearchViewModel(
     private val query = MutableStateFlow("")
     private val loading = MutableStateFlow(false)
     private val posts = MutableStateFlow<List<ForumPostSummary>>(emptyList())
+    private val users = MutableStateFlow<List<SearchUser>>(emptyList())
     private val error = MutableStateFlow<String?>(null)
 
     val uiState: StateFlow<SearchUiState> = combine(
         query,
         loading,
         posts,
+        users,
         error
-    ) { currentQuery, isLoading, results, errorMessage ->
+    ) { currentQuery, isLoading, postResults, userResults, errorMessage ->
         SearchUiState(
             query = currentQuery,
             isLoading = isLoading,
-            results = results.map { it.toUiModel() },
+            posts = postResults.map { it.toUiModel() },
+            users = userResults.map { it.toUiModel() },
             errorMessage = errorMessage
         )
     }
@@ -61,6 +65,7 @@ class SearchViewModel(
     fun onClearQuery() {
         query.value = ""
         posts.value = emptyList()
+        users.value = emptyList()
         error.value = null
         loading.value = false
     }
@@ -83,6 +88,7 @@ class SearchViewModel(
                     if (normalized.isBlank()) {
                         loading.value = false
                         posts.value = emptyList()
+                        users.value = emptyList()
                         error.value = null
                     } else {
                         performSearch(normalized)
@@ -98,9 +104,11 @@ class SearchViewModel(
         val result = repository.search(keyword)
         result.onSuccess { searchResult ->
             posts.value = searchResult.posts
+            users.value = searchResult.users
             error.value = null
         }.onFailure { throwable ->
             posts.value = emptyList()
+            users.value = emptyList()
             error.value = throwable.message ?: GENERIC_ERROR_MESSAGE
         }
 
@@ -134,8 +142,8 @@ class SearchViewModel(
         }
     }
 
-    private fun ForumPostSummary.toUiModel(): SearchResultUi {
-        return SearchResultUi(
+    private fun ForumPostSummary.toUiModel(): SearchPostUi {
+        return SearchPostUi(
             id = id,
             authorName = authorName,
             authorUsername = authorUsername,
@@ -148,6 +156,15 @@ class SearchViewModel(
             tag = tag,
             authorAvatarUrl = authorAvatarUrl,
             previewImageUrl = previewImageUrl
+        )
+    }
+
+    private fun SearchUser.toUiModel(): SearchUserUi {
+        return SearchUserUi(
+            id = id,
+            username = username,
+            bio = bio,
+            avatarUrl = avatarUrl
         )
     }
 

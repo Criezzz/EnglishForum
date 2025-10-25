@@ -1,5 +1,6 @@
 package com.example.englishforum.feature.search
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.outlined.Image
@@ -51,6 +53,7 @@ import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.PostTag
+import com.example.englishforum.core.ui.components.ForumAuthorAvatar
 import com.example.englishforum.core.ui.components.ForumAuthorLink
 import com.example.englishforum.core.ui.components.ForumTagLabel
 import com.example.englishforum.core.ui.components.card.ForumContentCard
@@ -184,6 +187,8 @@ private fun SearchScreen(
 
         Spacer(Modifier.height(4.dp))
 
+        val hasResults = uiState.posts.isNotEmpty() || uiState.users.isNotEmpty()
+
         when {
             uiState.isLoading && uiState.query.isBlank() -> {
                 SearchLanding(
@@ -211,7 +216,7 @@ private fun SearchScreen(
                 )
             }
 
-            uiState.results.isEmpty() -> {
+            !hasResults -> {
                 SearchEmptyState(
                     modifier = Modifier
                         .weight(1f)
@@ -225,13 +230,15 @@ private fun SearchScreen(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
-                    results = uiState.results,
+                    posts = uiState.posts,
+                    users = uiState.users,
                     onPostClick = onPostClick,
                     onCommentClick = onCommentClick,
                     onUpvote = onUpvote,
                     onDownvote = onDownvote,
                     onMoreActionsClick = onMoreActionsClick,
-                    onAuthorClick = onAuthorClick
+                    onAuthorClick = onAuthorClick,
+                    onUserClick = onAuthorClick
                 )
             }
         }
@@ -350,36 +357,64 @@ private fun SearchLoadingList(
 @Composable
 private fun SearchResultList(
     modifier: Modifier = Modifier,
-    results: List<SearchResultUi>,
+    posts: List<SearchPostUi>,
+    users: List<SearchUserUi>,
     onPostClick: (String) -> Unit,
     onCommentClick: (String) -> Unit,
     onUpvote: (String) -> Unit,
     onDownvote: (String) -> Unit,
     onMoreActionsClick: (String) -> Unit,
-    onAuthorClick: (String) -> Unit
+    onAuthorClick: (String) -> Unit,
+    onUserClick: (String) -> Unit
 ) {
     LazyColumn(
         modifier = modifier,
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        items(results, key = { it.id }) { result ->
-            SearchResultCard(
-                result = result,
-                onPostClick = onPostClick,
-                onCommentClick = onCommentClick,
-                onUpvote = onUpvote,
-                onDownvote = onDownvote,
-                onMoreActionsClick = onMoreActionsClick,
-                onAuthorClick = onAuthorClick
-            )
+        if (users.isNotEmpty()) {
+            item(key = "users_header") {
+                SearchSectionHeader(
+                    text = stringResource(R.string.search_section_users)
+                )
+            }
+            items(users, key = { "user_${it.id}" }) { user ->
+                SearchUserCard(
+                    user = user,
+                    onClick = { onUserClick(user.username) }
+                )
+            }
+            if (posts.isNotEmpty()) {
+                item(key = "users_posts_spacer") {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
+            }
+        }
+
+        if (posts.isNotEmpty()) {
+            item(key = "posts_header") {
+                SearchSectionHeader(
+                    text = stringResource(R.string.search_section_posts)
+                )
+            }
+            items(posts, key = { "post_${it.id}" }) { result ->
+                SearchPostCard(
+                    result = result,
+                    onPostClick = onPostClick,
+                    onCommentClick = onCommentClick,
+                    onUpvote = onUpvote,
+                    onDownvote = onDownvote,
+                    onMoreActionsClick = onMoreActionsClick,
+                    onAuthorClick = onAuthorClick
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun SearchResultCard(
-    result: SearchResultUi,
+private fun SearchPostCard(
+    result: SearchPostUi,
     onPostClick: (String) -> Unit,
     onCommentClick: (String) -> Unit,
     onUpvote: (String) -> Unit,
@@ -405,8 +440,9 @@ private fun SearchResultCard(
         onMoreActionsClick = { onMoreActionsClick(result.id) },
         onCardClick = { onPostClick(result.id) },
         leadingContent = {
-            SearchResultAvatar(
+            ForumAuthorAvatar(
                 name = result.authorName,
+                avatarUrl = result.authorAvatarUrl,
                 modifier = Modifier.size(SEARCH_RESULT_AVATAR_SIZE)
             )
         },
@@ -444,35 +480,74 @@ private fun SearchResultCard(
 }
 
 @Composable
-private fun SearchResultAvatar(
-    name: String,
+private fun SearchSectionHeader(
+    text: String,
     modifier: Modifier = Modifier
 ) {
-    val palette = listOf(
-        MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer,
-        MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer,
-        MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer,
-        MaterialTheme.colorScheme.surfaceContainerHighest to MaterialTheme.colorScheme.onSurfaceVariant
+    Text(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+        text = text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
     )
-    val hash = name.hashCode()
-    val safeHash = if (hash == Int.MIN_VALUE) 0 else kotlin.math.abs(hash)
-    val (containerColor, contentColor) = palette[safeHash % palette.size]
-    val initial = name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
+}
 
+@Composable
+private fun SearchUserCard(
+    user: SearchUserUi,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Surface(
-        modifier = modifier,
-        shape = CircleShape,
-        color = containerColor,
-        contentColor = contentColor,
-        tonalElevation = 0.dp
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        tonalElevation = 2.dp,
+        onClick = onClick
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = initial,
-                style = MaterialTheme.typography.titleMedium
+            ForumAuthorAvatar(
+                name = user.username,
+                avatarUrl = user.avatarUrl,
+                modifier = Modifier.size(SEARCH_RESULT_AVATAR_SIZE)
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    text = user.username,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                user.bio?.takeIf { it.isNotBlank() }?.let { bio ->
+                    Text(
+                        text = bio,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } ?: Text(
+                    text = stringResource(R.string.profile_bio_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Icon(
+                imageVector = Icons.Filled.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
@@ -506,8 +581,8 @@ private fun SearchResultImagePlaceholder(
 @Preview(showBackground = true)
 @Composable
 private fun SearchScreenPreview() {
-    val previewResults = listOf(
-        SearchResultUi(
+    val previewPosts = listOf(
+        SearchPostUi(
             id = "1",
             authorName = "kellytran",
             relativeTimeText = "3 phút trước",
@@ -518,7 +593,7 @@ private fun SearchScreenPreview() {
             commentCount = 12,
             tag = PostTag.Resource
         ),
-        SearchResultUi(
+        SearchPostUi(
             id = "2",
             authorName = "studybuddy",
             relativeTimeText = "2 giờ trước",
@@ -530,13 +605,28 @@ private fun SearchScreenPreview() {
             tag = PostTag.AskQuestion
         )
     )
+    val previewUsers = listOf(
+        SearchUserUi(
+            id = "101",
+            username = "nguyenvan",
+            bio = "Mình thích chia sẻ tài liệu IELTS và mẹo học tập.",
+            avatarUrl = null
+        ),
+        SearchUserUi(
+            id = "102",
+            username = "thanhha",
+            bio = null,
+            avatarUrl = null
+        )
+    )
 
     EnglishForumTheme {
         SearchScreen(
             uiState = SearchUiState(
                 query = "speaking",
                 isLoading = false,
-                results = previewResults
+                posts = previewPosts,
+                users = previewUsers
             ),
             onQueryChange = {},
             onClearQuery = {},

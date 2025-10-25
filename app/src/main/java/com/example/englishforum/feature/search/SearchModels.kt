@@ -3,7 +3,7 @@ package com.example.englishforum.feature.search
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.PostTag
 
-data class SearchResultUi(
+data class SearchPostUi(
     val id: String,
     val authorName: String,
     val authorUsername: String? = null,
@@ -18,9 +18,17 @@ data class SearchResultUi(
     val previewImageUrl: String? = null
 )
 
+data class SearchUserUi(
+    val id: String,
+    val username: String,
+    val bio: String? = null,
+    val avatarUrl: String? = null
+)
+
 data class SearchUiState(
     val query: String = "",
     val isLoading: Boolean = false,
-    val results: List<SearchResultUi> = emptyList(),
+    val posts: List<SearchPostUi> = emptyList(),
+    val users: List<SearchUserUi> = emptyList(),
     val errorMessage: String? = null
 )
