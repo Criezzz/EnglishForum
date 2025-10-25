@@ -13,6 +13,7 @@ import com.example.englishforum.core.model.forum.ForumUserProfile
 import com.example.englishforum.data.auth.UserSession
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.auth.bearerToken
+import com.example.englishforum.data.post.remote.PostDetailApi
 import com.example.englishforum.data.profile.ProfileAvatarImage
 import com.example.englishforum.data.profile.ProfileRepository
 import com.example.englishforum.data.profile.remote.model.SimpleUserResponse
@@ -32,6 +33,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -48,17 +50,20 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
+import java.util.concurrent.ConcurrentHashMap
 
-class RemoteProfileRepository(
+internal class RemoteProfileRepository(
     private val profileApi: ProfileApi,
     private val userSessionRepository: UserSessionRepository,
     private val contentResolver: ContentResolver,
+    private val postDetailApi: PostDetailApi,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ProfileRepository {
 
     private val profileState = MutableStateFlow<ForumUserProfile?>(null)
     private var cachedUserId: String? = null
     private val baseUrl = BuildConfig.API_BASE_URL.trimEnd('/')
+    private val postTitleCache = ConcurrentHashMap<Int, String>()
 
     override fun observeProfile(userId: String): Flow<ForumUserProfile> = flow {
         refreshProfile(userId, force = cachedUserId != userId)
@@ -253,7 +258,11 @@ class RemoteProfileRepository(
                     val commentResponses = commentsDeferred.await()
 
                     val identifier = if (userId == session.userId) session.userId else userId
-                    val postTitleLookup = postResponses.associatePostTitles()
+                    val postTitleLookup = buildPostTitleLookup(
+                        session = session,
+                        posts = postResponses,
+                        comments = commentResponses
+                    )
                     val posts = postResponses.toProfilePosts()
                     val replies = commentResponses.toProfileReplies(postTitleLookup)
 
@@ -279,15 +288,20 @@ class RemoteProfileRepository(
         replies: List<ForumProfileReply>
     ): ForumUserProfile {
         val normalizedDisplayName = username.ifBlank { userId }
+        val resolvedUpvotes = upvoteCount?.takeIf { it >= 0 }
+            ?: calculateTotalUpvotes(posts, replies)
+        val resolvedPostCount = postCount?.takeIf { it >= 0 } ?: posts.size
+        val resolvedCommentCount = commentCount?.takeIf { it >= 0 } ?: replies.size
+
         return ForumUserProfile(
             userId = userId,
             displayName = normalizedDisplayName,
             avatarUrl = resolveAvatarPath().toAvatarUrl(),
             bio = bio?.ifBlank { null },
             stats = ForumProfileStats(
-                upvotes = calculateTotalUpvotes(posts, replies),
-                posts = posts.size,
-                answers = replies.size
+                upvotes = resolvedUpvotes,
+                posts = resolvedPostCount,
+                answers = resolvedCommentCount
             ),
             posts = posts,
             replies = replies
@@ -309,10 +323,67 @@ class RemoteProfileRepository(
         }
     }
 
+    private suspend fun buildPostTitleLookup(
+        session: UserSession,
+        posts: List<UserPostResponse>,
+        comments: List<UserCommentResponse>
+    ): Map<Int, String> {
+        val titlesFromPosts = posts.associatePostTitles()
+        if (titlesFromPosts.isNotEmpty()) {
+            postTitleCache.putAll(titlesFromPosts)
+        }
+
+        val commentPostIds = comments.mapNotNull { it.postId }.toSet()
+        if (commentPostIds.isEmpty()) {
+            return titlesFromPosts
+        }
+
+        val cachedMatches = mutableMapOf<Int, String>()
+        commentPostIds.forEach { postId ->
+            postTitleCache[postId]?.let { cachedMatches[postId] = it }
+        }
+
+        val missingIds = commentPostIds - cachedMatches.keys
+        val fetchedTitles = if (missingIds.isEmpty()) {
+            emptyMap()
+        } else {
+            fetchPostTitles(session, missingIds.toList())
+        }
+        if (fetchedTitles.isNotEmpty()) {
+            postTitleCache.putAll(fetchedTitles)
+        }
+
+        return mutableMapOf<Int, String>().apply {
+            putAll(cachedMatches)
+            putAll(fetchedTitles)
+            putAll(titlesFromPosts)
+        }
+    }
+
+    private suspend fun fetchPostTitles(
+        session: UserSession,
+        postIds: List<Int>
+    ): Map<Int, String> {
+        if (postIds.isEmpty()) return emptyMap()
+        val bearer = session.bearerToken()
+        return coroutineScope {
+            postIds.map { postId ->
+                async {
+                    runCatching {
+                        val detail = postDetailApi.getPostDetail(bearer, postId)
+                        postId to resolvePostTitle(postId, detail.title)
+                    }.getOrElse { throwable ->
+                        if (throwable is CancellationException) throw throwable
+                        postId to resolvePostTitle(postId, null)
+                    }
+                }
+            }.awaitAll().toMap()
+        }
+    }
+
     private fun List<UserPostResponse>.associatePostTitles(): Map<Int, String> {
         return associate { response ->
-            val sanitizedTitle = response.title?.takeIf { it.isNotBlank() }
-            response.postId to (sanitizedTitle ?: "${DEFAULT_POST_TITLE_PREFIX}${response.postId}")
+            response.postId to resolvePostTitle(response.postId, response.title)
         }
     }
 
@@ -323,12 +394,17 @@ class RemoteProfileRepository(
     private fun UserPostResponse.toProfilePost(): ForumProfilePost {
         return ForumProfilePost(
             id = postId.toString(),
-            title = title?.ifBlank { "${DEFAULT_POST_TITLE_PREFIX}$postId" } ?: "${DEFAULT_POST_TITLE_PREFIX}$postId",
+            title = resolvePostTitle(postId, title),
             body = content.orEmpty(),
             timestampLabel = createdAt.toProfileTimestampLabel(),
             voteCount = voteCount ?: 0,
             voteState = userVote.toVoteState()
         )
+    }
+
+    private fun resolvePostTitle(postId: Int, rawTitle: String?): String {
+        val sanitized = rawTitle?.trim()?.takeIf { it.isNotEmpty() }
+        return sanitized ?: "${DEFAULT_POST_TITLE_PREFIX}$postId"
     }
 
     private fun List<UserCommentResponse>.toProfileReplies(

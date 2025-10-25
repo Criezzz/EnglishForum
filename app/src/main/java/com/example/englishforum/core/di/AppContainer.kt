@@ -169,7 +169,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
         RemoteProfileRepository(
             profileApi = profileApi,
             userSessionRepository = userSessionRepository,
-            contentResolver = appContext.contentResolver
+            contentResolver = appContext.contentResolver,
+            postDetailApi = postDetailApi
         )
     }
 
