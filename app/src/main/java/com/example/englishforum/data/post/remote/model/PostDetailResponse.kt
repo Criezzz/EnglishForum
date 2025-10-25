@@ -18,6 +18,7 @@ internal data class PostDetailResponse(
     @Json(name = "author_display_name") val authorDisplayName: String? = null,
     @Json(name = "author_name") val authorFullName: String? = null,
     @Json(name = "author_avatar_url") val authorAvatarUrl: String? = null,
+    @Json(name = "author_avatar") val authorAvatar: String? = null,
     val attachments: List<AttachmentResponse>? = null
 )
 
@@ -27,6 +28,7 @@ internal data class PostCommentResponse(
     @Json(name = "author_username") val authorUsername: String? = null,
     @Json(name = "author_display_name") val authorDisplayName: String? = null,
     @Json(name = "author_name") val authorFullName: String? = null,
+    @Json(name = "author_avatar") val authorAvatar: String? = null,
     val content: String = "",
     @Json(name = "vote_count") val voteCount: Int = 0,
     @Json(name = "user_vote") val userVote: Int = 0,

@@ -65,6 +65,7 @@ private fun ForumPostDetail.toSummary(previous: ForumPostSummary?): ForumPostSum
     return ForumPostSummary(
         id = id,
         authorName = authorName,
+        authorUsername = authorUsername ?: previous?.authorUsername,
         minutesAgo = minutesAgo,
         title = title,
         body = body,

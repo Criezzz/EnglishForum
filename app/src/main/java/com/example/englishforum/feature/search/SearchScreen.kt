@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -50,6 +51,8 @@ import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.PostTag
+import com.example.englishforum.core.ui.components.ForumAuthorLink
+import com.example.englishforum.core.ui.components.ForumTagLabel
 import com.example.englishforum.core.ui.components.card.ForumContentCard
 import com.example.englishforum.core.ui.components.card.ForumContentCardPlaceholder
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
@@ -63,7 +66,8 @@ fun SearchRoute(
     modifier: Modifier = Modifier,
     onPostClick: (String) -> Unit = {},
     onCommentClick: (String) -> Unit = {},
-    onMoreActionsClick: (String) -> Unit = {}
+    onMoreActionsClick: (String) -> Unit = {},
+    onAuthorClick: (String) -> Unit = {}
 ) {
     val appContainer = LocalAppContainer.current
     val viewModel: SearchViewModel = viewModel(
@@ -80,7 +84,8 @@ fun SearchRoute(
         onDownvote = viewModel::onDownvote,
         onPostClick = onPostClick,
         onCommentClick = onCommentClick,
-        onMoreActionsClick = onMoreActionsClick
+        onMoreActionsClick = onMoreActionsClick,
+        onAuthorClick = onAuthorClick
     )
 }
 
@@ -94,7 +99,8 @@ private fun SearchScreen(
     onDownvote: (String) -> Unit,
     onPostClick: (String) -> Unit,
     onCommentClick: (String) -> Unit,
-    onMoreActionsClick: (String) -> Unit
+    onMoreActionsClick: (String) -> Unit,
+    onAuthorClick: (String) -> Unit
 ) {
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
@@ -224,7 +230,8 @@ private fun SearchScreen(
                     onCommentClick = onCommentClick,
                     onUpvote = onUpvote,
                     onDownvote = onDownvote,
-                    onMoreActionsClick = onMoreActionsClick
+                    onMoreActionsClick = onMoreActionsClick,
+                    onAuthorClick = onAuthorClick
                 )
             }
         }
@@ -348,7 +355,8 @@ private fun SearchResultList(
     onCommentClick: (String) -> Unit,
     onUpvote: (String) -> Unit,
     onDownvote: (String) -> Unit,
-    onMoreActionsClick: (String) -> Unit
+    onMoreActionsClick: (String) -> Unit,
+    onAuthorClick: (String) -> Unit
 ) {
     LazyColumn(
         modifier = modifier,
@@ -362,7 +370,8 @@ private fun SearchResultList(
                 onCommentClick = onCommentClick,
                 onUpvote = onUpvote,
                 onDownvote = onDownvote,
-                onMoreActionsClick = onMoreActionsClick
+                onMoreActionsClick = onMoreActionsClick,
+                onAuthorClick = onAuthorClick
             )
         }
     }
@@ -376,17 +385,13 @@ private fun SearchResultCard(
     onUpvote: (String) -> Unit,
     onDownvote: (String) -> Unit,
     onMoreActionsClick: (String) -> Unit,
+    onAuthorClick: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val tagLabel = stringResource(result.tag.toLabelResId())
     ForumContentCard(
         modifier = modifier.fillMaxWidth(),
-        meta = stringResource(
-            R.string.home_post_meta_with_tag,
-            result.authorName,
-            result.relativeTimeText,
-            tagLabel
-        ),
+        meta = result.relativeTimeText,
         title = result.title.takeIf { it.isNotBlank() },
         body = result.body.takeIf { it.isNotBlank() },
         bodyMaxLines = SEARCH_RESULT_BODY_MAX_LINES,
@@ -404,6 +409,31 @@ private fun SearchResultCard(
                 name = result.authorName,
                 modifier = Modifier.size(SEARCH_RESULT_AVATAR_SIZE)
             )
+        },
+        headerContent = {
+            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val authorClick = result.authorUsername?.let { username ->
+                        { onAuthorClick(username) }
+                    }
+                    ForumAuthorLink(
+                        name = result.authorName,
+                        onClick = authorClick,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Spacer(Modifier.weight(1f))
+                    ForumTagLabel(label = tagLabel)
+                }
+                Text(
+                    text = result.relativeTimeText,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         },
         supportingContent = {
             if (result.previewImageUrl != null) {
@@ -514,7 +544,8 @@ private fun SearchScreenPreview() {
             onDownvote = {},
             onPostClick = {},
             onCommentClick = {},
-            onMoreActionsClick = {}
+            onMoreActionsClick = {},
+            onAuthorClick = {}
         )
     }
 }

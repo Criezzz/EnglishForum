@@ -16,6 +16,7 @@ data class FeedPostResponse(
     @Json(name = "author_display_name") val authorDisplayName: String? = null,
     @Json(name = "author_name") val authorName: String? = null,
     @Json(name = "author_avatar_url") val authorAvatarUrl: String? = null,
+    @Json(name = "author_avatar") val authorAvatar: String? = null,
     val attachments: List<AttachmentResponse>? = null
 )
 

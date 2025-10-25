@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
@@ -83,7 +84,9 @@ fun ProfileScreen(
     onPostClick: (String) -> Unit = {},
     onReplyClick: (String, String?) -> Unit = { _, _ -> },
     onPostMoreClick: (ProfilePost) -> Unit = {},
-    onReplyMoreClick: (ProfileReply) -> Unit = {}
+    onReplyMoreClick: (ProfileReply) -> Unit = {},
+    isOwnProfile: Boolean = true,
+    onBackClick: () -> Unit = {}
 ) {
     val appContainer = LocalAppContainer.current
     val resolvedUserId = userId ?: "user-1"
@@ -118,16 +121,28 @@ fun ProfileScreen(
         }
     }
 
+    val canEditProfile = isOwnProfile
+
+    val handleSettingsClick: () -> Unit = {
+        if (canEditProfile) {
+            onSettingsClick()
+        }
+    }
+    val handleEditClick: () -> Unit = editClick@{
+        if (!canEditProfile) return@editClick
+        onEditClick()
+        viewModel.resetEditState()
+        showEditDialog = true
+    }
     ProfileContent(
         modifier = modifier,
         uiState = uiState,
         avatarState = avatarState,
-        onSettingsClick = onSettingsClick,
-        onEditClick = {
-            onEditClick()
-            viewModel.resetEditState()
-            showEditDialog = true
-        },
+        showAccountActions = canEditProfile,
+        showBackButton = !canEditProfile,
+        onSettingsClick = handleSettingsClick,
+        onEditClick = handleEditClick,
+        onBackClick = onBackClick,
         onPostClick = onPostClick,
         onReplyClick = onReplyClick,
         onPostMoreClick = onPostMoreClick,
@@ -139,7 +154,7 @@ fun ProfileScreen(
     )
 
     val overview = uiState.overview
-    if (showEditDialog && overview != null) {
+    if (canEditProfile && showEditDialog && overview != null) {
         ProfileEditDialog(
             currentName = overview.displayName,
             currentBio = overview.bio.orEmpty(),
@@ -156,9 +171,11 @@ fun ProfileScreen(
                 viewModel.updateProfile(name, bio)
             },
             onChangePhoto = {
-                avatarPicker.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
-                )
+                if (canEditProfile) {
+                    avatarPicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                }
             }
         )
     }
@@ -169,8 +186,11 @@ private fun ProfileContent(
     modifier: Modifier = Modifier,
     uiState: ProfileUiState,
     avatarState: ProfileAvatarUiState,
+    showAccountActions: Boolean,
+    showBackButton: Boolean,
     onSettingsClick: () -> Unit,
     onEditClick: () -> Unit,
+    onBackClick: () -> Unit,
     onPostClick: (String) -> Unit,
     onReplyClick: (String, String?) -> Unit,
     onPostMoreClick: (ProfilePost) -> Unit,
@@ -193,8 +213,11 @@ private fun ProfileContent(
                 overview = uiState.overview,
                 isLoading = uiState.isLoading,
                 avatarState = avatarState,
+                showAccountActions = showAccountActions,
+                showBackButton = showBackButton,
                 onSettingsClick = onSettingsClick,
                 onEditClick = onEditClick,
+                onBackClick = onBackClick,
                 modifier = Modifier
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             )
@@ -303,8 +326,11 @@ private fun ProfileHeader(
     overview: ProfileOverview?,
     isLoading: Boolean,
     avatarState: ProfileAvatarUiState,
+    showAccountActions: Boolean,
+    showBackButton: Boolean,
     onSettingsClick: () -> Unit,
     onEditClick: () -> Unit,
+    onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -313,26 +339,15 @@ private fun ProfileHeader(
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp
     ) {
-        when {
-            isLoading && overview == null -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
-
-            overview != null -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            when {
+                showAccountActions -> {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -350,34 +365,69 @@ private fun ProfileHeader(
                             )
                         }
                     }
+                }
 
-                    ProfileAvatar(
-                        avatarUrl = overview.avatarUrl,
-                        previewUri = avatarState.previewUri,
-                        isUploading = avatarState.isUploading,
-                        size = 96.dp
-                    )
-
-                    Text(
-                        text = overview.displayName,
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    ProfileBioSection(bio = overview.bio)
-
-                    ProfileStatsRow(stats = overview.stats)
+                showBackButton -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start
+                    ) {
+                        IconButton(onClick = onBackClick) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.cd_navigate_back)
+                            )
+                        }
+                    }
                 }
             }
 
-            else -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "-")
+            when {
+                isLoading && overview == null -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+
+                overview != null -> {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        ProfileAvatar(
+                            avatarUrl = overview.avatarUrl,
+                            previewUri = avatarState.previewUri,
+                            isUploading = avatarState.isUploading,
+                            size = 96.dp
+                        )
+
+                        Text(
+                            text = overview.displayName,
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        ProfileBioSection(bio = overview.bio)
+
+                        ProfileStatsRow(stats = overview.stats)
+                    }
+                }
+
+                else -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "-")
+                    }
                 }
             }
         }
@@ -635,16 +685,19 @@ private fun ProfileScreenPreview() {
                         voteCount = 6,
                         voteState = VoteState.UPVOTED
                     )
-                ),
-                isLoading = false
             ),
-            avatarState = ProfileAvatarUiState(),
-            onSettingsClick = {},
-            onEditClick = {},
-            onPostClick = {},
-            onReplyClick = { _, _ -> },
-            onPostMoreClick = {},
-            onReplyMoreClick = {},
+            isLoading = false
+        ),
+        avatarState = ProfileAvatarUiState(),
+        showAccountActions = true,
+        showBackButton = false,
+        onSettingsClick = {},
+        onEditClick = {},
+        onBackClick = {},
+        onPostClick = {},
+        onReplyClick = { _, _ -> },
+        onPostMoreClick = {},
+        onReplyMoreClick = {},
             onPostUpvote = {},
             onPostDownvote = {},
             onReplyUpvote = {},

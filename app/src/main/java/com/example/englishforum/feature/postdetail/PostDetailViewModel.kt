@@ -320,10 +320,15 @@ class PostDetailViewModel(
         replyTarget.value = null
     }
 
-    fun onReplyToComment(commentId: String, authorName: String) {
+    fun onReplyToComment(
+        commentId: String,
+        authorName: String,
+        authorUsername: String?
+    ) {
         replyTarget.value = CommentReplyTargetUi(
             commentId = commentId,
-            authorName = authorName
+            authorName = authorName,
+            authorUsername = authorUsername
         )
     }
 
@@ -360,6 +365,8 @@ private fun ForumPostDetail.toUiModel(): PostDetailUi {
         id = id,
         authorId = authorId,
         authorName = authorName,
+        authorUsername = authorUsername,
+        authorAvatarUrl = authorAvatarUrl,
         relativeTimeText = formatRelativeTime(minutesAgo),
         title = title,
         body = body,
@@ -380,6 +387,7 @@ private fun ForumComment.toUiModel(
     val commentUi = PostCommentUi(
         id = id,
         authorName = authorName,
+        authorUsername = authorUsername,
         relativeTimeText = formatRelativeTime(minutesAgo),
         body = body,
         voteCount = voteCount,

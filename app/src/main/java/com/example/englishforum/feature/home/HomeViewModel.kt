@@ -122,6 +122,7 @@ class HomeViewModel(
         return HomePostUi(
             id = id,
             authorName = authorName,
+            authorUsername = authorUsername,
             relativeTimeText = formatRelativeTime(minutesAgo),
             title = title,
             body = body,

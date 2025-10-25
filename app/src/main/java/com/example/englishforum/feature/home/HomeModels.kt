@@ -6,6 +6,7 @@ import com.example.englishforum.core.model.forum.PostTag
 data class HomePostUi(
     val id: String,
     val authorName: String,
+    val authorUsername: String? = null,
     val relativeTimeText: String,
     val title: String,
     val body: String,

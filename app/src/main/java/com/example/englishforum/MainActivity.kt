@@ -1,5 +1,6 @@
 package com.example.englishforum
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -104,12 +105,16 @@ fun MainApp() {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
     val isPostDetailRoute = currentRoute?.startsWith("post/") == true || currentRoute == "post/{postId}?commentId={commentId}"
+    val isViewingOtherProfile = currentRoute?.let {
+        it != Destinations.Profile.route && it.startsWith("profile")
+    } == true
     val showBottomBar = currentRoute != "login" &&
         currentRoute != "register" &&
         currentRoute != "forgot" &&
         currentRoute != "verify" &&
         currentRoute != Destinations.Settings.route &&
-        !isPostDetailRoute
+        !isPostDetailRoute &&
+        !isViewingOtherProfile
     val userSession by sessionRepository.sessionFlow.collectAsState(initial = null)
     val themeOption by themeRepository.themeOptionFlow.collectAsState(initial = ThemeOption.FOLLOW_SYSTEM)
     val sessionMonitorViewModel: SessionMonitorViewModel = viewModel(
@@ -284,6 +289,10 @@ fun MainApp() {
                         },
                         onCommentClick = { postId ->
                             navController.navigate("post/$postId")
+                        },
+                        onAuthorClick = { username ->
+                            val encoded = Uri.encode(username)
+                            navController.navigate("profile/$encoded")
                         }
                     )
                 }
@@ -295,6 +304,10 @@ fun MainApp() {
                         },
                         onCommentClick = { postId ->
                             navController.navigate("post/$postId")
+                        },
+                        onAuthorClick = { username ->
+                            val encoded = Uri.encode(username)
+                            navController.navigate("profile/$encoded")
                         }
                     )
                 }
@@ -332,7 +345,42 @@ fun MainApp() {
                             } else {
                                 navController.navigate("post/$postId")
                             }
+                        },
+                        isOwnProfile = true
+                    )
+                }
+                composable(
+                    route = "profile/{username}",
+                    arguments = listOf(
+                        androidx.navigation.navArgument("username") {
+                            type = androidx.navigation.NavType.StringType
                         }
+                    )
+                ) { backStackEntry ->
+                    val usernameArg = backStackEntry.arguments?.getString("username")?.let(Uri::decode)
+                    val isOwnProfile = usernameArg?.let { username ->
+                        val session = userSession
+                        session != null && (
+                            username.equals(session.username, ignoreCase = true) ||
+                                username.equals(session.userId, ignoreCase = true)
+                            )
+                    } ?: false
+                    ProfileScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        userId = usernameArg,
+                        onSettingsClick = { navController.navigate(Destinations.Settings.route) },
+                        onPostClick = { postId ->
+                            navController.navigate("post/$postId")
+                        },
+                        onReplyClick = { postId, commentId ->
+                            if (commentId != null) {
+                                navController.navigate("post/$postId?commentId=$commentId")
+                            } else {
+                                navController.navigate("post/$postId")
+                            }
+                        },
+                        isOwnProfile = isOwnProfile,
+                        onBackClick = { navController.popBackStack() }
                     )
                 }
                 composable(Destinations.Settings.route) {
@@ -382,6 +430,10 @@ fun MainApp() {
                             },
                             onEditPostClick = { editPostId ->
                                 navController.navigate("post/$editPostId/edit")
+                            },
+                            onAuthorClick = { username ->
+                                val encoded = Uri.encode(username)
+                                navController.navigate("profile/$encoded")
                             }
                         )
                     }

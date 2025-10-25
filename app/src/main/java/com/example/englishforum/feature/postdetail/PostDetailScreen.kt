@@ -90,6 +90,8 @@ import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImag
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.ui.components.ForumAuthorAvatar
+import com.example.englishforum.core.ui.components.ForumAuthorLink
 import com.example.englishforum.core.ui.components.VoteIconButton
 import com.example.englishforum.core.ui.components.card.CommentPillPlacement
 import com.example.englishforum.core.ui.components.card.ForumContentCard
@@ -107,7 +109,8 @@ fun PostDetailRoute(
     savedStateHandle: SavedStateHandle,
     onNavigateToAiPractice: (String) -> Unit = {},
     onEditPostClick: (String) -> Unit,
-    onPostDeleted: () -> Unit = onBackClick
+    onPostDeleted: () -> Unit = onBackClick,
+    onAuthorClick: (String) -> Unit = {}
 ) {
     val appContainer = LocalAppContainer.current
     val viewModel: PostDetailViewModel = viewModel(
@@ -157,7 +160,8 @@ fun PostDetailRoute(
         onNewCommentHighlightShown = viewModel::onNewCommentHighlightShown,
         onPostDeletionHandled = viewModel::onPostDeletionHandled,
         onPostDeleted = onPostDeleted,
-        onRefresh = viewModel::onRefresh
+        onRefresh = viewModel::onRefresh,
+        onAuthorClick = onAuthorClick
     )
 }
 
@@ -173,7 +177,7 @@ fun PostDetailScreen(
     onCommentDraftChanged: (String) -> Unit,
     onSubmitComment: () -> Unit,
     onCancelReplyTarget: () -> Unit,
-    onReplyToComment: (String, String) -> Unit,
+    onReplyToComment: (String, String, String?) -> Unit,
     onOpenAiPracticeClick: () -> Unit,
     onReportPost: (String) -> Unit,
     onEditPostClick: () -> Unit,
@@ -184,7 +188,8 @@ fun PostDetailScreen(
     onPostDeleted: () -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
-    targetCommentId: String? = null
+    targetCommentId: String? = null,
+    onAuthorClick: (String) -> Unit = {}
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
@@ -423,12 +428,11 @@ fun PostDetailScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         item {
+                            val postAuthorClick = uiState.post.authorUsername?.let { username ->
+                                { onAuthorClick(username) }
+                            }
                             ForumContentCard(
-                                meta = stringResource(
-                                    R.string.home_post_meta,
-                                    uiState.post.authorName,
-                                    uiState.post.relativeTimeText
-                                ),
+                                meta = uiState.post.relativeTimeText,
                                 voteCount = uiState.post.voteCount,
                                 title = uiState.post.title,
                                 body = uiState.post.body,
@@ -437,7 +441,29 @@ fun PostDetailScreen(
                                 onUpvoteClick = onUpvotePost,
                                 onDownvoteClick = onDownvotePost,
                                 showMoreActions = false,
-                                    commentPillPlacement = CommentPillPlacement.End,
+                                leadingContent = {
+                                    ForumAuthorAvatar(
+                                        name = uiState.post.authorName,
+                                        avatarUrl = uiState.post.authorAvatarUrl,
+                                        modifier = Modifier.size(48.dp)
+                                    )
+                                },
+                                headerContent = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        ForumAuthorLink(
+                                            name = uiState.post.authorName,
+                                            onClick = postAuthorClick,
+                                            color = MaterialTheme.colorScheme.onSurface,
+                                            style = MaterialTheme.typography.titleSmall
+                                        )
+                                        Text(
+                                            text = uiState.post.relativeTimeText,
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                commentPillPlacement = CommentPillPlacement.End,
                                 supportingContent = {
                                     val galleryImages = uiState.post.galleryImages
                                     val previewImageUrl = uiState.post.previewImageUrl
@@ -446,8 +472,9 @@ fun PostDetailScreen(
 
                                     when {
                                         !galleryImages.isNullOrEmpty() -> {
+                                            val images = galleryImages
                                             PostImageGallery(
-                                                images = galleryImages,
+                                                images = images,
                                                 onImageClick = { index ->
                                                     selectedImageIndex = index
                                                     showFullScreenViewer = true
@@ -456,7 +483,7 @@ fun PostDetailScreen(
 
                                             if (showFullScreenViewer) {
                                                 FullScreenImageViewer(
-                                                    images = galleryImages,
+                                                    images = images,
                                                     initialPage = selectedImageIndex,
                                                     onDismiss = { showFullScreenViewer = false }
                                                 )
@@ -514,9 +541,10 @@ fun PostDetailScreen(
                                     onDownvote = { onDownvoteComment(comment.id) },
                                     onReply = {
                                         highlightedCommentId = comment.id
-                                        onReplyToComment(comment.id, comment.authorName)
+                                        onReplyToComment(comment.id, comment.authorName, comment.authorUsername)
                                     },
-                                    isHighlighted = highlightedCommentId == comment.id
+                                    isHighlighted = highlightedCommentId == comment.id,
+                                    onAuthorClick = onAuthorClick
                                 )
                             }
                         }
@@ -696,7 +724,8 @@ private fun CommentThreadEntry(
     onDownvote: () -> Unit,
     onReply: () -> Unit,
     modifier: Modifier = Modifier,
-    isHighlighted: Boolean = false
+    isHighlighted: Boolean = false,
+    onAuthorClick: (String) -> Unit = {}
 ) {
     Row(
         modifier = modifier
@@ -712,7 +741,8 @@ private fun CommentThreadEntry(
             onDownvote = onDownvote,
             onReply = onReply,
             modifier = Modifier.weight(1f),
-            isHighlighted = isHighlighted
+            isHighlighted = isHighlighted,
+            onAuthorClick = onAuthorClick
         )
     }
 }
@@ -724,7 +754,8 @@ private fun PostCommentItem(
     onDownvote: () -> Unit,
     onReply: () -> Unit,
     modifier: Modifier = Modifier,
-    isHighlighted: Boolean = false
+    isHighlighted: Boolean = false,
+    onAuthorClick: (String) -> Unit = {}
 ) {
     val depthContainer = when (comment.depth) {
         0 -> MaterialTheme.colorScheme.surfaceContainerLow
@@ -769,25 +800,30 @@ private fun PostCommentItem(
             BorderStroke(1.dp, borderColor)
         } else null
     ) {
-        val metaText = stringResource(
-            R.string.home_post_meta,
-            comment.authorName,
-            comment.relativeTimeText
-        )
-
         Column(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = metaText,
+                val authorClick = comment.authorUsername?.let { username ->
+                    { onAuthorClick(username) }
+                }
+                ForumAuthorLink(
+                    name = comment.authorName,
+                    onClick = authorClick,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = comment.relativeTimeText,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(modifier = Modifier.weight(1f))
                 if (comment.isAuthor) {
                     Surface(
                         color = MaterialTheme.colorScheme.secondaryContainer,
@@ -1289,6 +1325,7 @@ private fun PostDetailScreenPreview() {
             id = "post-1",
             authorId = "user-preview",
             authorName = "Jane_Doe",
+            authorAvatarUrl = "mock://avatar/jane",
             relativeTimeText = "6 giờ trước",
             title = "Lorem ipsum dolor sit amet, consectetur adipiscing elit",
             body = "Donec dictum rhoncus eros, eget fermentum dui laoreet a.",
@@ -1355,7 +1392,7 @@ private fun PostDetailScreenPreview() {
             onCommentDraftChanged = {},
             onSubmitComment = {},
             onCancelReplyTarget = {},
-            onReplyToComment = { _, _ -> },
+            onReplyToComment = { _, _, _ -> },
             onOpenAiPracticeClick = {},
             onReportPost = {},
             onEditPostClick = {},

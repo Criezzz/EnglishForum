@@ -12,6 +12,7 @@ enum class PostTag {
 data class ForumPostSummary(
     val id: String,
     val authorName: String,
+    val authorUsername: String? = null,
     val minutesAgo: Int,
     val title: String,
     val body: String,
@@ -26,6 +27,7 @@ data class ForumPostSummary(
 data class ForumComment(
     val id: String,
     val authorName: String,
+    val authorUsername: String? = null,
     val minutesAgo: Int,
     val body: String,
     val voteCount: Int,
@@ -38,6 +40,7 @@ data class ForumPostDetail(
     val id: String,
     val authorId: String,
     val authorName: String,
+    val authorUsername: String? = null,
     val minutesAgo: Int,
     val title: String,
     val body: String,

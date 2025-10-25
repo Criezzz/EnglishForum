@@ -123,6 +123,7 @@
 
     <string name="profile_settings_content_description">Mở cài đặt hồ sơ</string>
     <string name="profile_edit_content_description">Chỉnh sửa hồ sơ</string>
+    <string name="cd_navigate_back">Quay lại</string>
     <string name="profile_tab_posts">Bài đăng</string>
     <string name="profile_tab_replies">Câu trả lời</string>
     <string name="profile_stat_upvotes">Upvote</string>

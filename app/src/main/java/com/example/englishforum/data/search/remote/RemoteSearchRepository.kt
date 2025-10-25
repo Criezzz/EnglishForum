@@ -96,6 +96,8 @@ class RemoteSearchRepository(
         return ForumPostSummary(
             id = postId.toString(),
             authorName = resolveAuthorName(usersLookup),
+            authorUsername = authorUsername?.takeIf { it.isNotBlank() }
+                ?: usersLookup[authorId]?.username,
             minutesAgo = createdAt.toMinutesAgo(),
             title = title.orEmpty(),
             body = content.orEmpty(),

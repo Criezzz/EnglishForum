@@ -135,6 +135,7 @@ class RemoteHomeRepository(
         return ForumPostSummary(
             id = postId.toString(),
             authorName = resolveAuthorName(),
+            authorUsername = authorUsername?.takeIf { it.isNotBlank() },
             minutesAgo = minutesAgo,
             title = title,
             body = content,
@@ -142,9 +143,18 @@ class RemoteHomeRepository(
             voteState = userVote.toVoteState(),
             commentCount = commentCount ?: 0,
             tag = tag.toPostTag(),
-            authorAvatarUrl = authorAvatarUrl?.ifBlank { null },
+            authorAvatarUrl = resolveAuthorAvatarUrl(),
             previewImageUrl = attachments.resolvePreviewUrl()
         )
+    }
+
+    private fun FeedPostResponse.resolveAuthorAvatarUrl(): String? {
+        val raw = when {
+            !authorAvatarUrl.isNullOrBlank() -> authorAvatarUrl
+            !authorAvatar.isNullOrBlank() -> authorAvatar
+            else -> null
+        }
+        return raw.normalizeAvatarUrl()
     }
 
     private fun FeedPostResponse.resolveAuthorName(): String {
@@ -176,6 +186,20 @@ class RemoteHomeRepository(
         val filename = mediaFilename?.takeIf { it.isNotBlank() } ?: return null
         val normalizedBase = BuildConfig.API_BASE_URL.trimEnd('/')
         return "$normalizedBase/download/$filename"
+    }
+
+    private fun String?.normalizeAvatarUrl(): String? {
+        val raw = this?.takeIf { it.isNotBlank() } ?: return null
+        if (raw.startsWith("http://", ignoreCase = true) || raw.startsWith("https://", ignoreCase = true)) {
+            return raw
+        }
+        val normalizedBase = BuildConfig.API_BASE_URL.trimEnd('/')
+        return when {
+            raw.startsWith("/download") -> "$normalizedBase$raw"
+            raw.startsWith("download/") -> "$normalizedBase/$raw"
+            raw.startsWith("/") -> "$normalizedBase$raw"
+            else -> "$normalizedBase/download/$raw"
+        }
     }
 
     private fun VoteState.toVoteValue(): Int = when (this) {

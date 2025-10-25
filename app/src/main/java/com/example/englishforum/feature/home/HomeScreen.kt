@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
@@ -49,12 +48,14 @@ import com.example.englishforum.R
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.PostTag
 import com.example.englishforum.core.di.LocalAppContainer
+import com.example.englishforum.core.ui.components.ForumAuthorAvatar
+import com.example.englishforum.core.ui.components.ForumAuthorLink
+import com.example.englishforum.core.ui.components.ForumTagLabel
 import com.example.englishforum.core.ui.components.card.ForumContentCard
 import com.example.englishforum.core.ui.components.card.ForumContentCardPlaceholder
 import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImage
 import com.example.englishforum.core.ui.toLabelResId
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
-import kotlin.math.abs
 
 private const val HOME_POST_BODY_MAX_LINES = 6
 private const val HOME_PLACEHOLDER_COUNT = 3
@@ -65,7 +66,8 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onPostClick: (String) -> Unit = {},
     onCommentClick: (String) -> Unit = {},
-    onMoreActionsClick: (String) -> Unit = {}
+    onMoreActionsClick: (String) -> Unit = {},
+    onAuthorClick: (String) -> Unit = {}
 ) {
     val appContainer = LocalAppContainer.current
     val viewModel: HomeViewModel = viewModel(
@@ -82,7 +84,8 @@ fun HomeScreen(
         onDownvote = viewModel::onDownvote,
         onPostClick = onPostClick,
         onCommentClick = onCommentClick,
-        onMoreActionsClick = onMoreActionsClick
+        onMoreActionsClick = onMoreActionsClick,
+        onAuthorClick = onAuthorClick
     )
 }
 
@@ -97,7 +100,8 @@ private fun HomeContent(
     onDownvote: (String) -> Unit,
     onPostClick: (String) -> Unit,
     onCommentClick: (String) -> Unit,
-    onMoreActionsClick: (String) -> Unit
+    onMoreActionsClick: (String) -> Unit,
+    onAuthorClick: (String) -> Unit
 ) {
     val pullState = rememberPullToRefreshState()
     val feedContentState = remember(uiState.isLoading, uiState.isRefreshing, uiState.posts) {
@@ -132,7 +136,8 @@ private fun HomeContent(
             onCommentClick = onCommentClick,
             onUpvote = onUpvote,
             onDownvote = onDownvote,
-            onMoreActionsClick = onMoreActionsClick
+            onMoreActionsClick = onMoreActionsClick,
+            onAuthorClick = onAuthorClick
         )
     }
 }
@@ -147,7 +152,8 @@ private fun HomeFeedList(
     onCommentClick: (String) -> Unit,
     onUpvote: (String) -> Unit,
     onDownvote: (String) -> Unit,
-    onMoreActionsClick: (String) -> Unit
+    onMoreActionsClick: (String) -> Unit,
+    onAuthorClick: (String) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -190,14 +196,12 @@ private fun HomeFeedList(
                     key = { it.id }
                 ) { post ->
                     val tagLabel = stringResource(post.tag.toLabelResId())
+                    val authorClick = post.authorUsername?.let { username ->
+                        { onAuthorClick(username) }
+                    }
                     ForumContentCard(
                         modifier = Modifier.fillMaxWidth(),
-                        meta = stringResource(
-                            R.string.home_post_meta_with_tag,
-                            post.authorName,
-                            post.relativeTimeText,
-                            tagLabel
-                        ),
+                        meta = post.relativeTimeText,
                         voteCount = post.voteCount,
                         title = null,
                         body = null,
@@ -209,8 +213,9 @@ private fun HomeFeedList(
                         onDownvoteClick = { onDownvote(post.id) },
                         onMoreActionsClick = { onMoreActionsClick(post.id) },
                         leadingContent = {
-                            HomePostAvatar(
+                            ForumAuthorAvatar(
                                 name = post.authorName,
+                                avatarUrl = post.authorAvatarUrl,
                                 modifier = Modifier.size(HOME_POST_AVATAR_SIZE)
                             )
                         },
@@ -220,13 +225,14 @@ private fun HomeFeedList(
                                     modifier = Modifier.fillMaxWidth(),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Text(
-                                        text = post.authorName,
-                                        style = MaterialTheme.typography.titleSmall,
-                                        color = MaterialTheme.colorScheme.onSurface
+                                    ForumAuthorLink(
+                                        name = post.authorName,
+                                        onClick = authorClick,
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        style = MaterialTheme.typography.titleSmall
                                     )
                                     Spacer(Modifier.weight(1f))
-                                    HomePostTagLabel(label = tagLabel)
+                                    ForumTagLabel(label = tagLabel)
                                 }
                                 Text(
                                     text = post.relativeTimeText,
@@ -306,42 +312,6 @@ private fun HomeFilterChips(
 }
 
 @Composable
-private fun HomePostAvatar(
-    name: String,
-    modifier: Modifier = Modifier
-) {
-    val palette = listOf(
-        MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer,
-        MaterialTheme.colorScheme.secondaryContainer to MaterialTheme.colorScheme.onSecondaryContainer,
-        MaterialTheme.colorScheme.tertiaryContainer to MaterialTheme.colorScheme.onTertiaryContainer,
-        MaterialTheme.colorScheme.surfaceContainerHighest to MaterialTheme.colorScheme.onSurfaceVariant
-    )
-    val hash = name.hashCode()
-    val safeHash = if (hash == Int.MIN_VALUE) 0 else abs(hash)
-    val index = safeHash % palette.size
-    val (containerColor, contentColor) = palette[index]
-    val initial = name.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?"
-
-    Surface(
-        modifier = modifier,
-        shape = CircleShape,
-        color = containerColor,
-        contentColor = contentColor,
-        tonalElevation = 0.dp
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = initial,
-                style = MaterialTheme.typography.titleMedium
-            )
-        }
-    }
-}
-
-@Composable
 private fun HomePostImage(
     imageUrl: String,
     modifier: Modifier = Modifier
@@ -381,26 +351,6 @@ private fun HomePostImage(
                     )
                 }
             }
-        )
-    }
-}
-
-@Composable
-private fun HomePostTagLabel(
-    label: String,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.small,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 0.dp
-    ) {
-        Text(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -481,7 +431,8 @@ private fun HomeScreenPreview() {
             onDownvote = {},
             onPostClick = {},
             onCommentClick = {},
-            onMoreActionsClick = {}
+            onMoreActionsClick = {},
+            onAuthorClick = {}
         )
     }
 }

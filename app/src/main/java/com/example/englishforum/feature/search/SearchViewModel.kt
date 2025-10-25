@@ -138,6 +138,7 @@ class SearchViewModel(
         return SearchResultUi(
             id = id,
             authorName = authorName,
+            authorUsername = authorUsername,
             relativeTimeText = formatRelativeTime(minutesAgo),
             title = title,
             body = body,

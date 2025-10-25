@@ -296,6 +296,7 @@ internal class RemotePostDetailRepository(
             id = postId.toString(),
             authorId = authorId ?: UNKNOWN_AUTHOR_ID,
             authorName = resolveAuthorName(),
+            authorUsername = authorUsername?.takeIf { it.isNotBlank() },
             minutesAgo = createdAt.toMinutesAgo(),
             title = title,
             body = body,
@@ -303,7 +304,7 @@ internal class RemotePostDetailRepository(
             voteState = userVote.toVoteState(),
             comments = comments,
             tag = tag.toPostTag(),
-            authorAvatarUrl = authorAvatarUrl?.takeIf { it.isNotBlank() },
+            authorAvatarUrl = resolveAuthorAvatarUrl(),
             previewImageUrl = attachments.resolvePreviewUrl(),
             galleryImages = attachments.resolveGalleryUrls()
         )
@@ -316,6 +317,15 @@ internal class RemotePostDetailRepository(
             authorFullName
         ).firstOrNull { !it.isNullOrBlank() }?.trim().takeUnless { it.isNullOrBlank() }
             ?: DEFAULT_AUTHOR_NAME
+    }
+
+    private fun PostDetailResponse.resolveAuthorAvatarUrl(): String? {
+        val raw = when {
+            !authorAvatarUrl.isNullOrBlank() -> authorAvatarUrl
+            !authorAvatar.isNullOrBlank() -> authorAvatar
+            else -> null
+        }
+        return raw.normalizeAvatarUrl()
     }
 
     private fun List<PostCommentResponse>.toForumComments(postAuthorId: String?): List<ForumComment> {
@@ -350,6 +360,7 @@ internal class RemotePostDetailRepository(
         return ForumComment(
             id = commentId,
             authorName = authorName,
+            authorUsername = response.authorUsername?.takeIf { it.isNotBlank() },
             minutesAgo = response.createdAt.toMinutesAgo(),
             body = response.content,
             voteCount = response.voteCount,
@@ -437,6 +448,18 @@ internal class RemotePostDetailRepository(
         val filename = mediaFilename?.takeIf { !it.isNullOrBlank() } ?: return null
         val normalizedBase = BuildConfig.API_BASE_URL.trimEnd('/')
         return "$normalizedBase/download/$filename"
+    }
+
+    private fun String?.normalizeAvatarUrl(): String? {
+        val raw = this?.takeIf { it.isNotBlank() } ?: return null
+        val normalizedBase = BuildConfig.API_BASE_URL.trimEnd('/')
+        return when {
+            raw.startsWith("http://", ignoreCase = true) || raw.startsWith("https://", ignoreCase = true) -> raw
+            raw.startsWith("/download") -> "$normalizedBase$raw"
+            raw.startsWith("download/") -> "$normalizedBase/$raw"
+            raw.startsWith("/") -> "$normalizedBase$raw"
+            else -> "$normalizedBase/download/$raw"
+        }
     }
 
     private fun String?.toPostTag(): PostTag {

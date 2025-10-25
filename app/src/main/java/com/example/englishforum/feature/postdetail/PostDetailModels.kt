@@ -6,6 +6,8 @@ data class PostDetailUi(
     val id: String,
     val authorId: String,
     val authorName: String,
+    val authorUsername: String? = null,
+    val authorAvatarUrl: String? = null,
     val relativeTimeText: String,
     val title: String,
     val body: String,
@@ -19,6 +21,7 @@ data class PostDetailUi(
 data class PostCommentUi(
     val id: String,
     val authorName: String,
+    val authorUsername: String? = null,
     val relativeTimeText: String,
     val body: String,
     val voteCount: Int,
@@ -32,7 +35,8 @@ data class PostCommentUi(
 
 data class CommentReplyTargetUi(
     val commentId: String,
-    val authorName: String
+    val authorName: String,
+    val authorUsername: String? = null
 )
 
 data class CommentComposerUi(
