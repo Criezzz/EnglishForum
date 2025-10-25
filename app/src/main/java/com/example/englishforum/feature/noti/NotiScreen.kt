@@ -27,6 +27,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -64,7 +67,8 @@ fun NotiRoute(
         uiState = uiState,
         onNotificationClick = onNotificationClick,
         onMarkNotificationAsRead = viewModel::markNotificationAsRead,
-        onMarkAllAsRead = viewModel::markAllNotificationsAsRead
+        onMarkAllAsRead = viewModel::markAllNotificationsAsRead,
+        onRefresh = viewModel::onRefresh
     )
 }
 
@@ -75,8 +79,10 @@ fun NotiScreen(
     onNotificationClick: (postId: String?, commentId: String?) -> Unit,
     onMarkNotificationAsRead: (notificationId: String) -> Unit,
     onMarkAllAsRead: () -> Unit,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val pullRefreshState = rememberPullToRefreshState()
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -97,58 +103,80 @@ fun NotiScreen(
             )
         }
     ) { innerPadding ->
-        when {
-            uiState.isLoading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
+        val topPadding = innerPadding.calculateTopPadding()
 
-            uiState.notifications.isEmpty() -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.notifications_empty_state),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+        PullToRefreshBox(
+            modifier = Modifier.fillMaxSize(),
+            state = pullRefreshState,
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = {
+                if (!uiState.isLoading) {
+                    onRefresh()
                 }
-            }
-
-            else -> {
-                LazyColumn(
+            },
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullRefreshState,
+                    isRefreshing = uiState.isRefreshing,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(
-                        items = uiState.notifications,
-                        key = { it.id }
-                    ) { item ->
-                        NotificationListItem(
-                            item = item,
-                            onClick = {
-                                if (!item.isRead) {
-                                    onMarkNotificationAsRead(item.id)
-                                }
-                                if (item.postId != null) {
-                                    onNotificationClick(item.postId, item.commentId)
-                                }
-                            }
+                        .align(Alignment.TopCenter)
+                        .padding(top = topPadding)
+                )
+            }
+        ) {
+            when {
+                uiState.isLoading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+
+                uiState.notifications.isEmpty() -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.notifications_empty_state),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    item { Spacer(modifier = Modifier.height(8.dp)) }
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(
+                            items = uiState.notifications,
+                            key = { it.id }
+                        ) { item ->
+                            NotificationListItem(
+                                item = item,
+                                onClick = {
+                                    if (!item.isRead) {
+                                        onMarkNotificationAsRead(item.id)
+                                    }
+                                    if (item.postId != null) {
+                                        onNotificationClick(item.postId, item.commentId)
+                                    }
+                                }
+                            )
+                        }
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                    }
                 }
             }
         }
@@ -380,7 +408,8 @@ private fun NotiScreenPreview() {
             ),
             onNotificationClick = { _, _ -> },
             onMarkNotificationAsRead = {},
-            onMarkAllAsRead = {}
+            onMarkAllAsRead = {},
+            onRefresh = {}
         )
     }
 }

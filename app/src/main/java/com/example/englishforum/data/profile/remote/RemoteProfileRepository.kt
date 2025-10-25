@@ -211,6 +211,12 @@ internal class RemoteProfileRepository(
             ?: DEFAULT_AVATAR_EXTENSION
     }
 
+    override suspend fun refresh(userId: String): Result<Unit> {
+        return runCatching {
+            refreshProfile(userId, force = true)
+        }
+    }
+
     private suspend fun refreshProfile(userId: String, force: Boolean = false) {
         val session = currentSessionOrNull() ?: return
         if (!force && cachedUserId == userId && profileState.value != null) {

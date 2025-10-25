@@ -97,6 +97,15 @@ class RemoteNotificationRepository(
         }
     }
 
+    override suspend fun refresh(): Result<Unit> {
+        val session = currentSessionOrNull()
+            ?: return Result.failure(IllegalStateException("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."))
+        
+        return runCatching {
+            fetchNotifications(session)
+        }
+    }
+
     private suspend fun observeSessionChanges() {
         userSessionRepository.sessionFlow.collectLatest { session ->
             if (session == null) {

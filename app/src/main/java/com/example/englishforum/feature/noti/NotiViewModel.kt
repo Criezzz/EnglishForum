@@ -8,8 +8,10 @@ import com.example.englishforum.core.model.notification.ForumNotification
 import com.example.englishforum.core.model.notification.ForumNotificationTarget
 import com.example.englishforum.data.notification.FakeNotificationRepository
 import com.example.englishforum.data.notification.NotificationRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -18,15 +20,20 @@ class NotiViewModel(
     private val repository: NotificationRepository
 ) : ViewModel() {
 
-    val uiState: StateFlow<NotificationUiState> = repository.notificationsStream
-        .map { notifications ->
-            val items = notifications.map { it.toUiModel() }
-            NotificationUiState(
-                isLoading = false,
-                notifications = items,
-                unreadCount = notifications.count { !it.isRead }
-            )
-        }
+    private val refreshing = MutableStateFlow(false)
+
+    val uiState: StateFlow<NotificationUiState> = combine(
+        repository.notificationsStream,
+        refreshing
+    ) { notifications, isRefreshing ->
+        val items = notifications.map { it.toUiModel() }
+        NotificationUiState(
+            isLoading = false,
+            isRefreshing = isRefreshing,
+            notifications = items,
+            unreadCount = notifications.count { !it.isRead }
+        )
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
@@ -45,6 +52,18 @@ class NotiViewModel(
         if (uiState.value.unreadCount == 0) return
         viewModelScope.launch {
             repository.markAllAsRead()
+        }
+    }
+
+    fun onRefresh() {
+        if (refreshing.value) return
+        viewModelScope.launch {
+            refreshing.value = true
+            try {
+                repository.refresh()
+            } finally {
+                refreshing.value = false
+            }
         }
     }
 
@@ -106,6 +125,7 @@ class NotiViewModelFactory(
 
 data class NotificationUiState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val notifications: List<NotificationItemUi> = emptyList(),
     val unreadCount: Int = 0
 )

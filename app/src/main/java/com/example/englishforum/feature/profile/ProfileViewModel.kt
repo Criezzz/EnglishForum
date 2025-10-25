@@ -16,8 +16,11 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 
 internal const val MAX_PROFILE_BIO_LENGTH = 280
@@ -27,24 +30,26 @@ class ProfileViewModel(
     private val userId: String
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ProfileUiState())
-    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
-
     private val _editState = MutableStateFlow<ProfileEditState>(ProfileEditState.Idle)
     val editState: StateFlow<ProfileEditState> = _editState.asStateFlow()
 
     private val _avatarState = MutableStateFlow(ProfileAvatarUiState())
     val avatarState: StateFlow<ProfileAvatarUiState> = _avatarState.asStateFlow()
 
+    private val _isRefreshing = MutableStateFlow(false)
+
     private var avatarUploadJob: Job? = null
 
-    init {
-        repository.observeProfile(userId)
-            .onEach { profile ->
-                _uiState.value = profile.toUiState()
-            }
-            .launchIn(viewModelScope)
-    }
+    val uiState: StateFlow<ProfileUiState> = combine(
+        repository.observeProfile(userId),
+        _isRefreshing
+    ) { profile, isRefreshing ->
+        profile.toUiState(isRefreshing = isRefreshing)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = ProfileUiState()
+    )
 
     fun updateDisplayName(newName: String) {
         val trimmed = newName.trim()
@@ -96,7 +101,7 @@ class ProfileViewModel(
     fun updateProfile(newName: String, newBio: String) {
         val trimmedName = newName.trim()
         val sanitizedBio = newBio.trim()
-        val currentOverview = _uiState.value.overview
+        val currentOverview = uiState.value.overview
 
         viewModelScope.launch {
             val nameChanged = currentOverview?.displayName != trimmedName
@@ -186,7 +191,19 @@ class ProfileViewModel(
         }
     }
 
-    private fun ForumUserProfile.toUiState(): ProfileUiState {
+    fun onRefresh() {
+        if (_isRefreshing.value) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                repository.refresh(userId)
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
+    }
+
+    private fun ForumUserProfile.toUiState(isRefreshing: Boolean = false): ProfileUiState {
         return ProfileUiState(
             overview = ProfileOverview(
                 displayName = displayName,
@@ -200,7 +217,8 @@ class ProfileViewModel(
             ),
             posts = posts.map { it.toUiModel() },
             replies = replies.map { it.toUiModel() },
-            isLoading = false
+            isLoading = false,
+            isRefreshing = isRefreshing
         )
     }
 

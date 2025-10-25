@@ -45,7 +45,8 @@ data class ProfileUiState(
     val overview: ProfileOverview? = null,
     val posts: List<ProfilePost> = emptyList(),
     val replies: List<ProfileReply> = emptyList(),
-    val isLoading: Boolean = true
+    val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false
 )
 
 sealed interface ProfileEditState {

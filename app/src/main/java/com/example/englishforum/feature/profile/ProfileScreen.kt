@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,6 +46,9 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -150,7 +154,8 @@ fun ProfileScreen(
         onPostUpvote = viewModel::onPostUpvote,
         onPostDownvote = viewModel::onPostDownvote,
         onReplyUpvote = viewModel::onReplyUpvote,
-        onReplyDownvote = viewModel::onReplyDownvote
+        onReplyDownvote = viewModel::onReplyDownvote,
+        onRefresh = viewModel::onRefresh
     )
 
     val overview = uiState.overview
@@ -181,6 +186,7 @@ fun ProfileScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileContent(
     modifier: Modifier = Modifier,
@@ -198,16 +204,35 @@ private fun ProfileContent(
     onPostUpvote: (String) -> Unit,
     onPostDownvote: (String) -> Unit,
     onReplyUpvote: (String) -> Unit,
-    onReplyDownvote: (String) -> Unit
+    onReplyDownvote: (String) -> Unit,
+    onRefresh: () -> Unit
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(ProfileTab.Posts.ordinal) }
     val tabs = ProfileTab.entries.toList()
+    val pullRefreshState = rememberPullToRefreshState()
 
-    LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    PullToRefreshBox(
+        modifier = modifier.fillMaxSize(),
+        state = pullRefreshState,
+        isRefreshing = uiState.isRefreshing,
+        onRefresh = {
+            if (!uiState.isLoading) {
+                onRefresh()
+            }
+        },
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullRefreshState,
+                isRefreshing = uiState.isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+        }
     ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         item {
             ProfileHeader(
                 overview = uiState.overview,
@@ -276,6 +301,7 @@ private fun ProfileContent(
                 }
             }
         }
+    }
     }
 }
 
@@ -701,7 +727,8 @@ private fun ProfileScreenPreview() {
             onPostUpvote = {},
             onPostDownvote = {},
             onReplyUpvote = {},
-            onReplyDownvote = {}
+            onReplyDownvote = {},
+            onRefresh = {}
         )
     }
 }
