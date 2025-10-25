@@ -59,16 +59,31 @@ class NotiViewModel(
             ?: actorName.firstOrNull()?.uppercaseChar()?.toString()
             ?: "?"
 
-        val (postId, commentId) = when (val target = target) {
-            is ForumNotificationTarget.Post -> target.postId to null
-            is ForumNotificationTarget.Comment -> target.postId to target.commentId
+        val postId: String?
+        val commentId: String?
+        when (val target = target) {
+            is ForumNotificationTarget.Post -> {
+                postId = target.postId
+                commentId = null
+            }
+
+            is ForumNotificationTarget.Comment -> {
+                postId = target.postId
+                commentId = target.commentId
+            }
+
+            is ForumNotificationTarget.Unknown -> {
+                postId = null
+                commentId = null
+            }
         }
 
         return NotificationItemUi(
             id = id,
             actorInitial = initials,
+            actorAvatarUrl = actorAvatarUrl,
             headline = title,
-            supportingText = description,
+            supportingText = description?.takeIf { it.isNotBlank() },
             timestampText = formatRelativeTime(minutesAgo),
             postId = postId,
             commentId = commentId,
@@ -98,10 +113,11 @@ data class NotificationUiState(
 data class NotificationItemUi(
     val id: String,
     val actorInitial: String,
+    val actorAvatarUrl: String? = null,
     val headline: String,
-    val supportingText: String,
+    val supportingText: String? = null,
     val timestampText: String,
-    val postId: String,
+    val postId: String?,
     val commentId: String?,
     val isRead: Boolean
 )

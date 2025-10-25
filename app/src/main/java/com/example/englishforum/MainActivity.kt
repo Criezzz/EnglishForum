@@ -358,10 +358,12 @@ fun MainApp() {
                     NotiRoute(
                         modifier = Modifier.fillMaxSize(),
                         onNotificationClick = { postId, commentId ->
-                            if (commentId != null) {
-                                navController.navigate("post/$postId?commentId=$commentId")
-                            } else {
-                                navController.navigate("post/$postId")
+                            if (postId != null) {
+                                if (commentId != null) {
+                                    navController.navigate("post/$postId?commentId=$commentId")
+                                } else {
+                                    navController.navigate("post/$postId")
+                                }
                             }
                         }
                     )

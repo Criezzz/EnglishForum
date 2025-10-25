@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -39,17 +38,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
+import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImage
+import androidx.compose.ui.layout.ContentScale
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotiRoute(
     modifier: Modifier = Modifier,
-    onNotificationClick: (postId: String, commentId: String?) -> Unit = { _, _ -> }
+    onNotificationClick: (postId: String?, commentId: String?) -> Unit = { _, _ -> }
 ) {
     val appContainer = LocalAppContainer.current
     val viewModel: NotiViewModel = viewModel(
@@ -70,7 +72,7 @@ fun NotiRoute(
 @Composable
 fun NotiScreen(
     uiState: NotificationUiState,
-    onNotificationClick: (postId: String, commentId: String?) -> Unit,
+    onNotificationClick: (postId: String?, commentId: String?) -> Unit,
     onMarkNotificationAsRead: (notificationId: String) -> Unit,
     onMarkAllAsRead: () -> Unit,
     modifier: Modifier = Modifier
@@ -140,7 +142,9 @@ fun NotiScreen(
                                 if (!item.isRead) {
                                     onMarkNotificationAsRead(item.id)
                                 }
-                                onNotificationClick(item.postId, item.commentId)
+                                if (item.postId != null) {
+                                    onNotificationClick(item.postId, item.commentId)
+                                }
                             }
                         )
                     }
@@ -198,18 +202,36 @@ private fun NotificationListItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Surface(
-                modifier = Modifier.size(44.dp),
-                shape = CircleShape,
-                color = avatarContainerColor,
-                tonalElevation = 0.dp
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = item.actorInitial,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = avatarContentColor
+            if (item.actorAvatarUrl != null) {
+                Surface(
+                    modifier = Modifier.size(44.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    tonalElevation = 0.dp
+                ) {
+                    AuthenticatedRemoteImage(
+                        url = item.actorAvatarUrl,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop
                     )
+                }
+            } else {
+                Surface(
+                    modifier = Modifier.size(44.dp),
+                    shape = CircleShape,
+                    color = avatarContainerColor,
+                    tonalElevation = 0.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = item.actorInitial,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = avatarContentColor
+                        )
+                    }
                 }
             }
 
@@ -236,13 +258,15 @@ private fun NotificationListItem(
                         timestampColor = timestampColor
                     )
 
-                    Text(
-                        text = item.supportingText,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    item.supportingText?.let { supporting ->
+                        Text(
+                            text = supporting,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
 
                 if (!item.isRead) {
@@ -287,6 +311,7 @@ private fun NotificationItemPreview() {
             item = NotificationItemUi(
                 id = "noti-1",
                 actorInitial = "J",
+                actorAvatarUrl = null,
                 headline = "Jane_Doe đã bình luận bài viết của bạn",
                 supportingText = "\"Thanks for sharing, saved to my drive already.\"",
                 timestampText = "12 phút trước",
@@ -307,6 +332,7 @@ private fun NotificationItemReadPreview() {
             item = NotificationItemUi(
                 id = "noti-2",
                 actorInitial = "M",
+                actorAvatarUrl = null,
                 headline = "mentorX đã nhắc bạn trong bình luận",
                 supportingText = "mentorX: Great compilation! I usually start learners with Cambridge 15.",
                 timestampText = "58 phút trước",
@@ -330,6 +356,7 @@ private fun NotiScreenPreview() {
                     NotificationItemUi(
                         id = "noti-1",
                         actorInitial = "C",
+                        actorAvatarUrl = null,
                         headline = "crystal đã bình luận bài viết của bạn",
                         supportingText = "\"Sed vulputate tellus magna, ac fringilla ipsum ornare in.\"",
                         timestampText = "9 phút trước",
@@ -340,6 +367,7 @@ private fun NotiScreenPreview() {
                     NotificationItemUi(
                         id = "noti-2",
                         actorInitial = "M",
+                        actorAvatarUrl = null,
                         headline = "mentorX đã nhắc bạn trong bình luận",
                         supportingText = "mentorX: Great compilation! I usually start learners with Cambridge 15.",
                         timestampText = "58 phút trước",

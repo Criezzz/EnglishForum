@@ -53,10 +53,14 @@ class FakeNotificationRepository(
             list += ForumNotification(
                 id = "noti-1",
                 actorName = commentOne.authorName,
+                actorAvatarUrl = null,
                 title = "${commentOne.authorName} đã bình luận bài viết của bạn",
                 description = "\"${commentOne.body.take(140)}\"",
                 minutesAgo = 9,
-                target = ForumNotificationTarget.Comment(postOne.id, commentOne.id)
+                target = ForumNotificationTarget.Comment(
+                    commentId = commentOne.id,
+                    postId = postOne.id
+                )
             )
         }
 
@@ -65,10 +69,14 @@ class FakeNotificationRepository(
             list += ForumNotification(
                 id = "noti-middle",
                 actorName = commentMiddle.authorName,
+                actorAvatarUrl = null,
                 title = "${commentMiddle.authorName} đã nhắc bạn trong bình luận",
                 description = "\"${commentMiddle.body.take(120)}\"",
                 minutesAgo = 7,
-                target = ForumNotificationTarget.Comment(postOne.id, commentMiddle.id)
+                target = ForumNotificationTarget.Comment(
+                    commentId = commentMiddle.id,
+                    postId = postOne.id
+                )
             )
         }
 
@@ -76,10 +84,14 @@ class FakeNotificationRepository(
             list += ForumNotification(
                 id = "noti-bottom",
                 actorName = commentBottom.authorName,
+                actorAvatarUrl = null,
                 title = "${commentBottom.authorName} đã trả lời bình luận của bạn",
                 description = "\"${commentBottom.body.take(140)}\"",
                 minutesAgo = 3,
-                target = ForumNotificationTarget.Comment(postOne.id, commentBottom.id)
+                target = ForumNotificationTarget.Comment(
+                    commentId = commentBottom.id,
+                    postId = postOne.id
+                )
             )
         }
 
@@ -89,10 +101,14 @@ class FakeNotificationRepository(
             list += ForumNotification(
                 id = "noti-2",
                 actorName = commentThree.authorName,
+                actorAvatarUrl = null,
                 title = "${commentThree.authorName} đã nhắc bạn trong bình luận",
                 description = "${commentThree.authorName}: ${commentThree.body.take(120)}",
                 minutesAgo = 58,
-                target = ForumNotificationTarget.Comment(postTwo.id, commentThree.id)
+                target = ForumNotificationTarget.Comment(
+                    commentId = commentThree.id,
+                    postId = postTwo.id
+                )
             )
         }
 
@@ -101,6 +117,7 @@ class FakeNotificationRepository(
             list += ForumNotification(
                 id = "noti-3",
                 actorName = postThree.authorName,
+                actorAvatarUrl = null,
                 title = "${postThree.authorName} vừa đăng bài mới",
                 description = postThree.title,
                 minutesAgo = 120,
@@ -115,6 +132,7 @@ class FakeNotificationRepository(
                 ForumNotification(
                     id = "noti-fallback",
                     actorName = "English Forum",
+                    actorAvatarUrl = null,
                     title = "Không có thông báo nào",
                     description = "Bạn sẽ thấy cập nhật mới nhất ở đây",
                     minutesAgo = 0,
@@ -133,4 +151,3 @@ class FakeNotificationRepository(
         return readIds.filterTo(mutableSetOf()) { it in existingIds }
     }
 }
-

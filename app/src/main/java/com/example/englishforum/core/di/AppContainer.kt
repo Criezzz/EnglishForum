@@ -20,8 +20,9 @@ import com.example.englishforum.data.create.remote.RemoteCreatePostRepository
 import com.example.englishforum.data.home.HomeRepository
 import com.example.englishforum.data.home.remote.PostsApi
 import com.example.englishforum.data.home.remote.RemoteHomeRepository
-import com.example.englishforum.data.notification.FakeNotificationRepository
 import com.example.englishforum.data.notification.NotificationRepository
+import com.example.englishforum.data.notification.remote.NotificationApi
+import com.example.englishforum.data.notification.remote.RemoteNotificationRepository
 import com.example.englishforum.data.post.PostDetailRepository
 import com.example.englishforum.data.post.ForumPostSummaryStore
 import com.example.englishforum.data.post.FakePostStore
@@ -128,6 +129,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
     private val postsApi: PostsApi by lazy { retrofit.create(PostsApi::class.java) }
     private val postDetailApi: PostDetailApi by lazy { retrofit.create(PostDetailApi::class.java) }
     private val searchApi: SearchApi by lazy { retrofit.create(SearchApi::class.java) }
+    private val notificationApi: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
 
     override val homeRepository: HomeRepository by lazy {
         RemoteHomeRepository(
@@ -168,7 +170,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
     }
 
     override val notificationRepository: NotificationRepository by lazy {
-        FakeNotificationRepository(postStore)
+        RemoteNotificationRepository(
+            notificationApi = notificationApi,
+            userSessionRepository = userSessionRepository
+        )
     }
 
     private val profileApi: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
