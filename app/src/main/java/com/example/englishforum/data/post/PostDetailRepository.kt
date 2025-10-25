@@ -32,4 +32,15 @@ interface PostDetailRepository {
         previewImageUrl: String?,
         galleryImageUrls: List<String>
     ): Result<Unit>
+
+    suspend fun updateComment(
+        postId: String,
+        commentId: String,
+        content: String
+    ): Result<Unit>
+
+    suspend fun deleteComment(
+        postId: String,
+        commentId: String
+    ): Result<Unit>
 }

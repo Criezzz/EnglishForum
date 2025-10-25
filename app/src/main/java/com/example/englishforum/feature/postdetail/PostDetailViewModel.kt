@@ -76,10 +76,14 @@ class PostDetailViewModel(
     ) { inputs, refreshing, draft, submittingComment, target ->
         val post = inputs.post
         val postUi = post?.toUiModel()
+        val currentUserId = inputs.session?.userId
+        val currentUsername = inputs.session?.username
         val commentUi = if (post != null) {
             post.comments.flatMapIndexed { index, comment ->
                 comment.toUiModel(
                     postAuthorName = post.authorName,
+                    currentUserId = currentUserId,
+                    currentUsername = currentUsername,
                     depth = 0,
                     isFirstChild = index == 0,
                     isLastChild = index == (post.comments.size - 1)
@@ -335,6 +339,48 @@ class PostDetailViewModel(
     fun onNewCommentHighlightShown() {
         newlyPostedCommentId.value = null
     }
+
+    fun onEditComment(commentId: String, newContent: String) {
+        if (isProcessingAction.value) return
+        viewModelScope.launch {
+            isProcessingAction.value = true
+            errorMessage.value = null
+            try {
+                val result = repository.updateComment(postId, commentId, newContent)
+                result.onSuccess {
+                    userMessage.value = "Đã cập nhật bình luận."
+                }
+                result.onFailure { throwable ->
+                    errorMessage.value = throwable.message ?: "Không thể cập nhật bình luận."
+                }
+            } catch (throwable: Throwable) {
+                errorMessage.value = throwable.message ?: "Không thể cập nhật bình luận."
+            } finally {
+                isProcessingAction.value = false
+            }
+        }
+    }
+
+    fun onDeleteComment(commentId: String) {
+        if (isProcessingAction.value) return
+        viewModelScope.launch {
+            isProcessingAction.value = true
+            errorMessage.value = null
+            try {
+                val result = repository.deleteComment(postId, commentId)
+                result.onSuccess {
+                    userMessage.value = "Đã xoá bình luận."
+                }
+                result.onFailure { throwable ->
+                    errorMessage.value = throwable.message ?: "Không thể xoá bình luận."
+                }
+            } catch (throwable: Throwable) {
+                errorMessage.value = throwable.message ?: "Không thể xoá bình luận."
+            } finally {
+                isProcessingAction.value = false
+            }
+        }
+    }
 }
 
 class PostDetailViewModelFactory(
@@ -380,10 +426,29 @@ private fun ForumPostDetail.toUiModel(): PostDetailUi {
 
 private fun ForumComment.toUiModel(
     postAuthorName: String,
+    currentUserId: String?,
+    currentUsername: String?,
     depth: Int,
     isFirstChild: Boolean,
     isLastChild: Boolean
 ): List<PostCommentUi> {
+    // Determine if this comment belongs to the current user
+    val isCurrentUserComment = when {
+        // Primary check: Match by authorId (numeric ID from backend)
+        currentUserId != null && authorId != null && 
+            authorId.equals(currentUserId, ignoreCase = true) -> true
+        
+        // Secondary check: Match by username
+        currentUsername != null && authorUsername != null && 
+            authorUsername.equals(currentUsername, ignoreCase = true) -> true
+        
+        // Tertiary check: authorUsername might match userId (fallback)
+        currentUserId != null && authorUsername != null && 
+            authorUsername.equals(currentUserId, ignoreCase = true) -> true
+        
+        else -> false
+    }
+    
     val commentUi = PostCommentUi(
         id = id,
         authorName = authorName,
@@ -393,6 +458,7 @@ private fun ForumComment.toUiModel(
         voteCount = voteCount,
         voteState = voteState,
         isAuthor = isAuthor || authorName.equals(postAuthorName, ignoreCase = true),
+        isCurrentUserComment = isCurrentUserComment,
         depth = depth,
         hasReplies = replies.isNotEmpty(),
         isFirstChild = isFirstChild,
@@ -406,6 +472,8 @@ private fun ForumComment.toUiModel(
     val nestedReplies = replies.flatMapIndexed { index, reply ->
         reply.toUiModel(
             postAuthorName = postAuthorName,
+            currentUserId = currentUserId,
+            currentUsername = currentUsername,
             depth = depth + 1,
             isFirstChild = index == 0,
             isLastChild = index == replies.lastIndex

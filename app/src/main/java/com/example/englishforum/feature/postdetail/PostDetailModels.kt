@@ -27,6 +27,7 @@ data class PostCommentUi(
     val voteCount: Int,
     val voteState: VoteState,
     val isAuthor: Boolean,
+    val isCurrentUserComment: Boolean = false,
     val depth: Int,
     val hasReplies: Boolean,
     val isFirstChild: Boolean,

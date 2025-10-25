@@ -191,6 +191,105 @@ object FakePostStore {
         return updated to added
     }
 
+    fun updateComment(postId: String, commentId: String, content: String): Boolean {
+        var postFound = false
+        var commentFound = false
+        _posts.update { current ->
+            current.map { post ->
+                if (post.id == postId) {
+                    postFound = true
+                    val (updatedComments, found) = updateCommentContent(post.comments, commentId, content)
+                    if (found) {
+                        commentFound = true
+                        post.copy(comments = updatedComments)
+                    } else {
+                        post
+                    }
+                } else {
+                    post
+                }
+            }
+        }
+        return postFound && commentFound
+    }
+
+    fun deleteComment(postId: String, commentId: String): Boolean {
+        var postFound = false
+        var commentFound = false
+        _posts.update { current ->
+            current.map { post ->
+                if (post.id == postId) {
+                    postFound = true
+                    val (updatedComments, found) = removeCommentFromThread(post.comments, commentId)
+                    if (found) {
+                        commentFound = true
+                        post.copy(comments = updatedComments)
+                    } else {
+                        post
+                    }
+                } else {
+                    post
+                }
+            }
+        }
+        return postFound && commentFound
+    }
+
+    private fun updateCommentContent(
+        comments: List<ForumComment>,
+        commentId: String,
+        content: String
+    ): Pair<List<ForumComment>, Boolean> {
+        var found = false
+        val updated = comments.map { comment ->
+            when {
+                comment.id == commentId -> {
+                    found = true
+                    comment.copy(body = content)
+                }
+
+                comment.replies.isNotEmpty() -> {
+                    val (updatedReplies, replyFound) = updateCommentContent(comment.replies, commentId, content)
+                    if (replyFound) {
+                        found = true
+                        comment.copy(replies = updatedReplies)
+                    } else {
+                        comment
+                    }
+                }
+
+                else -> comment
+            }
+        }
+        return updated to found
+    }
+
+    private fun removeCommentFromThread(
+        comments: List<ForumComment>,
+        commentId: String
+    ): Pair<List<ForumComment>, Boolean> {
+        var found = false
+        val updated = comments.mapNotNull { comment ->
+            when {
+                comment.id == commentId -> {
+                    found = true
+                    null // Remove this comment
+                }
+
+                comment.replies.isNotEmpty() -> {
+                    val (updatedReplies, replyFound) = removeCommentFromThread(comment.replies, commentId)
+                    if (replyFound) {
+                        found = true
+                    }
+                    comment.copy(replies = updatedReplies)
+                }
+
+                else -> comment
+            }
+        }
+        return updated to found
+    }
+
     private fun updateCommentThread(
         comments: List<ForumComment>,
         commentId: String,

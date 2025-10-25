@@ -67,4 +67,18 @@ internal interface PostDetailApi {
         @Field("content") content: String,
         @Field("tag") tag: String
     ): MessageResponse
+
+    @FormUrlEncoded
+    @PUT("/comments/{comment_id}")
+    suspend fun updateComment(
+        @Header("Authorization") bearer: String,
+        @Path("comment_id") commentId: Int,
+        @Field("content") content: String
+    ): MessageResponse
+
+    @DELETE("/comments/{comment_id}")
+    suspend fun deleteComment(
+        @Header("Authorization") bearer: String,
+        @Path("comment_id") commentId: Int
+    ): MessageResponse
 }

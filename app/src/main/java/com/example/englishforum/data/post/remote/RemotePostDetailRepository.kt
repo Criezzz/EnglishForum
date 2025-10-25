@@ -243,6 +243,65 @@ internal class RemotePostDetailRepository(
         return fetchAndStorePost(postId)
     }
 
+    override suspend fun updateComment(
+        postId: String,
+        commentId: String,
+        content: String
+    ): Result<Unit> {
+        val session = currentSessionOrNull()
+            ?: return Result.failure(IllegalStateException(SESSION_EXPIRED_MESSAGE))
+        val numericCommentId = commentId.toIntOrNull()
+            ?: return Result.failure(IllegalArgumentException(COMMENT_ID_UNAVAILABLE_MESSAGE))
+
+        val trimmedContent = content.trim()
+        if (trimmedContent.isEmpty()) {
+            return Result.failure(IllegalArgumentException(EMPTY_COMMENT_CONTENT_MESSAGE))
+        }
+
+        val result = withContext(ioDispatcher) {
+            runCatching {
+                api.updateComment(
+                    bearer = session.bearerToken(),
+                    commentId = numericCommentId,
+                    content = trimmedContent
+                )
+            }
+        }
+
+        return result
+            .mapCatching {
+                fetchAndStorePost(postId).getOrThrow()
+                Unit
+            }
+            .mapFailure { it.toFriendlyException() }
+    }
+
+    override suspend fun deleteComment(
+        postId: String,
+        commentId: String
+    ): Result<Unit> {
+        val session = currentSessionOrNull()
+            ?: return Result.failure(IllegalStateException(SESSION_EXPIRED_MESSAGE))
+        val numericCommentId = commentId.toIntOrNull()
+            ?: return Result.failure(IllegalArgumentException(COMMENT_ID_UNAVAILABLE_MESSAGE))
+
+        val result = withContext(ioDispatcher) {
+            runCatching {
+                api.deleteComment(
+                    bearer = session.bearerToken(),
+                    commentId = numericCommentId
+                )
+            }
+        }
+
+        return result
+            .mapCatching {
+                fetchAndStorePost(postId).getOrThrow()
+                Unit
+            }
+            .mapFailure { it.toFriendlyException() }
+    }
+
     private suspend fun fetchAndStorePost(postId: String): Result<Unit> {
         val session = currentSessionOrNull()
             ?: return Result.failure(IllegalStateException(SESSION_EXPIRED_MESSAGE))
@@ -356,16 +415,18 @@ internal class RemotePostDetailRepository(
         val commentId = backendId?.toString() ?: response.syntheticId()
         val authorName = response.resolveAuthorName()
         val replies = children.map { it.toForumComment(postAuthorId) }
+        val commentAuthorId = response.authorId?.toString()
 
         return ForumComment(
             id = commentId,
+            authorId = commentAuthorId,
             authorName = authorName,
             authorUsername = response.authorUsername?.takeIf { it.isNotBlank() },
             minutesAgo = response.createdAt.toMinutesAgo(),
             body = response.content,
             voteCount = response.voteCount,
             voteState = response.userVote.toVoteState(),
-            isAuthor = postAuthorId != null && response.authorId?.toString() == postAuthorId,
+            isAuthor = postAuthorId != null && commentAuthorId == postAuthorId,
             replies = replies
         )
     }

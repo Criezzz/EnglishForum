@@ -156,6 +156,8 @@ fun PostDetailRoute(
         onDeletePost = {
             viewModel.onDeletePost()
         },
+        onEditComment = viewModel::onEditComment,
+        onDeleteComment = viewModel::onDeleteComment,
         onUserMessageShown = viewModel::onUserMessageShown,
         onNewCommentHighlightShown = viewModel::onNewCommentHighlightShown,
         onPostDeletionHandled = viewModel::onPostDeletionHandled,
@@ -182,6 +184,8 @@ fun PostDetailScreen(
     onReportPost: (String) -> Unit,
     onEditPostClick: () -> Unit,
     onDeletePost: () -> Unit,
+    onEditComment: (String, String) -> Unit,
+    onDeleteComment: (String) -> Unit,
     onUserMessageShown: () -> Unit,
     onNewCommentHighlightShown: () -> Unit,
     onPostDeletionHandled: () -> Unit,
@@ -543,6 +547,12 @@ fun PostDetailScreen(
                                         highlightedCommentId = comment.id
                                         onReplyToComment(comment.id, comment.authorName, comment.authorUsername)
                                     },
+                                    onEdit = { newContent ->
+                                        onEditComment(comment.id, newContent)
+                                    },
+                                    onDelete = {
+                                        onDeleteComment(comment.id)
+                                    },
                                     isHighlighted = highlightedCommentId == comment.id,
                                     onAuthorClick = onAuthorClick
                                 )
@@ -723,6 +733,8 @@ private fun CommentThreadEntry(
     onUpvote: () -> Unit,
     onDownvote: () -> Unit,
     onReply: () -> Unit,
+    onEdit: (String) -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
     isHighlighted: Boolean = false,
     onAuthorClick: (String) -> Unit = {}
@@ -740,6 +752,8 @@ private fun CommentThreadEntry(
             onUpvote = onUpvote,
             onDownvote = onDownvote,
             onReply = onReply,
+            onEdit = onEdit,
+            onDelete = onDelete,
             modifier = Modifier.weight(1f),
             isHighlighted = isHighlighted,
             onAuthorClick = onAuthorClick
@@ -753,10 +767,14 @@ private fun PostCommentItem(
     onUpvote: () -> Unit,
     onDownvote: () -> Unit,
     onReply: () -> Unit,
+    onEdit: (String) -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
     isHighlighted: Boolean = false,
     onAuthorClick: (String) -> Unit = {}
 ) {
+    var showEditDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
     val depthContainer = when (comment.depth) {
         0 -> MaterialTheme.colorScheme.surfaceContainerLow
         1 -> MaterialTheme.colorScheme.surfaceContainerHigh
@@ -850,18 +868,43 @@ private fun PostCommentItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = stringResource(R.string.post_detail_reply_action),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (isHighlighted) {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    } else {
-                        MaterialTheme.colorScheme.primary
-                    },
-                    modifier = Modifier
-                        .clickable(enabled = !isHighlighted) { onReply() }
-                        .padding(vertical = 4.dp)
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.post_detail_reply_action),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (isHighlighted) {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                        modifier = Modifier
+                            .clickable(enabled = !isHighlighted) { onReply() }
+                            .padding(vertical = 4.dp)
+                    )
+                    
+                    if (comment.isCurrentUserComment) {
+                        Text(
+                            text = "Sửa",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier
+                                .clickable { showEditDialog = true }
+                                .padding(vertical = 4.dp)
+                        )
+                        
+                        Text(
+                            text = "Xoá",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier
+                                .clickable { showDeleteDialog = true }
+                                .padding(vertical = 4.dp)
+                        )
+                    }
+                }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically
@@ -888,6 +931,27 @@ private fun PostCommentItem(
                 }
             }
         }
+    }
+    
+    if (showEditDialog) {
+        EditCommentDialog(
+            initialContent = comment.body,
+            onDismiss = { showEditDialog = false },
+            onConfirm = { newContent ->
+                showEditDialog = false
+                onEdit(newContent)
+            }
+        )
+    }
+    
+    if (showDeleteDialog) {
+        DeleteCommentConfirmationDialog(
+            onDismiss = { showDeleteDialog = false },
+            onConfirm = {
+                showDeleteDialog = false
+                onDelete()
+            }
+        )
     }
 }
 
@@ -1397,6 +1461,8 @@ private fun PostDetailScreenPreview() {
             onReportPost = {},
             onEditPostClick = {},
             onDeletePost = {},
+            onEditComment = { _, _ -> },
+            onDeleteComment = {},
             onUserMessageShown = {},
             onNewCommentHighlightShown = {},
             onPostDeletionHandled = {},
@@ -1404,4 +1470,90 @@ private fun PostDetailScreenPreview() {
             onRefresh = {}
         )
     }
+}
+
+@Composable
+private fun EditCommentDialog(
+    initialContent: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String) -> Unit
+) {
+    var editedContent by remember { mutableStateOf(initialContent) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Outlined.Edit,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        },
+        title = {
+            Text(text = "Chỉnh sửa bình luận")
+        },
+        text = {
+            OutlinedTextField(
+                value = editedContent,
+                onValueChange = { editedContent = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Nhập nội dung bình luận") },
+                minLines = 3,
+                maxLines = 10
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(editedContent) },
+                enabled = editedContent.trim().isNotEmpty()
+            ) {
+                Text(text = "Lưu")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.auth_cancel_action))
+            }
+        }
+    )
+}
+
+@Composable
+private fun DeleteCommentConfirmationDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Outlined.DeleteForever,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            )
+        },
+        title = {
+            Text(text = "Xoá bình luận")
+        },
+        text = {
+            Text(
+                text = "Bạn có chắc chắn muốn xoá bình luận này? Hành động này không thể hoàn tác.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(
+                    text = "Xoá",
+                    color = MaterialTheme.colorScheme.error
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = stringResource(R.string.auth_cancel_action))
+            }
+        }
+    )
 }

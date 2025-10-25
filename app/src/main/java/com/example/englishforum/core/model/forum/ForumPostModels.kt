@@ -26,6 +26,7 @@ data class ForumPostSummary(
 
 data class ForumComment(
     val id: String,
+    val authorId: String? = null,
     val authorName: String,
     val authorUsername: String? = null,
     val minutesAgo: Int,

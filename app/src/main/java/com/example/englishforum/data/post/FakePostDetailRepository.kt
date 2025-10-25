@@ -92,4 +92,31 @@ class FakePostDetailRepository(
             Result.failure(IllegalArgumentException("Post not found"))
         }
     }
+
+    override suspend fun updateComment(
+        postId: String,
+        commentId: String,
+        content: String
+    ): Result<Unit> {
+        val sanitized = content.trim()
+        if (sanitized.isEmpty()) {
+            return Result.failure(IllegalArgumentException("Nội dung bình luận không được để trống"))
+        }
+        return if (store.updateComment(postId, commentId, sanitized)) {
+            Result.success(Unit)
+        } else {
+            Result.failure(IllegalArgumentException("Comment not found"))
+        }
+    }
+
+    override suspend fun deleteComment(
+        postId: String,
+        commentId: String
+    ): Result<Unit> {
+        return if (store.deleteComment(postId, commentId)) {
+            Result.success(Unit)
+        } else {
+            Result.failure(IllegalArgumentException("Comment not found"))
+        }
+    }
 }
