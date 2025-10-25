@@ -67,7 +67,7 @@ fun SearchRoute(
 ) {
     val appContainer = LocalAppContainer.current
     val viewModel: SearchViewModel = viewModel(
-        factory = remember(appContainer) { SearchViewModelFactory(appContainer.homeRepository) }
+        factory = remember(appContainer) { SearchViewModelFactory(appContainer.searchRepository) }
     )
     val uiState by viewModel.uiState.collectAsState()
 
@@ -166,6 +166,16 @@ private fun SearchScreen(
             )
         }
 
+        uiState.errorMessage?.let { message ->
+            SearchErrorMessage(
+                message = message,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+
         Spacer(Modifier.height(4.dp))
 
         when {
@@ -253,6 +263,26 @@ private fun SearchLanding(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+private fun SearchErrorMessage(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+        tonalElevation = 0.dp
+    ) {
+        Text(
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+            text = message,
+            style = MaterialTheme.typography.bodyMedium
         )
     }
 }

@@ -19,6 +19,7 @@ data class SearchResultUi(
 
 data class SearchUiState(
     val query: String = "",
-    val isLoading: Boolean = true,
-    val results: List<SearchResultUi> = emptyList()
+    val isLoading: Boolean = false,
+    val results: List<SearchResultUi> = emptyList(),
+    val errorMessage: String? = null
 )

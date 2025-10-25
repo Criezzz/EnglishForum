@@ -28,6 +28,9 @@ import com.example.englishforum.data.post.remote.RemotePostDetailRepository
 import com.example.englishforum.data.profile.ProfileRepository
 import com.example.englishforum.data.profile.remote.ProfileApi
 import com.example.englishforum.data.profile.remote.RemoteProfileRepository
+import com.example.englishforum.data.search.SearchRepository
+import com.example.englishforum.data.search.remote.RemoteSearchRepository
+import com.example.englishforum.data.search.remote.SearchApi
 import com.example.englishforum.data.settings.ThemePreferenceRepository
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
@@ -43,6 +46,7 @@ interface AppContainer {
     val authRepository: AuthRepository
     val themePreferenceRepository: ThemePreferenceRepository
     val homeRepository: HomeRepository
+    val searchRepository: SearchRepository
     val postDetailRepository: PostDetailRepository
     val aiPracticeRepository: AiPracticeRepository
     val createPostRepository: CreatePostRepository
@@ -115,12 +119,21 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     private val postsApi: PostsApi by lazy { retrofit.create(PostsApi::class.java) }
     private val postDetailApi: PostDetailApi by lazy { retrofit.create(PostDetailApi::class.java) }
+    private val searchApi: SearchApi by lazy { retrofit.create(SearchApi::class.java) }
 
     override val homeRepository: HomeRepository by lazy {
         RemoteHomeRepository(
             postsApi = postsApi,
             userSessionRepository = userSessionRepository,
             postStore = postSummaryStore
+        )
+    }
+
+    override val searchRepository: SearchRepository by lazy {
+        RemoteSearchRepository(
+            searchApi = searchApi,
+            userSessionRepository = userSessionRepository,
+            postInteractionRepository = homeRepository
         )
     }
 
