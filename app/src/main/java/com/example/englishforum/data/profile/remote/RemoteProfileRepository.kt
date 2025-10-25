@@ -1,35 +1,64 @@
 package com.example.englishforum.data.profile.remote
 
+import android.content.ContentResolver
+import android.net.Uri
+import android.provider.OpenableColumns
+import android.webkit.MimeTypeMap
+import com.example.englishforum.BuildConfig
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.model.forum.ForumProfilePost
+import com.example.englishforum.core.model.forum.ForumProfileReply
 import com.example.englishforum.core.model.forum.ForumProfileStats
 import com.example.englishforum.core.model.forum.ForumUserProfile
 import com.example.englishforum.data.auth.UserSession
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.auth.bearerToken
+import com.example.englishforum.data.profile.ProfileAvatarImage
 import com.example.englishforum.data.profile.ProfileRepository
 import com.example.englishforum.data.profile.remote.model.SimpleUserResponse
+import com.example.englishforum.data.profile.remote.model.UserCommentResponse
+import com.example.englishforum.data.profile.remote.model.UserPostResponse
 import java.io.IOException
+import java.time.Duration
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlin.math.max
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import retrofit2.HttpException
 
 class RemoteProfileRepository(
     private val profileApi: ProfileApi,
     private val userSessionRepository: UserSessionRepository,
+    private val contentResolver: ContentResolver,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ProfileRepository {
 
     private val profileState = MutableStateFlow<ForumUserProfile?>(null)
     private var cachedUserId: String? = null
+    private val baseUrl = BuildConfig.API_BASE_URL.trimEnd('/')
 
     override fun observeProfile(userId: String): Flow<ForumUserProfile> = flow {
         refreshProfile(userId, force = cachedUserId != userId)
@@ -89,12 +118,92 @@ class RemoteProfileRepository(
         }.mapFailure { it.toProfileRepositoryException() }
     }
 
+    override suspend fun updateAvatar(userId: String, avatar: ProfileAvatarImage): Result<Unit> {
+        val session = currentSessionOrNull()
+            ?: return Result.failure(ProfileRepositoryException("Session expired. Please sign in again."))
+
+        if (session.userId != userId) {
+            return Result.failure(ProfileRepositoryException("You can only update your own avatar."))
+        }
+
+        val avatarPart = withContext(ioDispatcher) {
+            runCatching { buildAvatarPart(avatar) }
+        }.getOrElse { throwable ->
+            val failure = if (throwable is ProfileRepositoryException) {
+                throwable
+            } else {
+                ProfileRepositoryException(AVATAR_FILE_READ_ERROR_MESSAGE, throwable)
+            }
+            return Result.failure(failure)
+        }
+
+        return runCatching {
+            withContext(ioDispatcher) {
+                profileApi.updateAvatar(session.bearerToken(), avatarPart)
+            }
+            refreshProfile(session.userId, force = true)
+        }.mapFailure { it.toProfileRepositoryException() }
+    }
+
     override suspend fun setPostVote(userId: String, postId: String, target: VoteState): Result<Unit> {
         return Result.failure(UnsupportedOperationException("Post interactions are not supported yet"))
     }
 
     override suspend fun setReplyVote(userId: String, replyId: String, target: VoteState): Result<Unit> {
         return Result.failure(UnsupportedOperationException("Reply interactions are not supported yet"))
+    }
+
+    private fun buildAvatarPart(avatar: ProfileAvatarImage): MultipartBody.Part {
+        val uri = avatar.uri
+        val inputStream = contentResolver.openInputStream(uri)
+            ?: throw ProfileRepositoryException(AVATAR_FILE_READ_ERROR_MESSAGE)
+        val bytes = inputStream.use { stream -> stream.readBytes() }
+        if (bytes.isEmpty()) {
+            throw ProfileRepositoryException(AVATAR_FILE_READ_ERROR_MESSAGE)
+        }
+
+        val mediaType = resolveMimeType(uri)?.toMediaTypeOrNull() ?: DEFAULT_AVATAR_MEDIA_TYPE
+        val fileName = avatar.displayName?.takeIf { it.isNotBlank() }
+            ?: resolveDisplayName(uri)
+            ?: buildDefaultAvatarName(mediaType)
+        val requestBody = bytes.toRequestBody(mediaType)
+        return MultipartBody.Part.createFormData(AVATAR_FIELD_NAME, fileName, requestBody)
+    }
+
+    private fun resolveMimeType(uri: Uri): String? {
+        val detected = contentResolver.getType(uri)
+        if (!detected.isNullOrBlank()) return detected
+        val extension = MimeTypeMap.getFileExtensionFromUrl(uri.toString())
+            ?.takeIf { it.isNotBlank() }
+            ?.lowercase()
+        return extension?.let { MimeTypeMap.getSingleton().getMimeTypeFromExtension(it) }
+    }
+
+    private fun resolveDisplayName(uri: Uri): String? {
+        return runCatching {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        if (index >= 0) cursor.getString(index) else null
+                    } else {
+                        null
+                    }
+                }
+        }.getOrNull()
+    }
+
+    private fun buildDefaultAvatarName(mediaType: MediaType): String {
+        val extension = resolveExtension(mediaType)
+        return "avatar_${System.currentTimeMillis()}.$extension"
+    }
+
+    private fun resolveExtension(mediaType: MediaType?): String {
+        if (mediaType == null) return DEFAULT_AVATAR_EXTENSION
+        return MimeTypeMap.getSingleton()
+            .getExtensionFromMimeType(mediaType.toString())
+            ?.takeIf { it.isNotBlank() }
+            ?: DEFAULT_AVATAR_EXTENSION
     }
 
     private suspend fun refreshProfile(userId: String, force: Boolean = false) {
@@ -109,15 +218,52 @@ class RemoteProfileRepository(
 
         val remote = runCatching {
             withContext(ioDispatcher) {
-                if (userId == session.userId) {
-                    profileApi.getCurrentUser(session.bearerToken())
-                } else {
-                    profileApi.getUserByUsername(session.bearerToken(), userId)
+                coroutineScope {
+                    val bearer = session.bearerToken()
+                    val targetUsername = if (userId == session.userId) session.username else userId
+
+                    val userDeferred = async {
+                        if (userId == session.userId) {
+                            profileApi.getCurrentUser(bearer)
+                        } else {
+                            profileApi.getUserByUsername(bearer, targetUsername)
+                        }
+                    }
+
+                    val postsDeferred = async {
+                        runCatching {
+                            profileApi.getUserPosts(bearer, targetUsername)
+                        }.getOrElse { throwable ->
+                            if (throwable is CancellationException) throw throwable
+                            emptyList()
+                        }
+                    }
+
+                    val commentsDeferred = async {
+                        runCatching {
+                            profileApi.getUserComments(bearer, targetUsername)
+                        }.getOrElse { throwable ->
+                            if (throwable is CancellationException) throw throwable
+                            emptyList()
+                        }
+                    }
+
+                    val userResponse = userDeferred.await()
+                    val postResponses = postsDeferred.await()
+                    val commentResponses = commentsDeferred.await()
+
+                    val identifier = if (userId == session.userId) session.userId else userId
+                    val postTitleLookup = postResponses.associatePostTitles()
+                    val posts = postResponses.toProfilePosts()
+                    val replies = commentResponses.toProfileReplies(postTitleLookup)
+
+                    userResponse.toDomain(
+                        userId = identifier,
+                        posts = posts,
+                        replies = replies
+                    )
                 }
             }
-        }.map { response ->
-            val identifier = if (userId == session.userId) session.userId else userId
-            response.toDomain(identifier)
         }
 
         profileState.value = remote.getOrDefault(fallback)
@@ -127,20 +273,126 @@ class RemoteProfileRepository(
         return userSessionRepository.sessionFlow.filterNotNull().firstOrNull()
     }
 
-    private fun SimpleUserResponse.toDomain(userId: String): ForumUserProfile {
+    private fun SimpleUserResponse.toDomain(
+        userId: String,
+        posts: List<ForumProfilePost>,
+        replies: List<ForumProfileReply>
+    ): ForumUserProfile {
+        val normalizedDisplayName = username.ifBlank { userId }
         return ForumUserProfile(
             userId = userId,
-            displayName = username,
-            avatarUrl = avatarUrl?.ifBlank { null },
+            displayName = normalizedDisplayName,
+            avatarUrl = resolveAvatarPath().toAvatarUrl(),
             bio = bio?.ifBlank { null },
             stats = ForumProfileStats(
-                upvotes = 0,
-                posts = 0,
-                answers = 0
+                upvotes = calculateTotalUpvotes(posts, replies),
+                posts = posts.size,
+                answers = replies.size
             ),
-            posts = emptyList(),
-            replies = emptyList()
+            posts = posts,
+            replies = replies
         )
+    }
+
+    private fun SimpleUserResponse.resolveAvatarPath(): String? {
+        return avatarUrl?.ifBlank { null } ?: avatarFilename?.ifBlank { null }
+    }
+
+    private fun String?.toAvatarUrl(): String? {
+        val raw = this?.takeIf { it.isNotBlank() } ?: return null
+        return when {
+            raw.startsWith("http://", ignoreCase = true) || raw.startsWith("https://", ignoreCase = true) -> raw
+            raw.startsWith("/download") -> "$baseUrl$raw"
+            raw.startsWith("download/") -> "$baseUrl/$raw"
+            raw.startsWith("/") -> "$baseUrl$raw"
+            else -> "$baseUrl/download/$raw"
+        }
+    }
+
+    private fun List<UserPostResponse>.associatePostTitles(): Map<Int, String> {
+        return associate { response ->
+            val sanitizedTitle = response.title?.takeIf { it.isNotBlank() }
+            response.postId to (sanitizedTitle ?: "${DEFAULT_POST_TITLE_PREFIX}${response.postId}")
+        }
+    }
+
+    private fun List<UserPostResponse>.toProfilePosts(): List<ForumProfilePost> {
+        return map { response -> response.toProfilePost() }
+    }
+
+    private fun UserPostResponse.toProfilePost(): ForumProfilePost {
+        return ForumProfilePost(
+            id = postId.toString(),
+            title = title?.ifBlank { "${DEFAULT_POST_TITLE_PREFIX}$postId" } ?: "${DEFAULT_POST_TITLE_PREFIX}$postId",
+            body = content.orEmpty(),
+            timestampLabel = createdAt.toProfileTimestampLabel(),
+            voteCount = voteCount ?: 0,
+            voteState = userVote.toVoteState()
+        )
+    }
+
+    private fun List<UserCommentResponse>.toProfileReplies(
+        postTitleLookup: Map<Int, String>
+    ): List<ForumProfileReply> {
+        return map { response -> response.toProfileReply(postTitleLookup) }
+    }
+
+    private fun UserCommentResponse.toProfileReply(
+        postTitleLookup: Map<Int, String>
+    ): ForumProfileReply {
+        val postIdentifier = postId?.toString() ?: ""
+        val resolvedTitle = postId?.let { postTitleLookup[it] } ?: postId?.let {
+            "${DEFAULT_POST_TITLE_PREFIX}$it"
+        } ?: DEFAULT_POST_FALLBACK_TITLE
+
+        return ForumProfileReply(
+            id = commentId.toString(),
+            postId = postIdentifier,
+            questionTitle = resolvedTitle,
+            body = content.orEmpty(),
+            timestampLabel = createdAt.toProfileTimestampLabel(),
+            voteCount = voteCount ?: 0,
+            voteState = userVote.toVoteState()
+        )
+    }
+
+    private fun Int?.toVoteState(): VoteState = when (this) {
+        1 -> VoteState.UPVOTED
+        -1 -> VoteState.DOWNVOTED
+        else -> VoteState.NONE
+    }
+
+    private fun String?.toProfileTimestampLabel(): String {
+        if (this.isNullOrBlank()) return DEFAULT_DATE_PLACEHOLDER
+        val createdInstant = parseInstant(this) ?: return DEFAULT_DATE_PLACEHOLDER
+        val now = Instant.now()
+        val minutes = Duration.between(createdInstant, now).toMinutes().coerceAtLeast(0)
+        return if (minutes < RECENT_WINDOW_MINUTES) {
+            val displayMinutes = minutes.coerceAtLeast(1)
+            "$displayMinutes phút trước"
+        } else {
+            val formatter = DateTimeFormatter.ofPattern(DATE_FORMAT_PATTERN, Locale.getDefault())
+            createdInstant.atZone(ZoneId.systemDefault()).format(formatter)
+        }
+    }
+
+    private fun parseInstant(raw: String): Instant? {
+        return runCatching { Instant.parse(raw) }
+            .recoverCatching { OffsetDateTime.parse(raw).toInstant() }
+            .recoverCatching {
+                LocalDateTime.parse(raw, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                    .toInstant(ZoneOffset.UTC)
+            }
+            .getOrNull()
+    }
+
+    private fun calculateTotalUpvotes(
+        posts: List<ForumProfilePost>,
+        replies: List<ForumProfileReply>
+    ): Int {
+        val postVotes = posts.sumOf { max(0, it.voteCount) }
+        val replyVotes = replies.sumOf { max(0, it.voteCount) }
+        return postVotes + replyVotes
     }
 
     private fun UserSession.toFallbackProfile(): ForumUserProfile {
@@ -157,6 +409,18 @@ class RemoteProfileRepository(
             posts = emptyList(),
             replies = emptyList()
         )
+    }
+
+    companion object {
+        private const val AVATAR_FIELD_NAME = "new_avatar"
+        private const val DEFAULT_AVATAR_EXTENSION = "jpg"
+        private val DEFAULT_AVATAR_MEDIA_TYPE = "image/jpeg".toMediaType()
+        private const val AVATAR_FILE_READ_ERROR_MESSAGE = "Unable to read selected image."
+        private const val DEFAULT_POST_TITLE_PREFIX = "Post #"
+        private const val DEFAULT_POST_FALLBACK_TITLE = "Post"
+        private const val RECENT_WINDOW_MINUTES = 60L
+        private const val DATE_FORMAT_PATTERN = "dd/MM/yyyy HH:mm"
+        private const val DEFAULT_DATE_PLACEHOLDER = "--/--/---- --:--"
     }
 }
 

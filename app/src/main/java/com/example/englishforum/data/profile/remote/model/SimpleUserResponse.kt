@@ -6,5 +6,7 @@ data class SimpleUserResponse(
     val username: String,
     val bio: String? = null,
     @Json(name = "avatar_url")
-    val avatarUrl: String? = null
+    val avatarUrl: String? = null,
+    @Json(name = "avatar_filename")
+    val avatarFilename: String? = null
 )

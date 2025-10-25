@@ -128,8 +128,8 @@
     <string name="profile_stat_upvotes">Upvote</string>
     <string name="profile_stat_posts">Bài đăng</string>
     <string name="profile_stat_answers">Câu trả lời</string>
-    <string name="profile_post_meta">%1$d phút trước</string>
-    <string name="profile_reply_meta">Trả lời %1$s | %2$d phút trước</string>
+    <string name="profile_post_meta">%1$s</string>
+    <string name="profile_reply_meta">Trả lời %1$s • %2$s</string>
     <string name="profile_empty_posts">Chưa có bài đăng nào</string>
     <string name="profile_empty_replies">Chưa có câu trả lời nào</string>
     <string name="profile_edit_change_photo">Thay đổi ảnh</string>

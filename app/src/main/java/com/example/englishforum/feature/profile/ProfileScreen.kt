@@ -1,11 +1,18 @@
 package com.example.englishforum.feature.profile
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -49,18 +56,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.rememberAsyncImagePainter
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.ui.components.VoteIconButton
 import com.example.englishforum.core.ui.components.card.ForumContentCard
+import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImage
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 
 @Composable
@@ -86,6 +97,12 @@ fun ProfileScreen(
     )
     val uiState by viewModel.uiState.collectAsState()
     val editState by viewModel.editState.collectAsState()
+    val avatarState by viewModel.avatarState.collectAsState()
+    val avatarPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        uri?.let(viewModel::onAvatarSelected)
+    }
     var showEditDialog by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(editState) {
@@ -95,9 +112,16 @@ fun ProfileScreen(
         }
     }
 
+    LaunchedEffect(showEditDialog) {
+        if (!showEditDialog) {
+            viewModel.resetAvatarState()
+        }
+    }
+
     ProfileContent(
         modifier = modifier,
         uiState = uiState,
+        avatarState = avatarState,
         onSettingsClick = onSettingsClick,
         onEditClick = {
             onEditClick()
@@ -119,16 +143,23 @@ fun ProfileScreen(
         ProfileEditDialog(
             currentName = overview.displayName,
             currentBio = overview.bio.orEmpty(),
+            avatarUrl = overview.avatarUrl,
+            avatarState = avatarState,
             isSaving = editState is ProfileEditState.InProgress,
             errorMessage = (editState as? ProfileEditState.Error)?.message,
             onDismiss = {
                 showEditDialog = false
                 viewModel.resetEditState()
+                viewModel.resetAvatarState()
             },
             onSave = { name, bio ->
                 viewModel.updateProfile(name, bio)
             },
-            onChangePhoto = {}
+            onChangePhoto = {
+                avatarPicker.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                )
+            }
         )
     }
 }
@@ -137,6 +168,7 @@ fun ProfileScreen(
 private fun ProfileContent(
     modifier: Modifier = Modifier,
     uiState: ProfileUiState,
+    avatarState: ProfileAvatarUiState,
     onSettingsClick: () -> Unit,
     onEditClick: () -> Unit,
     onPostClick: (String) -> Unit,
@@ -160,6 +192,7 @@ private fun ProfileContent(
             ProfileHeader(
                 overview = uiState.overview,
                 isLoading = uiState.isLoading,
+                avatarState = avatarState,
                 onSettingsClick = onSettingsClick,
                 onEditClick = onEditClick,
                 modifier = Modifier
@@ -187,7 +220,7 @@ private fun ProfileContent(
                         ForumContentCard(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp),
-                            meta = stringResource(R.string.profile_post_meta, post.minutesAgo),
+                            meta = stringResource(R.string.profile_post_meta, post.timeLabel),
                             voteCount = post.voteCount,
                             title = post.title,
                             body = post.body,
@@ -269,6 +302,7 @@ private fun ProfileTabs(
 private fun ProfileHeader(
     overview: ProfileOverview?,
     isLoading: Boolean,
+    avatarState: ProfileAvatarUiState,
     onSettingsClick: () -> Unit,
     onEditClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -317,21 +351,12 @@ private fun ProfileHeader(
                         }
                     }
 
-                    Surface(
-                        modifier = Modifier.size(96.dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        tonalElevation = 2.dp
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Filled.Person,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(48.dp)
-                            )
-                        }
-                    }
+                    ProfileAvatar(
+                        avatarUrl = overview.avatarUrl,
+                        previewUri = avatarState.previewUri,
+                        isUploading = avatarState.isUploading,
+                        size = 96.dp
+                    )
 
                     Text(
                         text = overview.displayName,
@@ -432,7 +457,7 @@ private fun ProfileReplyCard(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = stringResource(R.string.profile_reply_meta, reply.questionTitle, reply.minutesAgo),
+                    text = stringResource(R.string.profile_reply_meta, reply.questionTitle, reply.timeLabel),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -500,6 +525,73 @@ private fun EmptyState(text: String) {
     }
 }
 
+@Composable
+private fun ProfileAvatar(
+    avatarUrl: String?,
+    previewUri: Uri?,
+    isUploading: Boolean,
+    size: Dp,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.size(size),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        tonalElevation = 2.dp
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            when {
+                previewUri != null -> {
+                    Image(
+                        painter = rememberAsyncImagePainter(previewUri),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                avatarUrl != null -> {
+                    AuthenticatedRemoteImage(
+                        url = avatarUrl,
+                        modifier = Modifier.fillMaxSize(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                else -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+                }
+            }
+
+            if (isUploading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                            shape = CircleShape
+                        )
+                )
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    strokeWidth = 3.dp
+                )
+            }
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun ProfileScreenPreview() {
@@ -520,7 +612,7 @@ private fun ProfileScreenPreview() {
                         id = "post-1",
                         title = "Lorem ipsum dolor sit amet",
                         body = "Nullam justo felis, ullamcorper et lectus non, vestibulum feugiat risus.",
-                        minutesAgo = 13,
+                        timeLabel = "13 phút trước",
                         voteCount = 17,
                         voteState = VoteState.UPVOTED
                     ),
@@ -528,7 +620,7 @@ private fun ProfileScreenPreview() {
                         id = "post-2",
                         title = "In mattis tincidunt mi ac pretium",
                         body = "Nullam euismod urna in arcu mollis, at consectetur ante mattis.",
-                        minutesAgo = 28,
+                        timeLabel = "12/05/2024 14:30",
                         voteCount = 9,
                         voteState = VoteState.NONE
                     )
@@ -539,13 +631,14 @@ private fun ProfileScreenPreview() {
                         postId = "post-1",
                         questionTitle = "Câu hỏi về ABC",
                         body = "Donec dictum rhoncus eros, eget fermentum dui laoreet a.",
-                        minutesAgo = 12,
+                        timeLabel = "55 phút trước",
                         voteCount = 6,
                         voteState = VoteState.UPVOTED
                     )
                 ),
                 isLoading = false
             ),
+            avatarState = ProfileAvatarUiState(),
             onSettingsClick = {},
             onEditClick = {},
             onPostClick = {},
@@ -564,6 +657,8 @@ private fun ProfileScreenPreview() {
 private fun ProfileEditDialog(
     currentName: String,
     currentBio: String,
+    avatarUrl: String?,
+    avatarState: ProfileAvatarUiState,
     isSaving: Boolean,
     errorMessage: String?,
     onDismiss: () -> Unit,
@@ -596,23 +691,16 @@ private fun ProfileEditDialog(
                     }
                 }
 
-                Surface(
-                    modifier = Modifier.size(96.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Filled.Person,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(48.dp)
-                        )
-                    }
-                }
+                ProfileAvatar(
+                    avatarUrl = avatarUrl,
+                    previewUri = avatarState.previewUri,
+                    isUploading = avatarState.isUploading,
+                    size = 96.dp
+                )
 
                 FilledTonalButton(
                     onClick = onChangePhoto,
+                    enabled = !avatarState.isUploading,
                     shape = MaterialTheme.shapes.large,
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
                 ) {
@@ -623,6 +711,16 @@ private fun ProfileEditDialog(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(text = stringResource(R.string.profile_edit_change_photo))
+                }
+
+                avatarState.errorMessage?.let { message ->
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
 
                 OutlinedTextField(

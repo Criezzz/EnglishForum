@@ -11,6 +11,8 @@ interface ProfileRepository {
 
     suspend fun updateBio(userId: String, bio: String): Result<Unit>
 
+    suspend fun updateAvatar(userId: String, avatar: ProfileAvatarImage): Result<Unit>
+
     suspend fun setPostVote(userId: String, postId: String, target: VoteState): Result<Unit>
 
     suspend fun setReplyVote(userId: String, replyId: String, target: VoteState): Result<Unit>

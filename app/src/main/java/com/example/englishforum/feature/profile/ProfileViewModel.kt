@@ -1,5 +1,6 @@
 package com.example.englishforum.feature.profile
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -7,8 +8,11 @@ import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumProfilePost
 import com.example.englishforum.core.model.forum.ForumProfileReply
 import com.example.englishforum.core.model.forum.ForumUserProfile
+import com.example.englishforum.data.profile.ProfileAvatarImage
 import com.example.englishforum.data.profile.ProfileRepository
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,6 +32,11 @@ class ProfileViewModel(
 
     private val _editState = MutableStateFlow<ProfileEditState>(ProfileEditState.Idle)
     val editState: StateFlow<ProfileEditState> = _editState.asStateFlow()
+
+    private val _avatarState = MutableStateFlow(ProfileAvatarUiState())
+    val avatarState: StateFlow<ProfileAvatarUiState> = _avatarState.asStateFlow()
+
+    private var avatarUploadJob: Job? = null
 
     init {
         repository.observeProfile(userId)
@@ -49,6 +58,38 @@ class ProfileViewModel(
         val sanitized = newBio.trim()
         viewModelScope.launch {
             repository.updateBio(userId, sanitized)
+        }
+    }
+
+    fun onAvatarSelected(uri: Uri) {
+        avatarUploadJob?.cancel()
+        avatarUploadJob = viewModelScope.launch {
+            _avatarState.value = ProfileAvatarUiState(
+                previewUri = uri,
+                isUploading = true,
+                errorMessage = null
+            )
+            val result = repository.updateAvatar(userId, ProfileAvatarImage(uri))
+            result.fold(
+                onSuccess = {
+                    _avatarState.value = ProfileAvatarUiState(
+                        previewUri = uri,
+                        isUploading = false,
+                        errorMessage = null
+                    )
+                },
+                onFailure = { error ->
+                    if (error is CancellationException) {
+                        throw error
+                    }
+                    val message = error.message ?: "Could not update avatar"
+                    _avatarState.value = ProfileAvatarUiState(
+                        previewUri = uri,
+                        isUploading = false,
+                        errorMessage = message
+                    )
+                }
+            )
         }
     }
 
@@ -111,6 +152,12 @@ class ProfileViewModel(
         _editState.value = ProfileEditState.Idle
     }
 
+    fun resetAvatarState() {
+        avatarUploadJob?.cancel()
+        avatarUploadJob = null
+        _avatarState.value = ProfileAvatarUiState()
+    }
+
     fun onPostUpvote(postId: String) {
         updatePostVote(postId, VoteState.UPVOTED)
     }
@@ -162,7 +209,7 @@ class ProfileViewModel(
             id = id,
             title = title,
             body = body,
-            minutesAgo = minutesAgo,
+            timeLabel = timestampLabel,
             voteCount = voteCount,
             voteState = voteState
         )
@@ -177,7 +224,7 @@ class ProfileViewModel(
             postId = postId,
             questionTitle = capitalizedTitle,
             body = body,
-            minutesAgo = minutesAgo,
+            timeLabel = timestampLabel,
             voteCount = voteCount,
             voteState = voteState
         )
