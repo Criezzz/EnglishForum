@@ -98,6 +98,7 @@ fun MainApp() {
     val authRepository = remember { appContainer.authRepository }
     val sessionPreferenceRepository = remember { appContainer.sessionPreferenceRepository }
     val themeRepository = remember { appContainer.themePreferenceRepository }
+    val profileRepository = remember { appContainer.profileRepository }
     val sessionValidator = remember { appContainer.sessionValidator }
     val networkMonitor = remember { appContainer.networkMonitor }
     val navController = rememberNavController()
@@ -436,6 +437,45 @@ fun MainApp() {
                                     popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                                     launchSingleTop = true
                                 }
+                            }
+                        },
+                        onPasswordChange = { currentPassword, newPassword ->
+                            scope.launch {
+                                profileRepository.updatePassword(currentPassword, newPassword)
+                                    .onSuccess {
+                                        snackbarHostState.showSnackbar("Mật khẩu đã được cập nhật thành công")
+                                    }
+                                    .onFailure { error ->
+                                        snackbarHostState.showSnackbar(
+                                            error.message ?: "Không thể cập nhật mật khẩu"
+                                        )
+                                    }
+                            }
+                        },
+                        onEmailChange = { newEmail ->
+                            scope.launch {
+                                profileRepository.updateEmail(newEmail)
+                                    .onSuccess {
+                                        snackbarHostState.showSnackbar("Mã xác nhận đã được gửi đến email mới")
+                                    }
+                                    .onFailure { error ->
+                                        snackbarHostState.showSnackbar(
+                                            error.message ?: "Không thể gửi mã xác nhận"
+                                        )
+                                    }
+                            }
+                        },
+                        onEmailConfirm = { otp ->
+                            scope.launch {
+                                profileRepository.confirmEmailUpdate(otp)
+                                    .onSuccess {
+                                        snackbarHostState.showSnackbar("Email đã được cập nhật thành công")
+                                    }
+                                    .onFailure { error ->
+                                        snackbarHostState.showSnackbar(
+                                            error.message ?: "Không thể xác nhận email"
+                                        )
+                                    }
                             }
                         }
                     )

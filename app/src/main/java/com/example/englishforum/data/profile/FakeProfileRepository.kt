@@ -75,6 +75,21 @@ class FakeProfileRepository : ProfileRepository {
         return if (updated) Result.success(Unit) else Result.failure(IllegalArgumentException("Reply not found"))
     }
 
+    override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit> {
+        // Fake implementation - just return success
+        return Result.success(Unit)
+    }
+
+    override suspend fun updateEmail(newEmail: String): Result<Unit> {
+        // Fake implementation - just return success
+        return Result.success(Unit)
+    }
+
+    override suspend fun confirmEmailUpdate(otp: String): Result<Unit> {
+        // Fake implementation - just return success
+        return Result.success(Unit)
+    }
+
     private fun createInitialProfile(): ForumUserProfile {
         return ForumUserProfile(
             userId = "user-1",

@@ -158,6 +158,61 @@ internal class RemoteProfileRepository(
         return Result.failure(UnsupportedOperationException("Reply interactions are not supported yet"))
     }
 
+    override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit> {
+        val sanitizedCurrent = currentPassword.trim()
+        val sanitizedNew = newPassword.trim()
+        
+        if (sanitizedCurrent.isBlank() || sanitizedNew.isBlank()) {
+            return Result.failure(ProfileRepositoryException("Password cannot be empty"))
+        }
+
+        val session = currentSessionOrNull()
+            ?: return Result.failure(ProfileRepositoryException("Session expired. Please sign in again."))
+
+        return runCatching {
+            withContext(ioDispatcher) {
+                profileApi.updatePassword(session.bearerToken(), sanitizedCurrent, sanitizedNew)
+            }
+            Unit
+        }.mapFailure { it.toProfileRepositoryException() }
+    }
+
+    override suspend fun updateEmail(newEmail: String): Result<Unit> {
+        val sanitized = newEmail.trim()
+        
+        if (sanitized.isBlank()) {
+            return Result.failure(ProfileRepositoryException("Email cannot be empty"))
+        }
+
+        val session = currentSessionOrNull()
+            ?: return Result.failure(ProfileRepositoryException("Session expired. Please sign in again."))
+
+        return runCatching {
+            withContext(ioDispatcher) {
+                profileApi.updateEmail(session.bearerToken(), sanitized)
+            }
+            Unit
+        }.mapFailure { it.toProfileRepositoryException() }
+    }
+
+    override suspend fun confirmEmailUpdate(otp: String): Result<Unit> {
+        val sanitized = otp.trim()
+        
+        if (sanitized.isBlank()) {
+            return Result.failure(ProfileRepositoryException("OTP cannot be empty"))
+        }
+
+        val session = currentSessionOrNull()
+            ?: return Result.failure(ProfileRepositoryException("Session expired. Please sign in again."))
+
+        return runCatching {
+            withContext(ioDispatcher) {
+                profileApi.confirmEmailUpdate(session.bearerToken(), sanitized)
+            }
+            refreshProfile(session.userId, force = true)
+        }.mapFailure { it.toProfileRepositoryException() }
+    }
+
     private fun buildAvatarPart(avatar: ProfileAvatarImage): MultipartBody.Part {
         val uri = avatar.uri
         val inputStream = contentResolver.openInputStream(uri)

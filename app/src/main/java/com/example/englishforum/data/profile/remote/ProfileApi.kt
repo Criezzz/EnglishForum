@@ -58,4 +58,26 @@ interface ProfileApi {
         @Header("Authorization") bearer: String,
         @Part newAvatar: MultipartBody.Part
     ): MessageResponse
+
+    @FormUrlEncoded
+    @PUT("/user/password")
+    suspend fun updatePassword(
+        @Header("Authorization") bearer: String,
+        @Field("password") currentPassword: String,
+        @Field("new_password") newPassword: String
+    ): MessageResponse
+
+    @FormUrlEncoded
+    @PUT("/user/email")
+    suspend fun updateEmail(
+        @Header("Authorization") bearer: String,
+        @Field("email") newEmail: String
+    ): MessageResponse
+
+    @FormUrlEncoded
+    @retrofit2.http.POST("/user/email/confirm")
+    suspend fun confirmEmailUpdate(
+        @Header("Authorization") bearer: String,
+        @Field("otp") otp: String
+    ): MessageResponse
 }

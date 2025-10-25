@@ -154,7 +154,32 @@
     <string name="settings_theme_light">Giao diện sáng</string>
     <string name="settings_theme_dark">Giao diện tối</string>
     <string name="settings_theme_apply">Áp dụng</string>
+    <string name="settings_change_password">Đổi mật khẩu</string>
+    <string name="settings_change_email">Đổi email</string>
     <string name="settings_logout">Đăng xuất</string>
+    
+    <string name="settings_password_dialog_title">Đổi mật khẩu</string>
+    <string name="settings_password_current_label">Mật khẩu hiện tại</string>
+    <string name="settings_password_new_label">Mật khẩu mới</string>
+    <string name="settings_password_confirm_label">Xác nhận mật khẩu mới</string>
+    <string name="settings_password_change_button">Đổi mật khẩu</string>
+    <string name="settings_password_changing">Đang đổi mật khẩu…</string>
+    <string name="settings_password_success">Mật khẩu đã được cập nhật thành công</string>
+    <string name="settings_password_error_mismatch">Mật khẩu mới không khớp</string>
+    <string name="settings_password_error_empty">Vui lòng điền đầy đủ thông tin</string>
+    
+    <string name="settings_email_dialog_title">Đổi email</string>
+    <string name="settings_email_new_label">Email mới</string>
+    <string name="settings_email_send_otp_button">Gửi mã xác nhận</string>
+    <string name="settings_email_sending">Đang gửi…</string>
+    <string name="settings_email_otp_sent">Mã xác nhận đã được gửi đến email mới</string>
+    <string name="settings_email_otp_label">Mã xác nhận (OTP)</string>
+    <string name="settings_email_confirm_button">Xác nhận</string>
+    <string name="settings_email_confirming">Đang xác nhận…</string>
+    <string name="settings_email_success">Email đã được cập nhật thành công</string>
+    <string name="settings_email_error_empty">Vui lòng nhập email</string>
+    <string name="settings_email_error_invalid">Email không hợp lệ</string>
+    
     <string name="session_expired_message">Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.</string>
     <string name="session_offline_message">Không thể kiểm tra phiên vì mất kết nối mạng.</string>
     <string name="session_check_error_message">Không thể xác minh phiên do lỗi máy chủ.</string>

@@ -18,4 +18,10 @@ interface ProfileRepository {
     suspend fun setPostVote(userId: String, postId: String, target: VoteState): Result<Unit>
 
     suspend fun setReplyVote(userId: String, replyId: String, target: VoteState): Result<Unit>
+
+    suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit>
+
+    suspend fun updateEmail(newEmail: String): Result<Unit>
+
+    suspend fun confirmEmailUpdate(otp: String): Result<Unit>
 }
