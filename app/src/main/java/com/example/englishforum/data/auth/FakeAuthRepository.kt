@@ -114,6 +114,14 @@ class FakeAuthRepository(
         }
     }
 
+    override suspend fun refreshSession(session: UserSession): Result<UserSession> {
+        val refreshed = session.copy(
+            accessToken = "fake-access-token-${System.currentTimeMillis()}"
+        )
+        userSessionRepository?.saveSession(refreshed)
+        return Result.success(refreshed)
+    }
+
     private companion object {
         const val VALID_OTP = "000000"
         const val RESET_TOKEN = "fake-reset-token"

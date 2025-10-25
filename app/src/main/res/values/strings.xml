@@ -4,6 +4,7 @@
     <string name="auth_logo_content_description">Logo</string>
     <string name="auth_username_label">Tên đăng nhập</string>
     <string name="auth_password_label">Mật khẩu</string>
+    <string name="auth_keep_logged_in">Duy trì đăng nhập</string>
     <string name="auth_toggle_hide">Ẩn</string>
     <string name="auth_toggle_show">Hiện</string>
     <string name="auth_login">Đăng nhập</string>

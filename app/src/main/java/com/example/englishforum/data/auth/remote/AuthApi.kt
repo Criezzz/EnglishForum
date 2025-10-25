@@ -1,6 +1,7 @@
 package com.example.englishforum.data.auth.remote
 
 import com.example.englishforum.data.auth.remote.model.MessageResponse
+import com.example.englishforum.data.auth.remote.model.RefreshTokenResponse
 import com.example.englishforum.data.auth.remote.model.ResetTokenResponse
 import com.example.englishforum.data.auth.remote.model.TokenResponse
 import retrofit2.http.Field
@@ -55,4 +56,10 @@ interface AuthApi {
         @Field("reset_token") resetToken: String,
         @Field("new_password") newPassword: String
     ): MessageResponse
+
+    @FormUrlEncoded
+    @POST("/refresh")
+    suspend fun refreshAccessToken(
+        @Field("refresh_token") refreshToken: String
+    ): RefreshTokenResponse
 }

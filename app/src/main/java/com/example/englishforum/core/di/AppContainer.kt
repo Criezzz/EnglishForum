@@ -7,7 +7,9 @@ import com.example.englishforum.data.aipractice.AiPracticeRepository
 import com.example.englishforum.data.aipractice.FakeAiPracticeRepository
 import com.example.englishforum.data.auth.AuthRepository
 import com.example.englishforum.data.auth.DataStoreUserSessionRepository
+import com.example.englishforum.data.auth.DataStoreSessionPreferenceRepository
 import com.example.englishforum.data.auth.SessionValidator
+import com.example.englishforum.data.auth.SessionPreferenceRepository
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.auth.remote.AuthApi
 import com.example.englishforum.data.auth.remote.RemoteAuthRepository
@@ -44,6 +46,7 @@ import java.util.concurrent.TimeUnit
 interface AppContainer {
     val userSessionRepository: UserSessionRepository
     val authRepository: AuthRepository
+    val sessionPreferenceRepository: SessionPreferenceRepository
     val themePreferenceRepository: ThemePreferenceRepository
     val homeRepository: HomeRepository
     val searchRepository: SearchRepository
@@ -112,6 +115,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
             userSessionRepository = userSessionRepository,
             profileApi = profileApi
         )
+    }
+
+    override val sessionPreferenceRepository: SessionPreferenceRepository by lazy {
+        DataStoreSessionPreferenceRepository(appContext)
     }
 
     override val themePreferenceRepository: ThemePreferenceRepository by lazy {

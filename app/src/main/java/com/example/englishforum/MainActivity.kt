@@ -96,6 +96,7 @@ fun MainApp() {
     val appContainer = LocalAppContainer.current
     val sessionRepository = remember { appContainer.userSessionRepository }
     val authRepository = remember { appContainer.authRepository }
+    val sessionPreferenceRepository = remember { appContainer.sessionPreferenceRepository }
     val themeRepository = remember { appContainer.themePreferenceRepository }
     val sessionValidator = remember { appContainer.sessionValidator }
     val networkMonitor = remember { appContainer.networkMonitor }
@@ -119,11 +120,19 @@ fun MainApp() {
     val userSession by sessionRepository.sessionFlow.collectAsState(initial = null)
     val themeOption by themeRepository.themeOptionFlow.collectAsState(initial = ThemeOption.FOLLOW_SYSTEM)
     val sessionMonitorViewModel: SessionMonitorViewModel = viewModel(
-        factory = remember(sessionRepository, sessionValidator, networkMonitor) {
+        factory = remember(
+            sessionRepository,
+            sessionValidator,
+            networkMonitor,
+            sessionPreferenceRepository,
+            authRepository
+        ) {
             SessionMonitorViewModelFactory(
                 userSessionRepository = sessionRepository,
                 sessionValidator = sessionValidator,
-                networkMonitor = networkMonitor
+                networkMonitor = networkMonitor,
+                sessionPreferenceRepository = sessionPreferenceRepository,
+                authRepository = authRepository
             )
         }
     )
@@ -203,7 +212,12 @@ fun MainApp() {
                         .getStateFlow<String?>("passwordResetMessage", null)
                         .collectAsState()
                     val loginViewModel: LoginViewModel = viewModel(
-                        factory = remember(authRepository) { LoginViewModelFactory(authRepository) }
+                        factory = remember(authRepository, sessionPreferenceRepository) {
+                            LoginViewModelFactory(
+                                authRepository = authRepository,
+                                sessionPreferenceRepository = sessionPreferenceRepository
+                            )
+                        }
                     )
                     LoginScreen(
                         viewModel = loginViewModel,

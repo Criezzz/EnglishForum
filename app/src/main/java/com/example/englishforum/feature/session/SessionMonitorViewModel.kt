@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.englishforum.core.network.NetworkMonitor
+import com.example.englishforum.data.auth.AuthRepository
 import com.example.englishforum.data.auth.SessionValidationResult
 import com.example.englishforum.data.auth.SessionValidator
 import com.example.englishforum.data.auth.UserSession
 import com.example.englishforum.data.auth.UserSessionRepository
+import com.example.englishforum.data.auth.SessionPreferenceRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -27,6 +29,8 @@ class SessionMonitorViewModel(
     private val userSessionRepository: UserSessionRepository,
     private val sessionValidator: SessionValidator,
     private val networkMonitor: NetworkMonitor,
+    private val sessionPreferenceRepository: SessionPreferenceRepository,
+    private val authRepository: AuthRepository,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val validationIntervalMs: Long = DEFAULT_VALIDATION_INTERVAL_MS
 ) : ViewModel() {
@@ -42,16 +46,21 @@ class SessionMonitorViewModel(
         viewModelScope.launch {
             combine(
                 userSessionRepository.sessionFlow,
+                sessionPreferenceRepository.keepLoggedInFlow,
                 networkMonitor.isOnline,
                 validationTickerFlow()
-            ) { session, isOnline, _ -> session to isOnline }
-                .collectLatest { (session, isOnline) ->
-                    handleSessionState(session, isOnline)
+            ) { session, keepLoggedIn, isOnline, _ -> Triple(session, keepLoggedIn, isOnline) }
+                .collectLatest { (session, keepLoggedIn, isOnline) ->
+                    handleSessionState(session, keepLoggedIn, isOnline)
                 }
         }
     }
 
-    private suspend fun handleSessionState(session: UserSession?, isOnline: Boolean) {
+    private suspend fun handleSessionState(
+        session: UserSession?,
+        keepLoggedIn: Boolean,
+        isOnline: Boolean
+    ) {
         if (session == null) {
             _state.value = SessionMonitorState.SignedOut
             return
@@ -83,9 +92,14 @@ class SessionMonitorViewModel(
             }
 
             SessionValidationResult.Invalid -> {
-                _state.value = SessionMonitorState.Invalidated
-                withContext(ioDispatcher) {
-                    userSessionRepository.clearSession()
+                val refreshed = if (keepLoggedIn) attemptRefresh(session) else false
+                if (refreshed) {
+                    _state.value = SessionMonitorState.Valid
+                } else {
+                    _state.value = SessionMonitorState.Invalidated
+                    withContext(ioDispatcher) {
+                        userSessionRepository.clearSession()
+                    }
                 }
             }
 
@@ -106,6 +120,13 @@ class SessionMonitorViewModel(
             emit(Unit)
         }
     }
+
+    private suspend fun attemptRefresh(session: UserSession): Boolean {
+        val result = withContext(ioDispatcher) {
+            authRepository.refreshSession(session)
+        }
+        return result.isSuccess
+    }
 }
 
 sealed interface SessionMonitorState {
@@ -122,6 +143,8 @@ class SessionMonitorViewModelFactory(
     private val userSessionRepository: UserSessionRepository,
     private val sessionValidator: SessionValidator,
     private val networkMonitor: NetworkMonitor,
+    private val sessionPreferenceRepository: SessionPreferenceRepository,
+    private val authRepository: AuthRepository,
     private val validationIntervalMs: Long = DEFAULT_VALIDATION_INTERVAL_MS
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
@@ -131,6 +154,8 @@ class SessionMonitorViewModelFactory(
                 userSessionRepository = userSessionRepository,
                 sessionValidator = sessionValidator,
                 networkMonitor = networkMonitor,
+                sessionPreferenceRepository = sessionPreferenceRepository,
+                authRepository = authRepository,
                 validationIntervalMs = validationIntervalMs
             ) as T
         }

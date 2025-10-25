@@ -89,6 +89,16 @@ class RemoteAuthRepository(
         Unit
     }.recoverHttpFailure()
 
+    override suspend fun refreshSession(session: UserSession): Result<UserSession> = runCatching {
+        if (session.refreshToken.isBlank()) {
+            throw IllegalStateException("Không tìm thấy refresh token")
+        }
+        val response = authApi.refreshAccessToken(refreshToken = session.refreshToken)
+        val refreshedSession = session.copy(accessToken = response.accessToken)
+        userSessionRepository.saveSession(refreshedSession)
+        refreshedSession
+    }.recoverHttpFailure()
+
     private fun TokenResponse.toSession(
         fallbackUsername: String,
         isEmailVerified: Boolean
