@@ -28,7 +28,14 @@ data class AiPracticeFillInBlankQuestion(
 ) : AiPracticeQuestion
 
 interface AiPracticeRepository {
-    suspend fun checkFeasibility(postId: String): Result<Boolean>
-
-    suspend fun loadQuestions(postId: String): Result<List<AiPracticeQuestion>>
+    suspend fun loadQuestions(postContent: String): Result<List<AiPracticeQuestion>>
+    
+    suspend fun generateQuestions(postContent: String, type: String, numItems: Int): Result<List<AiPracticeQuestion>>
+    
+    // Cache management
+    suspend fun getCachedQuestions(postContent: String, type: String, numItems: Int): List<AiPracticeQuestion>?
+    
+    suspend fun cacheQuestions(postContent: String, type: String, numItems: Int, questions: List<AiPracticeQuestion>)
+    
+    suspend fun clearCache()
 }

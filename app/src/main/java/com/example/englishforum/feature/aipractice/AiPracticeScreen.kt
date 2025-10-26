@@ -59,7 +59,8 @@ fun AiPracticeRoute(
         factory = remember(postId, appContainer) {
             AiPracticeViewModelFactory(
                 postId = postId,
-                repository = appContainer.aiPracticeRepository
+                repository = appContainer.aiPracticeRepository,
+                postRepository = appContainer.postDetailRepository
             )
         }
     )
@@ -238,7 +239,7 @@ private fun QuestionContent(
                         uiState.totalQuestionCount
                     ),
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 1.0f)
                 )
             }
 
@@ -298,9 +299,9 @@ private fun QuestionContent(
                 stringResource(R.string.ai_practice_incorrect_feedback)
             }
             val feedbackColor = if (uiState.isCurrentAnswerCorrect) {
-                MaterialTheme.colorScheme.primary
+                MaterialTheme.colorScheme.primary.copy(alpha = 1.0f)
             } else {
-                MaterialTheme.colorScheme.error
+                MaterialTheme.colorScheme.error.copy(alpha = 1.0f)
             }
 
             Text(
@@ -445,12 +446,12 @@ private fun CompletionContent(
                 SummaryStatRow(
                     label = stringResource(R.string.ai_practice_summary_correct_label),
                     value = summary.correctAnswers,
-                    highlightColor = MaterialTheme.colorScheme.primary
+                    highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 1.0f)
                 )
                 SummaryStatRow(
                     label = stringResource(R.string.ai_practice_summary_incorrect_label),
                     value = summary.incorrectAnswers,
-                    highlightColor = MaterialTheme.colorScheme.error
+                    highlightColor = MaterialTheme.colorScheme.error.copy(alpha = 1.0f)
                 )
             }
         }

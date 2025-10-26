@@ -9,9 +9,12 @@ import com.example.englishforum.data.aipractice.AiPracticeOption
 import com.example.englishforum.data.aipractice.AiPracticeQuestion
 import com.example.englishforum.data.aipractice.AiPracticeRepository
 import com.example.englishforum.data.aipractice.FakeAiPracticeRepository
+import com.example.englishforum.data.post.PostDetailRepository
+import com.example.englishforum.data.post.FakePostDetailRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -71,7 +74,8 @@ data class AiPracticeUiState(
 
 class AiPracticeViewModel(
     private val postId: String,
-    private val repository: AiPracticeRepository
+    private val repository: AiPracticeRepository,
+    private val postRepository: PostDetailRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AiPracticeUiState())
@@ -262,7 +266,70 @@ class AiPracticeViewModel(
             }
 
             answerRecord.clear()
-            val result = repository.loadQuestions(postId)
+            
+            // Get post content first
+            val post = postRepository.observePost(postId).firstOrNull()
+            if (post == null) {
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        question = null,
+                        currentQuestionNumber = 0,
+                        totalQuestionCount = 0,
+                        errorMessage = "Không tìm thấy bài viết.",
+                        summary = null
+                    )
+                }
+                return@launch
+            }
+            
+            // Combine title and body for AI processing
+            val postContent = "${post.title}\n\n${post.body}"
+            
+            // Check cache first for instant loading
+            val cachedQuestions = repository.getCachedQuestions(postContent, "mcq", 3)
+            
+            if (cachedQuestions != null) {
+                // Use cached questions immediately
+                questions = cachedQuestions
+                if (cachedQuestions.isNotEmpty()) {
+                    currentIndex = 0
+                    val initialQuestion = cachedQuestions[currentIndex]
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            question = initialQuestion.toUiModel(),
+                            currentQuestionNumber = 1,
+                            totalQuestionCount = cachedQuestions.size,
+                            selectedOptionId = null,
+                            answerInput = "",
+                            hintVisible = false,
+                            stage = AiPracticeStage.Answering,
+                            isCurrentAnswerCorrect = null,
+                            errorMessage = null,
+                            isLastQuestion = cachedQuestions.size == 1,
+                            isCompleted = false,
+                            summary = null,
+                            fillInCorrectAnswer = null
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            question = null,
+                            currentQuestionNumber = 0,
+                            totalQuestionCount = 0,
+                            errorMessage = "Không có câu hỏi luyện tập cho bài viết này.",
+                            summary = null
+                        )
+                    }
+                }
+                return@launch
+            }
+            
+            // No cache found, generate new questions
+            val result = repository.generateQuestions(postContent, "mcq", 3)
             result.onSuccess { list ->
                 questions = list
                 if (list.isNotEmpty()) {
@@ -271,21 +338,21 @@ class AiPracticeViewModel(
                     _uiState.update {
                         it.copy(
                             isLoading = false,
-                        question = initialQuestion.toUiModel(),
-                        currentQuestionNumber = 1,
-                        totalQuestionCount = list.size,
-                        selectedOptionId = null,
-                        answerInput = "",
-                        hintVisible = false,
-                        stage = AiPracticeStage.Answering,
-                        isCurrentAnswerCorrect = null,
-                        errorMessage = null,
-                        isLastQuestion = list.size == 1,
-                        isCompleted = false,
-                        summary = null,
-                        fillInCorrectAnswer = null
-                    )
-                }
+                            question = initialQuestion.toUiModel(),
+                            currentQuestionNumber = 1,
+                            totalQuestionCount = list.size,
+                            selectedOptionId = null,
+                            answerInput = "",
+                            hintVisible = false,
+                            stage = AiPracticeStage.Answering,
+                            isCurrentAnswerCorrect = null,
+                            errorMessage = null,
+                            isLastQuestion = list.size == 1,
+                            isCompleted = false,
+                            summary = null,
+                            fillInCorrectAnswer = null
+                        )
+                    }
                 } else {
                     _uiState.update {
                         it.copy(
@@ -339,12 +406,13 @@ class AiPracticeViewModel(
 
 class AiPracticeViewModelFactory(
     private val postId: String,
-    private val repository: AiPracticeRepository = FakeAiPracticeRepository()
+    private val repository: AiPracticeRepository = FakeAiPracticeRepository(),
+    private val postRepository: PostDetailRepository = FakePostDetailRepository()
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(AiPracticeViewModel::class.java)) {
-            return AiPracticeViewModel(postId, repository) as T
+            return AiPracticeViewModel(postId, repository, postRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

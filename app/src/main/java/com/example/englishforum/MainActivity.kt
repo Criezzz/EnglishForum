@@ -433,6 +433,8 @@ fun MainApp() {
                         onLogoutClick = {
                             scope.launch {
                                 sessionRepository.clearSession()
+                                // Clear AI practice cache on logout
+                                appContainer.aiPracticeRepository.clearCache()
                                 navController.navigate("login") {
                                     popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                                     launchSingleTop = true

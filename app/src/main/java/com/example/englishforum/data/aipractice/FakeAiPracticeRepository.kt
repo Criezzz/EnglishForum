@@ -51,16 +51,100 @@ class FakeAiPracticeRepository : AiPracticeRepository {
         )
     )
 
-    override suspend fun checkFeasibility(postId: String): Result<Boolean> {
-        return Result.success(practiceSets.containsKey(postId))
+
+    override suspend fun loadQuestions(postContent: String): Result<List<AiPracticeQuestion>> {
+        // For backward compatibility, use generateQuestions with random type and 1 question (50-50 chance)
+        val randomType = if (kotlin.random.Random.nextBoolean()) "mcq" else "fill"
+        return generateQuestions(postContent, randomType, 1)
     }
 
-    override suspend fun loadQuestions(postId: String): Result<List<AiPracticeQuestion>> {
-        val questions = practiceSets[postId]
-        return if (questions != null && questions.isNotEmpty()) {
-            Result.success(questions)
-        } else {
-            Result.failure(IllegalStateException("Không tìm thấy câu hỏi phù hợp"))
+    override suspend fun generateQuestions(postContent: String, type: String, numItems: Int): Result<List<AiPracticeQuestion>> {
+        // For fake implementation, simulate feasibility based on content length
+        // Posts with more content are more likely to be askable
+        val isAskable = postContent.length > 50 && kotlin.random.Random.nextFloat() < 0.8f
+        
+        if (!isAskable) {
+            return Result.failure(IllegalStateException("AI practice is not available for this post"))
         }
+        
+        // Generate some fake questions based on type and content
+        val generatedQuestions = generateFakeQuestions(postContent, type, numItems)
+        return Result.success(generatedQuestions)
+    }
+
+    private fun generateFakeQuestions(postContent: String, type: String, numItems: Int): List<AiPracticeQuestion> {
+        return when (type.lowercase()) {
+            "mcq" -> {
+                (1..numItems).map { index ->
+                    AiPracticeMultipleChoiceQuestion(
+                        id = "generated-mc-${postContent.hashCode()}-$index",
+                        prompt = "Generated multiple choice question $index based on content: ${postContent.take(50)}...?",
+                        options = listOf(
+                            AiPracticeOption("a", "Option A"),
+                            AiPracticeOption("b", "Option B"),
+                            AiPracticeOption("c", "Option C"),
+                            AiPracticeOption("d", "Option D")
+                        ),
+                        correctOptionId = "b",
+                        hint = "This is a generated hint for question $index"
+                    )
+                }
+            }
+            "fill" -> {
+                (1..numItems).map { index ->
+                    AiPracticeFillInBlankQuestion(
+                        id = "generated-fib-${postContent.hashCode()}-$index",
+                        prompt = "Generated fill-in-blank question $index based on content: ${postContent.take(50)}...: The answer is ___.",
+                        correctAnswer = "correct",
+          
+                        hint = "This is a generated hint for question $index"
+                    )
+                }
+            }
+            else -> {
+                // Mixed type - return both types
+                val mcCount = (numItems + 1) / 2
+                val fibCount = numItems - mcCount
+                
+                val mcQuestions = (1..mcCount).map { index ->
+                    AiPracticeMultipleChoiceQuestion(
+                        id = "generated-mc-${postContent.hashCode()}-$index",
+                        prompt = "Generated multiple choice question $index based on content: ${postContent.take(50)}...?",
+                        options = listOf(
+                            AiPracticeOption("a", "Option A"),
+                            AiPracticeOption("b", "Option B"),
+                            AiPracticeOption("c", "Option C"),
+                            AiPracticeOption("d", "Option D")
+                        ),
+                        correctOptionId = "b",
+                        hint = "This is a generated hint for question $index"
+                    )
+                }
+                
+                val fibQuestions = (1..fibCount).map { index ->
+                    AiPracticeFillInBlankQuestion(
+                        id = "generated-fib-${postContent.hashCode()}-$index",
+                        prompt = "Generated fill-in-blank question $index based on content: ${postContent.take(50)}...: The answer is ___.",
+                        correctAnswer = "correct",
+                        hint = "This is a generated hint for question $index"
+                    )
+                }
+                
+                mcQuestions + fibQuestions
+            }
+        }
+    }
+    
+    override suspend fun getCachedQuestions(postContent: String, type: String, numItems: Int): List<AiPracticeQuestion>? {
+        // Fake implementation doesn't use cache
+        return null
+    }
+    
+    override suspend fun cacheQuestions(postContent: String, type: String, numItems: Int, questions: List<AiPracticeQuestion>) {
+        // Fake implementation doesn't use cache
+    }
+    
+    override suspend fun clearCache() {
+        // Fake implementation doesn't use cache
     }
 }

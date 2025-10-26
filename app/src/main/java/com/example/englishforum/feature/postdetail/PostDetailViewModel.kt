@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import android.util.Log
 
 class PostDetailViewModel(
     private val postId: String,
@@ -152,27 +153,33 @@ class PostDetailViewModel(
     }
 
     fun onAiPracticeClick(onAvailable: (String) -> Unit) {
-        val currentPostId = uiState.value.post?.id ?: return
+        Log.d("PostDetail", "AI Practice button clicked")
+        val currentPost = uiState.value.post ?: return
         if (aiPracticeChecking.value) return
 
+        // Navigate immediately to show loading state
+        onAvailable(currentPost.id)
+        
+        // Generate questions in background (will use cache if available)
         viewModelScope.launch {
             aiPracticeChecking.value = true
             errorMessage.value = null
 
             try {
-                val result = aiPracticeRepository.checkFeasibility(currentPostId)
-                result.onSuccess { available ->
-                    if (available) {
-                        onAvailable(currentPostId)
-                    } else {
-                        errorMessage.value = "Tính năng luyện tập AI hiện chưa khả dụng cho bài viết này."
-                    }
-                }
+                Log.d("PostDetail", "Generating questions in background")
+                // Combine title and body for AI processing
+                val postContent = "${currentPost.title}\n\n${currentPost.body}"
+                Log.d("PostDetail", "Post content prepared, length: ${postContent.length}")
+                
+                // Generate 3 MCQ questions only
+                val result = aiPracticeRepository.generateQuestions(postContent, "mcq", 3)
                 result.onFailure { throwable ->
-                    errorMessage.value = throwable.message ?: "Không thể kiểm tra tính năng luyện tập AI."
+                    Log.e("PostDetail", "Failed to generate questions: ${throwable.message}")
+                    // Note: We don't show error here since user is already in AI Practice screen
+                    // The AI Practice screen will handle the error state
                 }
             } catch (throwable: Throwable) {
-                errorMessage.value = throwable.message ?: "Không thể kiểm tra tính năng luyện tập AI."
+                Log.e("PostDetail", "Exception during question generation: ${throwable.message}")
             } finally {
                 aiPracticeChecking.value = false
             }

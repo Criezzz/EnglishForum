@@ -1,11 +1,12 @@
 package com.example.englishforum.feature.create
 
+//import androidx.compose.foundation.layout.navigationBarsPadding
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,34 +14,28 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,8 +55,8 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
-import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -72,6 +67,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -83,12 +80,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
-import kotlinx.coroutines.launch
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.forum.PostTag
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 import com.example.englishforum.core.ui.toLabelResId
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -172,6 +169,25 @@ fun CreateScreen(
             onSuccessMessageConsumed()
         }
     }
+    val tfColors = TextFieldDefaults.colors(
+
+        focusedIndicatorColor = Color.Transparent,
+        unfocusedIndicatorColor = Color.Transparent,
+        disabledIndicatorColor = Color.Transparent,
+        errorIndicatorColor = Color.Transparent,
+
+        focusedContainerColor = MaterialTheme.colorScheme.surface,
+        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+
+        focusedTextColor = MaterialTheme.colorScheme.onSurface,
+        unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+        focusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        unfocusedPlaceholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        cursorColor = MaterialTheme.colorScheme.primary
+    )
+
+    val boxShape = RoundedCornerShape(12.dp)
+    val borderColor = MaterialTheme.colorScheme.outline
 
     Scaffold(
         modifier = modifier,
@@ -220,36 +236,53 @@ fun CreateScreen(
                     onTagSelected = onTagSelected
                 )
             }
-            
-            TextField(
-                value = uiState.title,
-                onValueChange = onTitleChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(text = stringResource(id = R.string.create_post_title_label)) },
-                placeholder = { Text(text = stringResource(id = R.string.create_post_title_placeholder)) },
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
-                    imeAction = ImeAction.Next
-                ),
-                keyboardActions = KeyboardActions(onNext = { })
-            )
 
-            TextField(
-                value = uiState.body,
-                onValueChange = onBodyChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 200.dp),
-                label = { Text(text = stringResource(id = R.string.create_post_body_label)) },
-                placeholder = { Text(text = stringResource(id = R.string.create_post_body_placeholder)) },
-                singleLine = false,
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
-                    imeAction = ImeAction.Default,
-                    keyboardType = KeyboardType.Text
-                )
-            )
+                Box(
+                    modifier = Modifier
+                        .shadow(1.dp, boxShape)
+                        .border(1.dp, borderColor, boxShape)
+                ) {
+                    TextField(
+                        value = uiState.title,
+                        onValueChange = onTitleChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = boxShape,
+                        colors = tfColors,
+                        label = { Text(text = stringResource(id = R.string.create_post_title_label)) },
+                        placeholder = { Text(text = stringResource(id = R.string.create_post_title_placeholder)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Sentences,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(onNext = { })
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .shadow(1.dp, boxShape)
+                        .border(1.dp, borderColor, boxShape)
+                ) {
+                    TextField(
+                        value = uiState.body,
+                        onValueChange = onBodyChange,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = boxShape,
+                        colors = tfColors,
+                        label = { Text(text = stringResource(id = R.string.create_post_body_label)) },
+                        placeholder = { Text(text = stringResource(id = R.string.create_post_body_placeholder)) },
+
+                        singleLine = false,
+                        minLines = 5,
+
+                        keyboardOptions = KeyboardOptions(
+                            capitalization = KeyboardCapitalization.Sentences,
+                            imeAction = ImeAction.Default,
+                            keyboardType = KeyboardType.Text
+                        )
+                    )
+                }
 
             ImagePickerSection(
                 imageUris = uiState.imageUris,
@@ -312,25 +345,39 @@ private fun TagSelectorDropdown(
             style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurface
         )
-        
+        val tfColors = TextFieldDefaults.colors(
+            focusedIndicatorColor = Color.Transparent,
+            unfocusedIndicatorColor = Color.Transparent,
+            disabledIndicatorColor = Color.Transparent,
+            errorIndicatorColor = Color.Transparent,
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+        )
         ExposedDropdownMenuBox(
             expanded = expanded,
-            onExpandedChange = { expanded = it }
+            onExpandedChange = { expanded = it },
         ) {
-            TextField(
-                value = selectedTag?.let { stringResource(id = it.toLabelResId()) } ?: "",
-                onValueChange = {},
-                readOnly = true,
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                trailingIcon = { 
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) 
-                },
-                colors = ExposedDropdownMenuDefaults.textFieldColors(),
-                singleLine = true
-            )
-            
+                    .shadow(1.dp, RoundedCornerShape(12.dp))
+                    .border(1.dp, Color.Gray, RoundedCornerShape(12.dp))
+            ) {
+                TextField(
+                    value = selectedTag?.let { stringResource(id = it.toLabelResId()) } ?: "",
+                    onValueChange = {},
+                    readOnly = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                    shape = RoundedCornerShape(12.dp),
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                    },
+                    colors = tfColors,
+                    singleLine = true
+                )
+            }
+
             ExposedDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
