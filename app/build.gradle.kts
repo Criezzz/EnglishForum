@@ -16,7 +16,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "API_BASE_URL", "\"http://192.168.2.108:8123\"")
+        buildConfigField("String", "API_BASE_URL", "\"https://fastapi-english-forum-fteehwanechwahg9.eastasia-01.azurewebsites.net\"")
     }
 
     buildTypes {
