@@ -12,9 +12,10 @@ data class ForumProfilePost(
     val id: String,
     val title: String,
     val body: String,
-    val minutesAgo: Int,
+    val timestampLabel: String,
     val voteCount: Int,
-    val voteState: VoteState
+    val voteState: VoteState,
+    val previewImageUrl: String? = null
 )
 
 data class ForumProfileReply(
@@ -22,7 +23,7 @@ data class ForumProfileReply(
     val postId: String,
     val questionTitle: String,
     val body: String,
-    val minutesAgo: Int,
+    val timestampLabel: String,
     val voteCount: Int,
     val voteState: VoteState
 )

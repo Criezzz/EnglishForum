@@ -1,11 +1,18 @@
 package com.example.englishforum.feature.profile
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -16,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Edit
@@ -25,6 +33,7 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -37,7 +46,11 @@ import androidx.compose.material3.TabRow
 import androidx.compose.material3.TabRowDefaults
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -48,18 +61,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.rememberAsyncImagePainter
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.ui.components.VoteIconButton
 import com.example.englishforum.core.ui.components.card.ForumContentCard
+import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImage
+import com.example.englishforum.core.ui.components.image.ForumPostPreviewImage
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 
 @Composable
@@ -71,7 +89,9 @@ fun ProfileScreen(
     onPostClick: (String) -> Unit = {},
     onReplyClick: (String, String?) -> Unit = { _, _ -> },
     onPostMoreClick: (ProfilePost) -> Unit = {},
-    onReplyMoreClick: (ProfileReply) -> Unit = {}
+    onReplyMoreClick: (ProfileReply) -> Unit = {},
+    isOwnProfile: Boolean = true,
+    onBackClick: () -> Unit = {}
 ) {
     val appContainer = LocalAppContainer.current
     val resolvedUserId = userId ?: "user-1"
@@ -84,16 +104,50 @@ fun ProfileScreen(
         }
     )
     val uiState by viewModel.uiState.collectAsState()
+    val editState by viewModel.editState.collectAsState()
+    val avatarState by viewModel.avatarState.collectAsState()
+    val avatarPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        uri?.let(viewModel::onAvatarSelected)
+    }
     var showEditDialog by rememberSaveable { mutableStateOf(false) }
 
+    LaunchedEffect(editState) {
+        if (editState is ProfileEditState.Success) {
+            showEditDialog = false
+            viewModel.resetEditState()
+        }
+    }
+
+    LaunchedEffect(showEditDialog) {
+        if (!showEditDialog) {
+            viewModel.resetAvatarState()
+        }
+    }
+
+    val canEditProfile = isOwnProfile
+
+    val handleSettingsClick: () -> Unit = {
+        if (canEditProfile) {
+            onSettingsClick()
+        }
+    }
+    val handleEditClick: () -> Unit = editClick@{
+        if (!canEditProfile) return@editClick
+        onEditClick()
+        viewModel.resetEditState()
+        showEditDialog = true
+    }
     ProfileContent(
         modifier = modifier,
         uiState = uiState,
-        onSettingsClick = onSettingsClick,
-        onEditClick = {
-            onEditClick()
-            showEditDialog = true
-        },
+        avatarState = avatarState,
+        showAccountActions = canEditProfile,
+        showBackButton = !canEditProfile,
+        onSettingsClick = handleSettingsClick,
+        onEditClick = handleEditClick,
+        onBackClick = onBackClick,
         onPostClick = onPostClick,
         onReplyClick = onReplyClick,
         onPostMoreClick = onPostMoreClick,
@@ -101,30 +155,49 @@ fun ProfileScreen(
         onPostUpvote = viewModel::onPostUpvote,
         onPostDownvote = viewModel::onPostDownvote,
         onReplyUpvote = viewModel::onReplyUpvote,
-        onReplyDownvote = viewModel::onReplyDownvote
+        onReplyDownvote = viewModel::onReplyDownvote,
+        onRefresh = viewModel::onRefresh
     )
 
     val overview = uiState.overview
-    if (showEditDialog && overview != null) {
+    if (canEditProfile && showEditDialog && overview != null) {
         ProfileEditDialog(
             currentName = overview.displayName,
             currentBio = overview.bio.orEmpty(),
-            onDismiss = { showEditDialog = false },
+            avatarUrl = overview.avatarUrl,
+            avatarState = avatarState,
+            isSaving = editState is ProfileEditState.InProgress,
+            errorMessage = (editState as? ProfileEditState.Error)?.message,
+            onDismiss = {
+                showEditDialog = false
+                viewModel.resetEditState()
+                viewModel.resetAvatarState()
+            },
             onSave = { name, bio ->
                 viewModel.updateProfile(name, bio)
-                showEditDialog = false
             },
-            onChangePhoto = {}
+            onChangePhoto = {
+                if (canEditProfile) {
+                    avatarPicker.launch(
+                        PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                    )
+                }
+            }
         )
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileContent(
     modifier: Modifier = Modifier,
     uiState: ProfileUiState,
+    avatarState: ProfileAvatarUiState,
+    showAccountActions: Boolean,
+    showBackButton: Boolean,
     onSettingsClick: () -> Unit,
     onEditClick: () -> Unit,
+    onBackClick: () -> Unit,
     onPostClick: (String) -> Unit,
     onReplyClick: (String, String?) -> Unit,
     onPostMoreClick: (ProfilePost) -> Unit,
@@ -132,22 +205,45 @@ private fun ProfileContent(
     onPostUpvote: (String) -> Unit,
     onPostDownvote: (String) -> Unit,
     onReplyUpvote: (String) -> Unit,
-    onReplyDownvote: (String) -> Unit
+    onReplyDownvote: (String) -> Unit,
+    onRefresh: () -> Unit
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(ProfileTab.Posts.ordinal) }
     val tabs = ProfileTab.entries.toList()
+    val pullRefreshState = rememberPullToRefreshState()
 
-    LazyColumn(
-        modifier = modifier,
-        contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+    PullToRefreshBox(
+        modifier = modifier.fillMaxSize(),
+        state = pullRefreshState,
+        isRefreshing = uiState.isRefreshing,
+        onRefresh = {
+            if (!uiState.isLoading) {
+                onRefresh()
+            }
+        },
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = pullRefreshState,
+                isRefreshing = uiState.isRefreshing,
+                modifier = Modifier.align(Alignment.TopCenter)
+            )
+        }
     ) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(top = 8.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
         item {
             ProfileHeader(
                 overview = uiState.overview,
                 isLoading = uiState.isLoading,
+                avatarState = avatarState,
+                showAccountActions = showAccountActions,
+                showBackButton = showBackButton,
                 onSettingsClick = onSettingsClick,
                 onEditClick = onEditClick,
+                onBackClick = onBackClick,
                 modifier = Modifier
                     .padding(horizontal = 16.dp, vertical = 8.dp)
             )
@@ -173,7 +269,7 @@ private fun ProfileContent(
                         ForumContentCard(
                             modifier = Modifier
                                 .padding(horizontal = 16.dp),
-                            meta = stringResource(R.string.profile_post_meta, post.minutesAgo),
+                            meta = stringResource(R.string.profile_post_meta, post.timeLabel),
                             voteCount = post.voteCount,
                             title = post.title,
                             body = post.body,
@@ -181,7 +277,12 @@ private fun ProfileContent(
                             onCardClick = { onPostClick(post.id) },
                             onUpvoteClick = { onPostUpvote(post.id) },
                             onDownvoteClick = { onPostDownvote(post.id) },
-                            onMoreActionsClick = { onPostMoreClick(post) }
+                            onMoreActionsClick = { onPostMoreClick(post) },
+                            supportingContent = {
+                                post.previewImageUrl?.let { previewUrl ->
+                                    ForumPostPreviewImage(imageUrl = previewUrl)
+                                }
+                            }
                         )
                     }
                 }
@@ -206,6 +307,7 @@ private fun ProfileContent(
                 }
             }
         }
+    }
     }
 }
 
@@ -255,8 +357,12 @@ private fun ProfileTabs(
 private fun ProfileHeader(
     overview: ProfileOverview?,
     isLoading: Boolean,
+    avatarState: ProfileAvatarUiState,
+    showAccountActions: Boolean,
+    showBackButton: Boolean,
     onSettingsClick: () -> Unit,
     onEditClick: () -> Unit,
+    onBackClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -265,26 +371,15 @@ private fun ProfileHeader(
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 0.dp
     ) {
-        when {
-            isLoading && overview == null -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
-
-            overview != null -> {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 20.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            when {
+                showAccountActions -> {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween
@@ -302,43 +397,69 @@ private fun ProfileHeader(
                             )
                         }
                     }
+                }
 
-                    Surface(
-                        modifier = Modifier.size(96.dp),
-                        shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        tonalElevation = 2.dp
+                showBackButton -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.Start
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
+                        IconButton(onClick = onBackClick) {
                             Icon(
-                                imageVector = Icons.Filled.Person,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(48.dp)
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = stringResource(R.string.cd_navigate_back)
                             )
                         }
                     }
-
-                    Text(
-                        text = overview.displayName,
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-
-                    ProfileBioSection(bio = overview.bio)
-
-                    ProfileStatsRow(stats = overview.stats)
                 }
             }
 
-            else -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "-")
+            when {
+                isLoading && overview == null -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+
+                overview != null -> {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        ProfileAvatar(
+                            avatarUrl = overview.avatarUrl,
+                            previewUri = avatarState.previewUri,
+                            isUploading = avatarState.isUploading,
+                            size = 96.dp
+                        )
+
+                        Text(
+                            text = overview.displayName,
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+
+                        ProfileBioSection(bio = overview.bio)
+
+                        ProfileStatsRow(stats = overview.stats)
+                    }
+                }
+
+                else -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "-")
+                    }
                 }
             }
         }
@@ -418,14 +539,9 @@ private fun ProfileReplyCard(
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = stringResource(R.string.profile_reply_meta, reply.questionTitle, reply.minutesAgo),
+                    text = stringResource(R.string.profile_reply_meta, reply.questionTitle, reply.timeLabel),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Text(
-                    text = reply.questionTitle,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
                     text = reply.body,
@@ -486,6 +602,73 @@ private fun EmptyState(text: String) {
     }
 }
 
+@Composable
+private fun ProfileAvatar(
+    avatarUrl: String?,
+    previewUri: Uri?,
+    isUploading: Boolean,
+    size: Dp,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.size(size),
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+        tonalElevation = 2.dp
+    ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            when {
+                previewUri != null -> {
+                    Image(
+                        painter = rememberAsyncImagePainter(previewUri),
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                avatarUrl != null -> {
+                    AuthenticatedRemoteImage(
+                        url = avatarUrl,
+                        modifier = Modifier.fillMaxSize(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                else -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+                }
+            }
+
+            if (isUploading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.6f),
+                            shape = CircleShape
+                        )
+                )
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center),
+                    strokeWidth = 3.dp
+                )
+            }
+        }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun ProfileScreenPreview() {
@@ -506,7 +689,7 @@ private fun ProfileScreenPreview() {
                         id = "post-1",
                         title = "Lorem ipsum dolor sit amet",
                         body = "Nullam justo felis, ullamcorper et lectus non, vestibulum feugiat risus.",
-                        minutesAgo = 13,
+                        timeLabel = "13 phút trước",
                         voteCount = 17,
                         voteState = VoteState.UPVOTED
                     ),
@@ -514,7 +697,7 @@ private fun ProfileScreenPreview() {
                         id = "post-2",
                         title = "In mattis tincidunt mi ac pretium",
                         body = "Nullam euismod urna in arcu mollis, at consectetur ante mattis.",
-                        minutesAgo = 28,
+                        timeLabel = "12/05/2024 14:30",
                         voteCount = 9,
                         voteState = VoteState.NONE
                     )
@@ -525,23 +708,28 @@ private fun ProfileScreenPreview() {
                         postId = "post-1",
                         questionTitle = "Câu hỏi về ABC",
                         body = "Donec dictum rhoncus eros, eget fermentum dui laoreet a.",
-                        minutesAgo = 12,
+                        timeLabel = "55 phút trước",
                         voteCount = 6,
                         voteState = VoteState.UPVOTED
                     )
-                ),
-                isLoading = false
             ),
-            onSettingsClick = {},
-            onEditClick = {},
-            onPostClick = {},
-            onReplyClick = { _, _ -> },
-            onPostMoreClick = {},
-            onReplyMoreClick = {},
+            isLoading = false
+        ),
+        avatarState = ProfileAvatarUiState(),
+        showAccountActions = true,
+        showBackButton = false,
+        onSettingsClick = {},
+        onEditClick = {},
+        onBackClick = {},
+        onPostClick = {},
+        onReplyClick = { _, _ -> },
+        onPostMoreClick = {},
+        onReplyMoreClick = {},
             onPostUpvote = {},
             onPostDownvote = {},
             onReplyUpvote = {},
-            onReplyDownvote = {}
+            onReplyDownvote = {},
+            onRefresh = {}
         )
     }
 }
@@ -550,12 +738,16 @@ private fun ProfileScreenPreview() {
 private fun ProfileEditDialog(
     currentName: String,
     currentBio: String,
+    avatarUrl: String?,
+    avatarState: ProfileAvatarUiState,
+    isSaving: Boolean,
+    errorMessage: String?,
     onDismiss: () -> Unit,
     onSave: (String, String) -> Unit,
     onChangePhoto: () -> Unit
 ) {
     var editedName by rememberSaveable(currentName) { mutableStateOf(currentName) }
-    var editedBio by rememberSaveable(currentBio) { mutableStateOf(currentBio) }
+    var editedBio by rememberSaveable(currentBio) { mutableStateOf(currentBio.take(MAX_PROFILE_BIO_LENGTH)) }
 
     Dialog(onDismissRequest = onDismiss) {
         Surface(
@@ -580,23 +772,16 @@ private fun ProfileEditDialog(
                     }
                 }
 
-                Surface(
-                    modifier = Modifier.size(96.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Filled.Person,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(48.dp)
-                        )
-                    }
-                }
+                ProfileAvatar(
+                    avatarUrl = avatarUrl,
+                    previewUri = avatarState.previewUri,
+                    isUploading = avatarState.isUploading,
+                    size = 96.dp
+                )
 
                 FilledTonalButton(
                     onClick = onChangePhoto,
+                    enabled = !avatarState.isUploading,
                     shape = MaterialTheme.shapes.large,
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
                 ) {
@@ -607,6 +792,16 @@ private fun ProfileEditDialog(
                     )
                     Spacer(Modifier.width(8.dp))
                     Text(text = stringResource(R.string.profile_edit_change_photo))
+                }
+
+                avatarState.errorMessage?.let { message ->
+                    Text(
+                        text = message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
 
                 OutlinedTextField(
@@ -634,36 +829,75 @@ private fun ProfileEditDialog(
 
                 OutlinedTextField(
                     value = editedBio,
-                    onValueChange = { editedBio = it },
+                    onValueChange = { newValue ->
+                        editedBio = if (newValue.length <= MAX_PROFILE_BIO_LENGTH) {
+                            newValue
+                        } else {
+                            newValue.take(MAX_PROFILE_BIO_LENGTH)
+                        }
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
                         .heightIn(min = 120.dp),
                     label = { Text(stringResource(R.string.profile_edit_bio_label)) },
                     placeholder = { Text(stringResource(R.string.profile_edit_bio_placeholder)) },
                     supportingText = {
-                        Text(
-                            text = stringResource(R.string.profile_edit_bio_supporting),
-                            style = MaterialTheme.typography.bodySmall
-                        )
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.profile_edit_bio_supporting, MAX_PROFILE_BIO_LENGTH),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "${editedBio.length}/$MAX_PROFILE_BIO_LENGTH",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     },
                     shape = MaterialTheme.shapes.large,
                     maxLines = 4
                 )
 
+                if (!errorMessage.isNullOrBlank()) {
+                    Text(
+                        text = errorMessage,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
                 val trimmedName = editedName.trim()
                 val trimmedBio = editedBio.trim()
                 Button(
                     onClick = { onSave(trimmedName, trimmedBio) },
-                    enabled = trimmedName.isNotBlank(),
+                    enabled = trimmedName.isNotBlank() && !isSaving,
                     shape = MaterialTheme.shapes.large,
                     contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Filled.Check,
-                        contentDescription = null
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(text = stringResource(R.string.profile_edit_save))
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Text(text = stringResource(R.string.profile_edit_saving))
+                    } else {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = null
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(text = stringResource(R.string.profile_edit_save))
+                    }
                 }
             }
         }

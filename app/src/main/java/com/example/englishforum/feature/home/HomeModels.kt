@@ -6,6 +6,7 @@ import com.example.englishforum.core.model.forum.PostTag
 data class HomePostUi(
     val id: String,
     val authorName: String,
+    val authorUsername: String? = null,
     val relativeTimeText: String,
     val title: String,
     val body: String,
@@ -19,6 +20,7 @@ data class HomePostUi(
 
 data class HomeUiState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val posts: List<HomePostUi> = emptyList(),
     val availableFilters: List<HomeFeedFilter> = emptyList(),
     val selectedFilter: HomeFeedFilter = HomeFeedFilter.Latest

@@ -8,8 +8,10 @@ import com.example.englishforum.core.model.notification.ForumNotification
 import com.example.englishforum.core.model.notification.ForumNotificationTarget
 import com.example.englishforum.data.notification.FakeNotificationRepository
 import com.example.englishforum.data.notification.NotificationRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -18,15 +20,20 @@ class NotiViewModel(
     private val repository: NotificationRepository
 ) : ViewModel() {
 
-    val uiState: StateFlow<NotificationUiState> = repository.notificationsStream
-        .map { notifications ->
-            val items = notifications.map { it.toUiModel() }
-            NotificationUiState(
-                isLoading = false,
-                notifications = items,
-                unreadCount = notifications.count { !it.isRead }
-            )
-        }
+    private val refreshing = MutableStateFlow(false)
+
+    val uiState: StateFlow<NotificationUiState> = combine(
+        repository.notificationsStream,
+        refreshing
+    ) { notifications, isRefreshing ->
+        val items = notifications.map { it.toUiModel() }
+        NotificationUiState(
+            isLoading = false,
+            isRefreshing = isRefreshing,
+            notifications = items,
+            unreadCount = notifications.count { !it.isRead }
+        )
+    }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
@@ -48,6 +55,18 @@ class NotiViewModel(
         }
     }
 
+    fun onRefresh() {
+        if (refreshing.value) return
+        viewModelScope.launch {
+            refreshing.value = true
+            try {
+                repository.refresh()
+            } finally {
+                refreshing.value = false
+            }
+        }
+    }
+
     private fun ForumNotification.toUiModel(): NotificationItemUi {
         val initials = actorName
             .trim()
@@ -59,16 +78,31 @@ class NotiViewModel(
             ?: actorName.firstOrNull()?.uppercaseChar()?.toString()
             ?: "?"
 
-        val (postId, commentId) = when (val target = target) {
-            is ForumNotificationTarget.Post -> target.postId to null
-            is ForumNotificationTarget.Comment -> target.postId to target.commentId
+        val postId: String?
+        val commentId: String?
+        when (val target = target) {
+            is ForumNotificationTarget.Post -> {
+                postId = target.postId
+                commentId = null
+            }
+
+            is ForumNotificationTarget.Comment -> {
+                postId = target.postId
+                commentId = target.commentId
+            }
+
+            is ForumNotificationTarget.Unknown -> {
+                postId = null
+                commentId = null
+            }
         }
 
         return NotificationItemUi(
             id = id,
             actorInitial = initials,
+            actorAvatarUrl = actorAvatarUrl,
             headline = title,
-            supportingText = description,
+            supportingText = description?.takeIf { it.isNotBlank() },
             timestampText = formatRelativeTime(minutesAgo),
             postId = postId,
             commentId = commentId,
@@ -91,6 +125,7 @@ class NotiViewModelFactory(
 
 data class NotificationUiState(
     val isLoading: Boolean = true,
+    val isRefreshing: Boolean = false,
     val notifications: List<NotificationItemUi> = emptyList(),
     val unreadCount: Int = 0
 )
@@ -98,10 +133,11 @@ data class NotificationUiState(
 data class NotificationItemUi(
     val id: String,
     val actorInitial: String,
+    val actorAvatarUrl: String? = null,
     val headline: String,
-    val supportingText: String,
+    val supportingText: String? = null,
     val timestampText: String,
-    val postId: String,
+    val postId: String?,
     val commentId: String?,
     val isRead: Boolean
 )

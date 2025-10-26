@@ -7,5 +7,7 @@ import kotlinx.coroutines.flow.Flow
 interface HomeRepository {
     val postsStream: Flow<List<ForumPostSummary>>
 
+    suspend fun refresh(): Result<Unit> = Result.success(Unit)
+
     suspend fun setVoteState(postId: String, target: VoteState): Result<Unit>
 }

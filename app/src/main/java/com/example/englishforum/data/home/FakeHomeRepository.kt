@@ -27,6 +27,7 @@ class FakeHomeRepository(
         return ForumPostSummary(
             id = id,
             authorName = authorName,
+            authorUsername = authorUsername,
             minutesAgo = minutesAgo,
             title = title,
             body = body,

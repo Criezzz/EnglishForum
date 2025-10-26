@@ -12,10 +12,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -23,6 +25,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -33,19 +36,24 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.englishforum.R
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(
     viewModel: LoginViewModel,
     onLoginSuccess: () -> Unit,
+    onRequireVerification: () -> Unit,
     onRegisterClick: () -> Unit,
     onForgotPasswordClick: () -> Unit,
+    resetSuccessMessage: String? = null,
+    onResetMessageShown: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val scrollState = rememberScrollState()
@@ -68,6 +76,22 @@ fun LoginScreen(
         )
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        resetSuccessMessage?.let { message ->
+            Text(
+                text = message,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        LaunchedEffect(resetSuccessMessage) {
+            if (resetSuccessMessage != null) {
+                delay(4000)
+                onResetMessageShown()
+            }
+        }
 
         OutlinedTextField(
             value = uiState.username,
@@ -99,10 +123,40 @@ fun LoginScreen(
                 )
             },
             keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
-            keyboardActions = KeyboardActions(onDone = { viewModel.login(onSuccess = onLoginSuccess) })
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    viewModel.login(
+                        onSuccess = onLoginSuccess,
+                        onRequiresVerification = onRequireVerification
+                    )
+                }
+            )
         )
 
         Spacer(modifier = Modifier.height(16.dp))
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .toggleable(
+                    value = uiState.keepLoggedIn,
+                    role = Role.Checkbox,
+                    onValueChange = viewModel::onKeepLoggedInChange
+                ),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = uiState.keepLoggedIn,
+                onCheckedChange = null
+            )
+            Text(
+                text = stringResource(R.string.auth_keep_logged_in),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.padding(start = 8.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         uiState.error?.let { err ->
             Text(text = err, color = MaterialTheme.colorScheme.error, modifier = Modifier.fillMaxWidth())
@@ -110,7 +164,12 @@ fun LoginScreen(
         }
 
         Button(
-            onClick = { viewModel.login(onSuccess = onLoginSuccess) },
+            onClick = {
+                viewModel.login(
+                    onSuccess = onLoginSuccess,
+                    onRequiresVerification = onRequireVerification
+                )
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp),

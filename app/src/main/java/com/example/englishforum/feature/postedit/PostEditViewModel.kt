@@ -132,7 +132,13 @@ class PostEditViewModel(
         val previewImageUrl = galleryImageUrls.firstOrNull()
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isSubmitting = true, errorMessage = null) }
+            _uiState.update {
+                it.copy(
+                    isSubmitting = true,
+                    errorMessage = null,
+                    successMessage = null
+                )
+            }
             val result = repository.updatePost(
                 postId = postId,
                 title = trimmedTitle,
@@ -142,13 +148,20 @@ class PostEditViewModel(
                 galleryImageUrls = galleryImageUrls
             )
             result.onSuccess {
-                _uiState.update { it.copy(isSubmitting = false, successPostId = postId) }
+                _uiState.update {
+                    it.copy(
+                        isSubmitting = false,
+                        successPostId = postId,
+                        successMessage = POST_UPDATE_SUCCESS_MESSAGE
+                    )
+                }
             }
             result.onFailure { throwable ->
                 _uiState.update {
                     it.copy(
                         isSubmitting = false,
-                        errorMessage = throwable.message ?: "Không thể cập nhật bài viết"
+                        errorMessage = throwable.message ?: "Không thể cập nhật bài viết",
+                        successMessage = null
                     )
                 }
             }
@@ -157,6 +170,14 @@ class PostEditViewModel(
 
     fun onNavigationHandled() {
         _uiState.update { it.copy(successPostId = null) }
+    }
+
+    fun onSuccessMessageConsumed() {
+        _uiState.update { it.copy(successMessage = null) }
+    }
+
+    companion object {
+        private const val POST_UPDATE_SUCCESS_MESSAGE = "Đã cập nhật bài viết"
     }
 }
 

@@ -29,7 +29,16 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextField
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -55,11 +64,18 @@ fun SettingsScreen(
     currentTheme: ThemeOption,
     onThemeChange: (ThemeOption) -> Unit,
     onBackClick: () -> Unit,
-    onLogoutClick: () -> Unit
+    onLogoutClick: () -> Unit,
+    onPasswordChange: (String, String) -> Unit = { _, _ -> },
+    onEmailChange: (String) -> Unit = {},
+    onEmailConfirm: (String) -> Unit = {}
 ) {
     var showThemeDialog by rememberSaveable { mutableStateOf(false) }
+    var showPasswordDialog by rememberSaveable { mutableStateOf(false) }
+    var showEmailDialog by rememberSaveable { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             CenterAlignedTopAppBar(
                 title = { Text(text = stringResource(R.string.settings_title)) },
@@ -103,6 +119,44 @@ fun SettingsScreen(
 
             item {
                 SettingsRow(
+                    title = stringResource(R.string.settings_change_password),
+                    leadingPainterRes = R.drawable.ic_settings_password,
+                    onClick = { showPasswordDialog = true },
+                    trailingContent = {
+                        Icon(
+                            imageVector = Icons.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                )
+            }
+
+            item {
+                Divider(modifier = Modifier.padding(vertical = 12.dp))
+            }
+
+            item {
+                SettingsRow(
+                    title = stringResource(R.string.settings_change_email),
+                    leadingPainterRes = R.drawable.ic_settings_email,
+                    onClick = { showEmailDialog = true },
+                    trailingContent = {
+                        Icon(
+                            imageVector = Icons.Filled.KeyboardArrowRight,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                )
+            }
+
+            item {
+                Divider(modifier = Modifier.padding(vertical = 12.dp))
+            }
+
+            item {
+                SettingsRow(
                     title = stringResource(R.string.settings_logout),
                     titleColor = MaterialTheme.colorScheme.error,
                     leadingPainterRes = R.drawable.ic_settings_logout,
@@ -121,6 +175,31 @@ fun SettingsScreen(
                 showThemeDialog = false
                 onThemeChange(option)
             }
+        )
+    }
+
+    if (showPasswordDialog) {
+        ChangePasswordDialog(
+            onDismiss = { showPasswordDialog = false },
+            onConfirm = { current, new ->
+                showPasswordDialog = false
+                onPasswordChange(current, new)
+            },
+            snackbarHostState = snackbarHostState
+        )
+    }
+
+    if (showEmailDialog) {
+        ChangeEmailDialog(
+            onDismiss = { showEmailDialog = false },
+            onSendOtp = { email ->
+                onEmailChange(email)
+            },
+            onConfirm = { otp ->
+                showEmailDialog = false
+                onEmailConfirm(otp)
+            },
+            snackbarHostState = snackbarHostState
         )
     }
 }
@@ -242,6 +321,219 @@ private fun SettingsRow(
             trailingContent()
         }
     }
+}
+
+@Composable
+private fun ChangePasswordDialog(
+    onDismiss: () -> Unit,
+    onConfirm: (currentPassword: String, newPassword: String) -> Unit,
+    snackbarHostState: SnackbarHostState
+) {
+    var currentPassword by rememberSaveable { mutableStateOf("") }
+    var newPassword by rememberSaveable { mutableStateOf("") }
+    var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var isLoading by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = stringResource(R.string.settings_password_dialog_title))
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = currentPassword,
+                    onValueChange = { currentPassword = it },
+                    label = { Text(stringResource(R.string.settings_password_current_label)) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
+                )
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it },
+                    label = { Text(stringResource(R.string.settings_password_new_label)) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
+                )
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = { Text(stringResource(R.string.settings_password_confirm_label)) },
+                    visualTransformation = PasswordVisualTransformation(),
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    when {
+                        currentPassword.isBlank() || newPassword.isBlank() || confirmPassword.isBlank() -> {
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = "Vui lòng điền đầy đủ thông tin"
+                                )
+                            }
+                        }
+                        newPassword != confirmPassword -> {
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = "Mật khẩu mới không khớp"
+                                )
+                            }
+                        }
+                        else -> {
+                            isLoading = true
+                            onConfirm(currentPassword, newPassword)
+                        }
+                    }
+                },
+                enabled = !isLoading
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(text = stringResource(R.string.settings_password_change_button))
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isLoading
+            ) {
+                Text(text = stringResource(R.string.auth_cancel_action))
+            }
+        }
+    )
+}
+
+@Composable
+private fun ChangeEmailDialog(
+    onDismiss: () -> Unit,
+    onSendOtp: (email: String) -> Unit,
+    onConfirm: (otp: String) -> Unit,
+    snackbarHostState: SnackbarHostState
+) {
+    var newEmail by rememberSaveable { mutableStateOf("") }
+    var otp by rememberSaveable { mutableStateOf("") }
+    var isOtpSent by rememberSaveable { mutableStateOf(false) }
+    var isLoading by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(text = stringResource(R.string.settings_email_dialog_title))
+        },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedTextField(
+                    value = newEmail,
+                    onValueChange = { newEmail = it },
+                    label = { Text(stringResource(R.string.settings_email_new_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !isLoading && !isOtpSent
+                )
+                
+                if (isOtpSent) {
+                    OutlinedTextField(
+                        value = otp,
+                        onValueChange = { otp = it },
+                        label = { Text(stringResource(R.string.settings_email_otp_label)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            if (!isOtpSent) {
+                TextButton(
+                    onClick = {
+                        if (newEmail.isBlank()) {
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = "Vui lòng nhập email"
+                                )
+                            }
+                        } else {
+                            isLoading = true
+                            onSendOtp(newEmail)
+                            isOtpSent = true
+                            isLoading = false
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = "Mã xác nhận đã được gửi đến email mới"
+                                )
+                            }
+                        }
+                    },
+                    enabled = !isLoading
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(text = stringResource(R.string.settings_email_send_otp_button))
+                    }
+                }
+            } else {
+                TextButton(
+                    onClick = {
+                        if (otp.isBlank()) {
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    message = "Vui lòng nhập mã xác nhận"
+                                )
+                            }
+                        } else {
+                            isLoading = true
+                            onConfirm(otp)
+                        }
+                    },
+                    enabled = !isLoading
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(text = stringResource(R.string.settings_email_confirm_button))
+                    }
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(
+                onClick = onDismiss,
+                enabled = !isLoading
+            ) {
+                Text(text = stringResource(R.string.auth_cancel_action))
+            }
+        }
+    )
 }
 
 @Composable

@@ -36,7 +36,7 @@ class ForgotPasswordViewModel(
 
         uiState = uiState.copy(isLoading = true, errorMessage = null, successMessage = null)
         viewModelScope.launch {
-            val result = authRepository.requestOtp(contact)
+            val result = authRepository.requestRecoveryOtp(contact)
             result.onSuccess {
                 uiState = uiState.copy(
                     isLoading = false,
@@ -45,6 +45,7 @@ class ForgotPasswordViewModel(
                     isOtpRequested = true,
                     otp = "",
                     isOtpVerified = false,
+                    resetToken = null,
                     otpErrorMessage = null,
                     newPassword = "",
                     confirmNewPassword = "",
@@ -58,7 +59,8 @@ class ForgotPasswordViewModel(
                     successMessage = null,
                     isOtpRequested = false,
                     otp = "",
-                    otpSecondsRemaining = 0
+                    otpSecondsRemaining = 0,
+                    resetToken = null
                 )
             }
         }
@@ -66,7 +68,7 @@ class ForgotPasswordViewModel(
 
     fun onOtpChange(value: String) {
         val sanitized = value.filter { it.isDigit() }.take(6)
-        uiState = uiState.copy(otp = sanitized, otpErrorMessage = null)
+        uiState = uiState.copy(otp = sanitized, otpErrorMessage = null, resetToken = null)
         if (sanitized.length < OTP_LENGTH) {
             uiState = uiState.copy(isOtpVerified = false)
             return
@@ -85,25 +87,24 @@ class ForgotPasswordViewModel(
             return
         }
 
+        uiState = state.copy(isLoading = true, otpErrorMessage = null)
         viewModelScope.launch {
-            val result = authRepository.verifyOtp(state.otp)
-            result.onSuccess { isValid ->
-                if (isValid) {
-                    uiState = uiState.copy(
-                        isOtpVerified = true,
-                        otpErrorMessage = null,
-                        successMessage = "OTP hợp lệ, vui lòng đặt mật khẩu mới"
-                    )
-                } else {
-                    uiState = uiState.copy(
-                        isOtpVerified = false,
-                        otpErrorMessage = "Mã OTP không đúng"
-                    )
-                }
+            val result = authRepository.verifyRecoveryOtp(state.contact, state.otp)
+            result.onSuccess { token ->
+                uiState = uiState.copy(
+                    isLoading = false,
+                    isOtpVerified = true,
+                    otpErrorMessage = null,
+                    successMessage = "OTP hợp lệ, vui lòng đặt mật khẩu mới",
+                    resetToken = token
+                )
             }.onFailure { throwable ->
                 uiState = uiState.copy(
+                    isLoading = false,
                     isOtpVerified = false,
-                    otpErrorMessage = throwable.message ?: "Xác thực OTP thất bại"
+                    otpErrorMessage = throwable.message ?: "Xác thực OTP thất bại",
+                    resetToken = null,
+                    successMessage = null
                 )
             }
         }
@@ -119,7 +120,7 @@ class ForgotPasswordViewModel(
 
     fun changePassword(onSuccess: () -> Unit) {
         val state = uiState
-        if (!state.isOtpVerified) {
+        if (!state.isOtpVerified || state.resetToken.isNullOrEmpty()) {
             uiState = state.copy(passwordErrorMessage = "Vui lòng xác thực OTP trước")
             return
         }
@@ -140,7 +141,7 @@ class ForgotPasswordViewModel(
 
         uiState = state.copy(isChangingPassword = true, passwordErrorMessage = null, successMessage = null)
         viewModelScope.launch {
-            val result = authRepository.resetPassword(trimmedPassword)
+            val result = authRepository.resetPassword(state.resetToken, trimmedPassword)
             uiState = uiState.copy(isChangingPassword = false)
             result.onSuccess {
                 uiState = uiState.copy(successMessage = "Mật khẩu của bạn đã được đổi")
@@ -203,5 +204,6 @@ data class ForgotPasswordUiState(
     val confirmNewPassword: String = "",
     val passwordErrorMessage: String? = null,
     val isChangingPassword: Boolean = false,
-    val otpSecondsRemaining: Int = 0
+    val otpSecondsRemaining: Int = 0,
+    val resetToken: String? = null
 )

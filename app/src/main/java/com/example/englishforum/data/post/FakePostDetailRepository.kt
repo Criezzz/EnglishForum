@@ -13,6 +13,8 @@ class FakePostDetailRepository(
         return store.observePost(postId)
     }
 
+    override suspend fun refreshPost(postId: String): Result<Unit> = Result.success(Unit)
+
     override suspend fun setPostVote(postId: String, target: VoteState): Result<Unit> {
         return if (store.updatePostVote(postId, target)) {
             Result.success(Unit)
@@ -46,6 +48,22 @@ class FakePostDetailRepository(
         }
     }
 
+    override suspend fun addComment(
+        postId: String,
+        content: String,
+        replyToCommentId: String?
+    ): Result<Unit> {
+        val sanitized = content.trim()
+        if (sanitized.isEmpty()) {
+            return Result.failure(IllegalArgumentException("Nội dung bình luận không được để trống"))
+        }
+        return if (store.addComment(postId, sanitized, replyToCommentId = replyToCommentId)) {
+            Result.success(Unit)
+        } else {
+            Result.failure(IllegalArgumentException("Post not found"))
+        }
+    }
+
     override suspend fun updatePost(
         postId: String,
         title: String,
@@ -72,6 +90,33 @@ class FakePostDetailRepository(
             Result.success(Unit)
         } else {
             Result.failure(IllegalArgumentException("Post not found"))
+        }
+    }
+
+    override suspend fun updateComment(
+        postId: String,
+        commentId: String,
+        content: String
+    ): Result<Unit> {
+        val sanitized = content.trim()
+        if (sanitized.isEmpty()) {
+            return Result.failure(IllegalArgumentException("Nội dung bình luận không được để trống"))
+        }
+        return if (store.updateComment(postId, commentId, sanitized)) {
+            Result.success(Unit)
+        } else {
+            Result.failure(IllegalArgumentException("Comment not found"))
+        }
+    }
+
+    override suspend fun deleteComment(
+        postId: String,
+        commentId: String
+    ): Result<Unit> {
+        return if (store.deleteComment(postId, commentId)) {
+            Result.success(Unit)
+        } else {
+            Result.failure(IllegalArgumentException("Comment not found"))
         }
     }
 }

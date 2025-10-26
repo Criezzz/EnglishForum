@@ -122,7 +122,8 @@ fun CreateRoute(
         onTagSelected = viewModel::onTagSelected,
         onSubmit = viewModel::onSubmit,
         onDeclineReasonDismissed = viewModel::onDeclineReasonDismissed,
-        onErrorMessageConsumed = viewModel::onErrorMessageDisplayed
+        onErrorMessageConsumed = viewModel::onErrorMessageDisplayed,
+        onSuccessMessageConsumed = viewModel::onSuccessMessageDisplayed
     )
 }
 
@@ -140,6 +141,7 @@ fun CreateScreen(
     onSubmit: () -> Unit,
     onDeclineReasonDismissed: () -> Unit,
     onErrorMessageConsumed: () -> Unit,
+    onSuccessMessageConsumed: () -> Unit,
     modifier: Modifier = Modifier,
     @StringRes topBarTitleRes: Int = R.string.create_post_title,
     @StringRes submitLabelRes: Int = R.string.create_post_submit,
@@ -160,6 +162,14 @@ fun CreateScreen(
         if (message != null) {
             snackbarHostState.showSnackbar(message)
             onErrorMessageConsumed()
+        }
+    }
+
+    LaunchedEffect(uiState.successMessage) {
+        val message = uiState.successMessage
+        if (message != null) {
+            snackbarHostState.showSnackbar(message)
+            onSuccessMessageConsumed()
         }
     }
 
@@ -606,7 +616,8 @@ private fun CreateScreenPreview() {
             onTagSelected = {},
             onSubmit = {},
             onDeclineReasonDismissed = {},
-            onErrorMessageConsumed = {}
+            onErrorMessageConsumed = {},
+            onSuccessMessageConsumed = {}
         )
     }
 }

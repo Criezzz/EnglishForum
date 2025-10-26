@@ -7,11 +7,21 @@ import kotlinx.coroutines.flow.Flow
 interface ProfileRepository {
     fun observeProfile(userId: String): Flow<ForumUserProfile>
 
+    suspend fun refresh(userId: String): Result<Unit> = Result.success(Unit)
+
     suspend fun updateDisplayName(userId: String, displayName: String): Result<Unit>
 
     suspend fun updateBio(userId: String, bio: String): Result<Unit>
 
+    suspend fun updateAvatar(userId: String, avatar: ProfileAvatarImage): Result<Unit>
+
     suspend fun setPostVote(userId: String, postId: String, target: VoteState): Result<Unit>
 
     suspend fun setReplyVote(userId: String, replyId: String, target: VoteState): Result<Unit>
+
+    suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit>
+
+    suspend fun updateEmail(newEmail: String): Result<Unit>
+
+    suspend fun confirmEmailUpdate(otp: String): Result<Unit>
 }

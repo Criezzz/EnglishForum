@@ -112,6 +112,184 @@ object FakePostStore {
         return postFound to commentFound
     }
 
+    fun addComment(
+        postId: String,
+        content: String,
+        authorName: String = "Bạn",
+        replyToCommentId: String? = null
+    ): Boolean {
+        val sanitizedContent = content.trim()
+        if (sanitizedContent.isEmpty()) return false
+
+        val newComment = ForumComment(
+            id = generateLocalCommentId(),
+            authorName = authorName,
+            minutesAgo = 0,
+            body = sanitizedContent,
+            voteCount = 0,
+            voteState = VoteState.NONE,
+            isAuthor = false,
+            replies = emptyList()
+        )
+
+        var inserted = false
+        _posts.update { current ->
+            current.map { post ->
+                if (post.id == postId) {
+                    val updatedComments = if (replyToCommentId == null) {
+                        inserted = true
+                        listOf(newComment) + post.comments
+                    } else {
+                        val (thread, added) = insertReply(post.comments, replyToCommentId, newComment)
+                        if (added) {
+                            inserted = true
+                            thread
+                        } else {
+                            inserted = true
+                            listOf(newComment) + post.comments
+                        }
+                    }
+                    post.copy(comments = updatedComments)
+                } else {
+                    post
+                }
+            }
+        }
+        return inserted
+    }
+
+    private fun generateLocalCommentId(): String {
+        return "local-comment-${System.currentTimeMillis()}"
+    }
+
+    private fun insertReply(
+        comments: List<ForumComment>,
+        targetId: String,
+        reply: ForumComment
+    ): Pair<List<ForumComment>, Boolean> {
+        var added = false
+        val updated = comments.map { comment ->
+            when {
+                comment.id == targetId -> {
+                    added = true
+                    comment.copy(replies = comment.replies + reply)
+                }
+
+                comment.replies.isNotEmpty() -> {
+                    val (nestedReplies, nestedAdded) = insertReply(comment.replies, targetId, reply)
+                    if (nestedAdded) {
+                        added = true
+                        comment.copy(replies = nestedReplies)
+                    } else {
+                        comment
+                    }
+                }
+
+                else -> comment
+            }
+        }
+        return updated to added
+    }
+
+    fun updateComment(postId: String, commentId: String, content: String): Boolean {
+        var postFound = false
+        var commentFound = false
+        _posts.update { current ->
+            current.map { post ->
+                if (post.id == postId) {
+                    postFound = true
+                    val (updatedComments, found) = updateCommentContent(post.comments, commentId, content)
+                    if (found) {
+                        commentFound = true
+                        post.copy(comments = updatedComments)
+                    } else {
+                        post
+                    }
+                } else {
+                    post
+                }
+            }
+        }
+        return postFound && commentFound
+    }
+
+    fun deleteComment(postId: String, commentId: String): Boolean {
+        var postFound = false
+        var commentFound = false
+        _posts.update { current ->
+            current.map { post ->
+                if (post.id == postId) {
+                    postFound = true
+                    val (updatedComments, found) = removeCommentFromThread(post.comments, commentId)
+                    if (found) {
+                        commentFound = true
+                        post.copy(comments = updatedComments)
+                    } else {
+                        post
+                    }
+                } else {
+                    post
+                }
+            }
+        }
+        return postFound && commentFound
+    }
+
+    private fun updateCommentContent(
+        comments: List<ForumComment>,
+        commentId: String,
+        content: String
+    ): Pair<List<ForumComment>, Boolean> {
+        var found = false
+        val updated = comments.map { comment ->
+            when {
+                comment.id == commentId -> {
+                    found = true
+                    comment.copy(body = content)
+                }
+
+                comment.replies.isNotEmpty() -> {
+                    val (updatedReplies, replyFound) = updateCommentContent(comment.replies, commentId, content)
+                    if (replyFound) {
+                        found = true
+                        comment.copy(replies = updatedReplies)
+                    } else {
+                        comment
+                    }
+                }
+
+                else -> comment
+            }
+        }
+        return updated to found
+    }
+
+    private fun removeCommentFromThread(
+        comments: List<ForumComment>,
+        commentId: String
+    ): Pair<List<ForumComment>, Boolean> {
+        var found = false
+        val updated = comments.mapNotNull { comment ->
+            when {
+                comment.id == commentId -> {
+                    found = true
+                    null // Remove this comment
+                }
+
+                comment.replies.isNotEmpty() -> {
+                    val (updatedReplies, replyFound) = removeCommentFromThread(comment.replies, commentId)
+                    if (replyFound) {
+                        found = true
+                    }
+                    comment.copy(replies = updatedReplies)
+                }
+
+                else -> comment
+            }
+        }
+        return updated to found
+    }
+
     private fun updateCommentThread(
         comments: List<ForumComment>,
         commentId: String,

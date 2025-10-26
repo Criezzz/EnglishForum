@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -28,6 +27,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,17 +41,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
+import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImage
+import androidx.compose.ui.layout.ContentScale
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotiRoute(
     modifier: Modifier = Modifier,
-    onNotificationClick: (postId: String, commentId: String?) -> Unit = { _, _ -> }
+    onNotificationClick: (postId: String?, commentId: String?) -> Unit = { _, _ -> }
 ) {
     val appContainer = LocalAppContainer.current
     val viewModel: NotiViewModel = viewModel(
@@ -62,7 +67,8 @@ fun NotiRoute(
         uiState = uiState,
         onNotificationClick = onNotificationClick,
         onMarkNotificationAsRead = viewModel::markNotificationAsRead,
-        onMarkAllAsRead = viewModel::markAllNotificationsAsRead
+        onMarkAllAsRead = viewModel::markAllNotificationsAsRead,
+        onRefresh = viewModel::onRefresh
     )
 }
 
@@ -70,11 +76,13 @@ fun NotiRoute(
 @Composable
 fun NotiScreen(
     uiState: NotificationUiState,
-    onNotificationClick: (postId: String, commentId: String?) -> Unit,
+    onNotificationClick: (postId: String?, commentId: String?) -> Unit,
     onMarkNotificationAsRead: (notificationId: String) -> Unit,
     onMarkAllAsRead: () -> Unit,
+    onRefresh: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val pullRefreshState = rememberPullToRefreshState()
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -95,56 +103,80 @@ fun NotiScreen(
             )
         }
     ) { innerPadding ->
-        when {
-            uiState.isLoading -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            }
+        val topPadding = innerPadding.calculateTopPadding()
 
-            uiState.notifications.isEmpty() -> {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = stringResource(id = R.string.notifications_empty_state),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+        PullToRefreshBox(
+            modifier = Modifier.fillMaxSize(),
+            state = pullRefreshState,
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = {
+                if (!uiState.isLoading) {
+                    onRefresh()
                 }
-            }
-
-            else -> {
-                LazyColumn(
+            },
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullRefreshState,
+                    isRefreshing = uiState.isRefreshing,
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(
-                        items = uiState.notifications,
-                        key = { it.id }
-                    ) { item ->
-                        NotificationListItem(
-                            item = item,
-                            onClick = {
-                                if (!item.isRead) {
-                                    onMarkNotificationAsRead(item.id)
-                                }
-                                onNotificationClick(item.postId, item.commentId)
-                            }
+                        .align(Alignment.TopCenter)
+                        .padding(top = topPadding)
+                )
+            }
+        ) {
+            when {
+                uiState.isLoading -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                }
+
+                uiState.notifications.isEmpty() -> {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(id = R.string.notifications_empty_state),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                    item { Spacer(modifier = Modifier.height(8.dp)) }
+                }
+
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(
+                            items = uiState.notifications,
+                            key = { it.id }
+                        ) { item ->
+                            NotificationListItem(
+                                item = item,
+                                onClick = {
+                                    if (!item.isRead) {
+                                        onMarkNotificationAsRead(item.id)
+                                    }
+                                    if (item.postId != null) {
+                                        onNotificationClick(item.postId, item.commentId)
+                                    }
+                                }
+                            )
+                        }
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                    }
                 }
             }
         }
@@ -198,47 +230,84 @@ private fun NotificationListItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Surface(
-                modifier = Modifier.size(44.dp),
-                shape = CircleShape,
-                color = avatarContainerColor,
-                tonalElevation = 0.dp
-            ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Text(
-                        text = item.actorInitial,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = avatarContentColor
+            if (item.actorAvatarUrl != null) {
+                Surface(
+                    modifier = Modifier.size(44.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    tonalElevation = 0.dp
+                ) {
+                    AuthenticatedRemoteImage(
+                        url = item.actorAvatarUrl,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(CircleShape),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop
                     )
+                }
+            } else {
+                Surface(
+                    modifier = Modifier.size(44.dp),
+                    shape = CircleShape,
+                    color = avatarContainerColor,
+                    tonalElevation = 0.dp
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = item.actorInitial,
+                            style = MaterialTheme.typography.titleMedium,
+                            color = avatarContentColor
+                        )
+                    }
                 }
             }
 
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+            Box(
+                modifier = Modifier.weight(1f)
             ) {
-                Text(
-                    modifier = Modifier.fillMaxWidth(),
-                    text = item.headline,
-                    style = headlineStyle,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(end = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        modifier = Modifier.fillMaxWidth(),
+                        text = item.headline,
+                        style = headlineStyle,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
-                NotificationMetadata(
-                    timestampText = item.timestampText,
-                    timestampColor = timestampColor,
-                    showUnreadIndicator = !item.isRead
-                )
+                    NotificationMetadata(
+                        timestampText = item.timestampText,
+                        timestampColor = timestampColor
+                    )
 
-                Text(
-                    text = item.supportingText,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                    item.supportingText?.let { supporting ->
+                        Text(
+                            text = supporting,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+
+                if (!item.isRead) {
+                    Surface(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(8.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primary,
+                        tonalElevation = 0.dp,
+                        content = {}
+                    )
+                }
             }
         }
     }
@@ -248,12 +317,10 @@ private fun NotificationListItem(
 private fun NotificationMetadata(
     timestampText: String,
     timestampColor: Color,
-    showUnreadIndicator: Boolean,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -261,15 +328,6 @@ private fun NotificationMetadata(
             style = MaterialTheme.typography.labelSmall,
             color = timestampColor
         )
-        if (showUnreadIndicator) {
-            Surface(
-                modifier = Modifier.size(8.dp),
-                shape = CircleShape,
-                color = MaterialTheme.colorScheme.primary,
-                tonalElevation = 0.dp,
-                content = {}
-            )
-        }
     }
 }
 
@@ -281,6 +339,7 @@ private fun NotificationItemPreview() {
             item = NotificationItemUi(
                 id = "noti-1",
                 actorInitial = "J",
+                actorAvatarUrl = null,
                 headline = "Jane_Doe đã bình luận bài viết của bạn",
                 supportingText = "\"Thanks for sharing, saved to my drive already.\"",
                 timestampText = "12 phút trước",
@@ -301,6 +360,7 @@ private fun NotificationItemReadPreview() {
             item = NotificationItemUi(
                 id = "noti-2",
                 actorInitial = "M",
+                actorAvatarUrl = null,
                 headline = "mentorX đã nhắc bạn trong bình luận",
                 supportingText = "mentorX: Great compilation! I usually start learners with Cambridge 15.",
                 timestampText = "58 phút trước",
@@ -324,6 +384,7 @@ private fun NotiScreenPreview() {
                     NotificationItemUi(
                         id = "noti-1",
                         actorInitial = "C",
+                        actorAvatarUrl = null,
                         headline = "crystal đã bình luận bài viết của bạn",
                         supportingText = "\"Sed vulputate tellus magna, ac fringilla ipsum ornare in.\"",
                         timestampText = "9 phút trước",
@@ -334,6 +395,7 @@ private fun NotiScreenPreview() {
                     NotificationItemUi(
                         id = "noti-2",
                         actorInitial = "M",
+                        actorAvatarUrl = null,
                         headline = "mentorX đã nhắc bạn trong bình luận",
                         supportingText = "mentorX: Great compilation! I usually start learners with Cambridge 15.",
                         timestampText = "58 phút trước",
@@ -346,7 +408,8 @@ private fun NotiScreenPreview() {
             ),
             onNotificationClick = { _, _ -> },
             onMarkNotificationAsRead = {},
-            onMarkAllAsRead = {}
+            onMarkAllAsRead = {},
+            onRefresh = {}
         )
     }
 }

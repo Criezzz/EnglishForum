@@ -23,6 +23,7 @@ class HomeViewModel(
 ) : ViewModel() {
 
     private val loading = MutableStateFlow(true)
+    private val refreshing = MutableStateFlow(false)
     private val selectedFilter = MutableStateFlow<HomeFeedFilter>(HomeFeedFilter.Latest)
 
     private val filterOptions = listOf(
@@ -37,11 +38,13 @@ class HomeViewModel(
     val uiState: StateFlow<HomeUiState> = combine(
         repository.postsStream,
         loading,
+        refreshing,
         selectedFilter
-    ) { posts, isLoading, filter ->
+    ) { posts, isLoading, isRefreshing, filter ->
         val filtered = filterPosts(posts, filter)
         HomeUiState(
             isLoading = isLoading,
+            isRefreshing = isRefreshing,
             posts = filtered.map { it.toUiModel() },
             availableFilters = filterOptions,
             selectedFilter = filter
@@ -55,9 +58,14 @@ class HomeViewModel(
 
     init {
         viewModelScope.launch {
-            repository.postsStream.collect {
-                loading.value = false
-            }
+            refreshFeed(isInitial = true)
+        }
+    }
+
+    fun onRefresh() {
+        if (loading.value || refreshing.value) return
+        viewModelScope.launch {
+            refreshFeed(isInitial = false)
         }
     }
 
@@ -77,6 +85,20 @@ class HomeViewModel(
     private fun updateVote(postId: String, targetState: VoteState) {
         viewModelScope.launch {
             repository.setVoteState(postId, targetState)
+        }
+    }
+
+    private suspend fun refreshFeed(isInitial: Boolean) {
+        if (!isInitial) {
+            refreshing.value = true
+        }
+        try {
+            repository.refresh()
+        } finally {
+            loading.value = false
+            if (!isInitial) {
+                refreshing.value = false
+            }
         }
     }
 
@@ -100,6 +122,7 @@ class HomeViewModel(
         return HomePostUi(
             id = id,
             authorName = authorName,
+            authorUsername = authorUsername,
             relativeTimeText = formatRelativeTime(minutesAgo),
             title = title,
             body = body,

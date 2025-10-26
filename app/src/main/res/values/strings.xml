@@ -4,6 +4,7 @@
     <string name="auth_logo_content_description">Logo</string>
     <string name="auth_username_label">Tên đăng nhập</string>
     <string name="auth_password_label">Mật khẩu</string>
+    <string name="auth_keep_logged_in">Duy trì đăng nhập</string>
     <string name="auth_toggle_hide">Ẩn</string>
     <string name="auth_toggle_show">Hiện</string>
     <string name="auth_login">Đăng nhập</string>
@@ -17,13 +18,13 @@
     <string name="auth_select_action">Chọn</string>
     <string name="auth_cancel_action">Hủy</string>
     <string name="auth_ok_action">OK</string>
-    <string name="auth_contact_label">Số điện thoại hoặc Email</string>
+    <string name="auth_contact_label">Tên đăng nhập hoặc email</string>
     <string name="auth_resend_with_counter">Gửi lại (%1$ds)</string>
     <string name="auth_send_otp">Gửi OTP</string>
     <string name="auth_back_action">Quay lại</string>
     <string name="auth_otp_label">Mã OTP</string>
     <string name="auth_otp_sent_to_contact">Mã OTP đã được gửi đến %1$s</string>
-    <string name="auth_change_contact">Thay đổi email/số khác</string>
+    <string name="auth_change_contact">Thay đổi thông tin liên hệ</string>
     <string name="auth_resend_otp">Gửi lại OTP</string>
     <string name="auth_new_password_label">Mật khẩu mới</string>
     <string name="auth_change_password">Đổi mật khẩu</string>
@@ -44,6 +45,8 @@
     <string name="search_intro_supporting">Nhập từ khoá để tìm bài viết, tác giả hoặc thẻ phù hợp.</string>
     <string name="search_empty_state_title">Không tìm thấy kết quả</string>
     <string name="search_empty_state_supporting">Thử điều chỉnh từ khoá hoặc xem các thẻ khác.</string>
+    <string name="search_section_users">Người dùng</string>
+    <string name="search_section_posts">Bài viết</string>
     <string name="home_post_meta">%1$s • %2$s</string>
     <string name="home_post_meta_with_tag">%1$s • %2$s • %3$s</string>
     <string name="home_empty_state">Không có bài viết nào phù hợp</string>
@@ -61,6 +64,11 @@
     <string name="post_detail_author_badge">Tác giả</string>
     <string name="post_detail_options_content_description">Mở tuỳ chọn bài viết</string>
     <string name="post_detail_reply_action">Phản hồi</string>
+    <string name="post_detail_comment_header_label">Thêm bình luận</string>
+    <string name="post_detail_comment_placeholder">Chia sẻ suy nghĩ của bạn...</string>
+    <string name="post_detail_comment_send_content_description">Gửi bình luận</string>
+    <string name="post_detail_replying_to_header">Đang phản hồi %1$s</string>
+    <string name="post_detail_cancel_reply_content_description">Huỷ phản hồi</string>
     <string name="post_detail_action_report">Báo cáo bài viết</string>
     <string name="post_detail_action_edit">Chỉnh sửa bài viết</string>
     <string name="post_detail_action_delete">Xoá bài viết</string>
@@ -118,24 +126,26 @@
 
     <string name="profile_settings_content_description">Mở cài đặt hồ sơ</string>
     <string name="profile_edit_content_description">Chỉnh sửa hồ sơ</string>
+    <string name="cd_navigate_back">Quay lại</string>
     <string name="profile_tab_posts">Bài đăng</string>
     <string name="profile_tab_replies">Câu trả lời</string>
     <string name="profile_stat_upvotes">Upvote</string>
     <string name="profile_stat_posts">Bài đăng</string>
     <string name="profile_stat_answers">Câu trả lời</string>
-    <string name="profile_post_meta">%1$d phút trước</string>
-    <string name="profile_reply_meta">Trả lời %1$s | %2$d phút trước</string>
+    <string name="profile_post_meta">%1$s</string>
+    <string name="profile_reply_meta">Trả lời %1$s • %2$s</string>
     <string name="profile_empty_posts">Chưa có bài đăng nào</string>
     <string name="profile_empty_replies">Chưa có câu trả lời nào</string>
     <string name="profile_edit_change_photo">Thay đổi ảnh</string>
     <string name="profile_edit_display_name_label">Tên người dùng</string>
     <string name="profile_edit_save">Lưu thay đổi</string>
+    <string name="profile_edit_saving">Đang lưu…</string>
     <string name="profile_edit_close_content_description">Đóng chỉnh sửa hồ sơ</string>
     <string name="profile_edit_clear_name">Xoá tên</string>
     <string name="profile_bio_empty">Chưa có nội dung giới thiệu</string>
     <string name="profile_edit_bio_label">Giới thiệu</string>
     <string name="profile_edit_bio_placeholder">Chia sẻ đôi điều về bạn</string>
-    <string name="profile_edit_bio_supporting">Tối đa 4 dòng, có thể để trống nếu bạn muốn</string>
+    <string name="profile_edit_bio_supporting">Tối đa %1$d ký tự. Hãy viết vài câu giới thiệu ngắn gọn.</string>
 
     <string name="settings_title">Cài đặt</string>
     <string name="settings_theme">Giao diện</string>
@@ -144,5 +154,35 @@
     <string name="settings_theme_light">Giao diện sáng</string>
     <string name="settings_theme_dark">Giao diện tối</string>
     <string name="settings_theme_apply">Áp dụng</string>
+    <string name="settings_change_password">Đổi mật khẩu</string>
+    <string name="settings_change_email">Đổi email</string>
     <string name="settings_logout">Đăng xuất</string>
+    
+    <string name="settings_password_dialog_title">Đổi mật khẩu</string>
+    <string name="settings_password_current_label">Mật khẩu hiện tại</string>
+    <string name="settings_password_new_label">Mật khẩu mới</string>
+    <string name="settings_password_confirm_label">Xác nhận mật khẩu mới</string>
+    <string name="settings_password_change_button">Đổi mật khẩu</string>
+    <string name="settings_password_changing">Đang đổi mật khẩu…</string>
+    <string name="settings_password_success">Mật khẩu đã được cập nhật thành công</string>
+    <string name="settings_password_error_mismatch">Mật khẩu mới không khớp</string>
+    <string name="settings_password_error_empty">Vui lòng điền đầy đủ thông tin</string>
+    
+    <string name="settings_email_dialog_title">Đổi email</string>
+    <string name="settings_email_new_label">Email mới</string>
+    <string name="settings_email_send_otp_button">Gửi mã xác nhận</string>
+    <string name="settings_email_sending">Đang gửi…</string>
+    <string name="settings_email_otp_sent">Mã xác nhận đã được gửi đến email mới</string>
+    <string name="settings_email_otp_label">Mã xác nhận (OTP)</string>
+    <string name="settings_email_confirm_button">Xác nhận</string>
+    <string name="settings_email_confirming">Đang xác nhận…</string>
+    <string name="settings_email_success">Email đã được cập nhật thành công</string>
+    <string name="settings_email_error_empty">Vui lòng nhập email</string>
+    <string name="settings_email_error_invalid">Email không hợp lệ</string>
+    
+    <string name="session_expired_message">Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.</string>
+    <string name="session_offline_message">Không thể kiểm tra phiên vì mất kết nối mạng.</string>
+    <string name="session_check_error_message">Không thể xác minh phiên do lỗi máy chủ.</string>
+    <string name="session_requires_verification_message">Tài khoản chưa được xác minh. Vui lòng kiểm tra email để hoàn tất.</string>
+    <string name="auth_password_reset_success_message">Mật khẩu đã được cập nhật. Vui lòng đăng nhập lại.</string>
 </resources>

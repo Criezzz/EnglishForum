@@ -2,16 +2,23 @@ package com.example.englishforum.core.model.forum
 
 import com.example.englishforum.core.model.VoteState
 
-enum class PostTag {
-    Tutorial,
-    AskQuestion,
-    Resource,
-    Experience
+enum class PostTag(val serverValue: String) {
+    Tutorial("tutorial"),
+    AskQuestion("question"),
+    Resource("resource"),
+    Experience("experience");
+
+    companion object {
+        fun fromServerValue(value: String): PostTag? {
+            return values().firstOrNull { it.serverValue.equals(value, ignoreCase = true) }
+        }
+    }
 }
 
 data class ForumPostSummary(
     val id: String,
     val authorName: String,
+    val authorUsername: String? = null,
     val minutesAgo: Int,
     val title: String,
     val body: String,
@@ -25,7 +32,9 @@ data class ForumPostSummary(
 
 data class ForumComment(
     val id: String,
+    val authorId: String? = null,
     val authorName: String,
+    val authorUsername: String? = null,
     val minutesAgo: Int,
     val body: String,
     val voteCount: Int,
@@ -38,6 +47,7 @@ data class ForumPostDetail(
     val id: String,
     val authorId: String,
     val authorName: String,
+    val authorUsername: String? = null,
     val minutesAgo: Int,
     val title: String,
     val body: String,

@@ -1,5 +1,6 @@
 package com.example.englishforum.feature.profile
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -7,31 +8,48 @@ import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumProfilePost
 import com.example.englishforum.core.model.forum.ForumProfileReply
 import com.example.englishforum.core.model.forum.ForumUserProfile
-import com.example.englishforum.data.profile.FakeProfileRepository
+import com.example.englishforum.data.profile.ProfileAvatarImage
 import com.example.englishforum.data.profile.ProfileRepository
 import java.util.Locale
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
+
+internal const val MAX_PROFILE_BIO_LENGTH = 280
 
 class ProfileViewModel(
     private val repository: ProfileRepository,
     private val userId: String
 ) : ViewModel() {
 
-    private val _uiState = MutableStateFlow(ProfileUiState())
-    val uiState: StateFlow<ProfileUiState> = _uiState.asStateFlow()
+    private val _editState = MutableStateFlow<ProfileEditState>(ProfileEditState.Idle)
+    val editState: StateFlow<ProfileEditState> = _editState.asStateFlow()
 
-    init {
-        repository.observeProfile(userId)
-            .onEach { profile ->
-                _uiState.value = profile.toUiState()
-            }
-            .launchIn(viewModelScope)
-    }
+    private val _avatarState = MutableStateFlow(ProfileAvatarUiState())
+    val avatarState: StateFlow<ProfileAvatarUiState> = _avatarState.asStateFlow()
+
+    private val _isRefreshing = MutableStateFlow(false)
+
+    private var avatarUploadJob: Job? = null
+
+    val uiState: StateFlow<ProfileUiState> = combine(
+        repository.observeProfile(userId),
+        _isRefreshing
+    ) { profile, isRefreshing ->
+        profile.toUiState(isRefreshing = isRefreshing)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = ProfileUiState()
+    )
 
     fun updateDisplayName(newName: String) {
         val trimmed = newName.trim()
@@ -48,21 +66,101 @@ class ProfileViewModel(
         }
     }
 
+    fun onAvatarSelected(uri: Uri) {
+        avatarUploadJob?.cancel()
+        avatarUploadJob = viewModelScope.launch {
+            _avatarState.value = ProfileAvatarUiState(
+                previewUri = uri,
+                isUploading = true,
+                errorMessage = null
+            )
+            val result = repository.updateAvatar(userId, ProfileAvatarImage(uri))
+            result.fold(
+                onSuccess = {
+                    _avatarState.value = ProfileAvatarUiState(
+                        previewUri = uri,
+                        isUploading = false,
+                        errorMessage = null
+                    )
+                },
+                onFailure = { error ->
+                    if (error is CancellationException) {
+                        throw error
+                    }
+                    val message = error.message ?: "Could not update avatar"
+                    _avatarState.value = ProfileAvatarUiState(
+                        previewUri = uri,
+                        isUploading = false,
+                        errorMessage = message
+                    )
+                }
+            )
+        }
+    }
+
     fun updateProfile(newName: String, newBio: String) {
         val trimmedName = newName.trim()
-        if (trimmedName.isEmpty()) return
         val sanitizedBio = newBio.trim()
-        val currentOverview = _uiState.value.overview
+        val currentOverview = uiState.value.overview
 
         viewModelScope.launch {
-            if (currentOverview?.displayName != trimmedName) {
-                repository.updateDisplayName(userId, trimmedName)
+            val nameChanged = currentOverview?.displayName != trimmedName
+            val bioChanged = currentOverview?.bio.orEmpty() != sanitizedBio
+
+            if (!nameChanged && !bioChanged) {
+                _editState.value = ProfileEditState.Success
+                return@launch
             }
-            val currentBio = currentOverview?.bio.orEmpty()
-            if (currentBio != sanitizedBio) {
-                repository.updateBio(userId, sanitizedBio)
+
+            if (trimmedName.isEmpty()) {
+                _editState.value = ProfileEditState.Error("Display name cannot be empty")
+                return@launch
+            }
+
+            if (bioChanged && sanitizedBio.isEmpty()) {
+                _editState.value = ProfileEditState.Error("Bio cannot be empty")
+                return@launch
+            }
+
+            if (bioChanged && sanitizedBio.containsUnsupportedCharacters()) {
+                _editState.value = ProfileEditState.Error("Bio cannot include unsupported characters like emoji")
+                return@launch
+            }
+
+            if (bioChanged && sanitizedBio.length > MAX_PROFILE_BIO_LENGTH) {
+                _editState.value = ProfileEditState.Error("Bio cannot exceed $MAX_PROFILE_BIO_LENGTH characters")
+                return@launch
+            }
+
+            _editState.value = ProfileEditState.InProgress
+
+            var failure: Throwable? = null
+            if (nameChanged) {
+                val nameResult = repository.updateDisplayName(userId, trimmedName)
+                failure = nameResult.exceptionOrNull()
+            }
+            if (failure == null && bioChanged) {
+                val bioResult = repository.updateBio(userId, sanitizedBio)
+                failure = bioResult.exceptionOrNull()
+            }
+
+            if (failure != null) {
+                val message = failure.message ?: "Could not update profile"
+                _editState.value = ProfileEditState.Error(message)
+            } else {
+                _editState.value = ProfileEditState.Success
             }
         }
+    }
+
+    fun resetEditState() {
+        _editState.value = ProfileEditState.Idle
+    }
+
+    fun resetAvatarState() {
+        avatarUploadJob?.cancel()
+        avatarUploadJob = null
+        _avatarState.value = ProfileAvatarUiState()
     }
 
     fun onPostUpvote(postId: String) {
@@ -93,7 +191,19 @@ class ProfileViewModel(
         }
     }
 
-    private fun ForumUserProfile.toUiState(): ProfileUiState {
+    fun onRefresh() {
+        if (_isRefreshing.value) return
+        viewModelScope.launch {
+            _isRefreshing.value = true
+            try {
+                repository.refresh(userId)
+            } finally {
+                _isRefreshing.value = false
+            }
+        }
+    }
+
+    private fun ForumUserProfile.toUiState(isRefreshing: Boolean = false): ProfileUiState {
         return ProfileUiState(
             overview = ProfileOverview(
                 displayName = displayName,
@@ -107,7 +217,8 @@ class ProfileViewModel(
             ),
             posts = posts.map { it.toUiModel() },
             replies = replies.map { it.toUiModel() },
-            isLoading = false
+            isLoading = false,
+            isRefreshing = isRefreshing
         )
     }
 
@@ -116,9 +227,10 @@ class ProfileViewModel(
             id = id,
             title = title,
             body = body,
-            minutesAgo = minutesAgo,
+            timeLabel = timestampLabel,
             voteCount = voteCount,
-            voteState = voteState
+            voteState = voteState,
+            previewImageUrl = previewImageUrl
         )
     }
 
@@ -131,15 +243,17 @@ class ProfileViewModel(
             postId = postId,
             questionTitle = capitalizedTitle,
             body = body,
-            minutesAgo = minutesAgo,
+            timeLabel = timestampLabel,
             voteCount = voteCount,
             voteState = voteState
         )
     }
 }
 
+private fun String.containsUnsupportedCharacters(): Boolean = any { Character.isSurrogate(it) }
+
 class ProfileViewModelFactory(
-    private val repository: ProfileRepository = FakeProfileRepository(),
+    private val repository: ProfileRepository,
     private val userId: String
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")

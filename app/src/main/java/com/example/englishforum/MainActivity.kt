@@ -1,5 +1,6 @@
 package com.example.englishforum
 
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,6 +17,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -49,6 +52,9 @@ import com.example.englishforum.feature.postdetail.PostDetailRoute
 import com.example.englishforum.feature.postedit.PostEditRoute
 import com.example.englishforum.feature.profile.ProfileScreen
 import com.example.englishforum.feature.search.SearchRoute
+import com.example.englishforum.feature.session.SessionMonitorState
+import com.example.englishforum.feature.session.SessionMonitorViewModel
+import com.example.englishforum.feature.session.SessionMonitorViewModelFactory
 import com.example.englishforum.feature.settings.SettingsScreen
 import kotlinx.coroutines.launch
 
@@ -90,27 +96,99 @@ fun MainApp() {
     val appContainer = LocalAppContainer.current
     val sessionRepository = remember { appContainer.userSessionRepository }
     val authRepository = remember { appContainer.authRepository }
+    val sessionPreferenceRepository = remember { appContainer.sessionPreferenceRepository }
     val themeRepository = remember { appContainer.themePreferenceRepository }
+    val profileRepository = remember { appContainer.profileRepository }
+    val sessionValidator = remember { appContainer.sessionValidator }
+    val networkMonitor = remember { appContainer.networkMonitor }
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
-    val showBottomBar = currentRoute != "login" && currentRoute != "register" && currentRoute != "forgot" && currentRoute != Destinations.Settings.route
+    val isPostDetailRoute = currentRoute?.startsWith("post/") == true || currentRoute == "post/{postId}?commentId={commentId}"
+    val isViewingOtherProfile = currentRoute?.let {
+        it != Destinations.Profile.route && it.startsWith("profile")
+    } == true
+    val showBottomBar = currentRoute != "login" &&
+        currentRoute != "register" &&
+        currentRoute != "forgot" &&
+        currentRoute != "verify" &&
+        currentRoute != Destinations.Settings.route &&
+        !isPostDetailRoute &&
+        !isViewingOtherProfile
     val userSession by sessionRepository.sessionFlow.collectAsState(initial = null)
     val themeOption by themeRepository.themeOptionFlow.collectAsState(initial = ThemeOption.FOLLOW_SYSTEM)
+    val sessionMonitorViewModel: SessionMonitorViewModel = viewModel(
+        factory = remember(
+            sessionRepository,
+            sessionValidator,
+            networkMonitor,
+            sessionPreferenceRepository,
+            authRepository
+        ) {
+            SessionMonitorViewModelFactory(
+                userSessionRepository = sessionRepository,
+                sessionValidator = sessionValidator,
+                networkMonitor = networkMonitor,
+                sessionPreferenceRepository = sessionPreferenceRepository,
+                authRepository = authRepository
+            )
+        }
+    )
+    val sessionMonitorState by sessionMonitorViewModel.state.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val sessionExpiredMessage = stringResource(R.string.session_expired_message)
+    val sessionOfflineMessage = stringResource(R.string.session_offline_message)
+    val sessionCheckErrorMessage = stringResource(R.string.session_check_error_message)
+    val sessionRequiresVerificationMessage = stringResource(R.string.session_requires_verification_message)
+
+    LaunchedEffect(sessionMonitorState) {
+        when (val state = sessionMonitorState) {
+            SessionMonitorState.Invalidated -> {
+                snackbarHostState.showSnackbar(sessionExpiredMessage)
+            }
+
+            SessionMonitorState.Offline -> {
+                snackbarHostState.showSnackbar(sessionOfflineMessage)
+            }
+
+            SessionMonitorState.RequiresVerification -> {
+                snackbarHostState.showSnackbar(sessionRequiresVerificationMessage)
+            }
+
+            is SessionMonitorState.Error -> {
+                snackbarHostState.showSnackbar(state.message ?: sessionCheckErrorMessage)
+            }
+
+            else -> Unit
+        }
+    }
 
     LaunchedEffect(userSession, currentRoute) {
-        if (userSession != null && currentRoute == "login") {
-            navController.navigate(Destinations.Home.route) {
-                popUpTo("login") { inclusive = true }
+        val authRoutes = setOf("login", "register", "forgot", "verify")
+        val session = userSession
+        when {
+            session == null && currentRoute != null && currentRoute !in authRoutes -> {
+                navController.navigate("login") {
+                    popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                    launchSingleTop = true
+                }
             }
-        } else if (userSession == null && currentRoute != null &&
-            currentRoute != "login" && currentRoute != "register" && currentRoute != "forgot"
-        ) {
-            navController.navigate("login") {
-                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
-                launchSingleTop = true
+
+            session != null && !session.isEmailVerified && currentRoute != "verify" -> {
+                navController.navigate("verify") {
+                    popUpTo(navController.graph.findStartDestination().id) { inclusive = false }
+                    launchSingleTop = true
+                }
+            }
+
+            session != null && session.isEmailVerified && (currentRoute == "login" || currentRoute == "register" || currentRoute == "verify" || currentRoute == "forgot") -> {
+                navController.navigate(Destinations.Home.route) {
+                    popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                    launchSingleTop = true
+                }
             }
         }
     }
@@ -118,6 +196,7 @@ fun MainApp() {
     EnglishForumTheme(themeOption = themeOption) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
+            snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
             bottomBar = {
                 if (showBottomBar) {
                     MainBottomBar(navController)
@@ -129,9 +208,17 @@ fun MainApp() {
                 startDestination = "login",
                 modifier = Modifier.padding(innerPadding)
             ) {
-                composable("login") {
+                composable("login") { backStackEntry ->
+                    val resetMessage by backStackEntry.savedStateHandle
+                        .getStateFlow<String?>("passwordResetMessage", null)
+                        .collectAsState()
                     val loginViewModel: LoginViewModel = viewModel(
-                        factory = remember(authRepository) { LoginViewModelFactory(authRepository) }
+                        factory = remember(authRepository, sessionPreferenceRepository) {
+                            LoginViewModelFactory(
+                                authRepository = authRepository,
+                                sessionPreferenceRepository = sessionPreferenceRepository
+                            )
+                        }
                     )
                     LoginScreen(
                         viewModel = loginViewModel,
@@ -140,8 +227,18 @@ fun MainApp() {
                                 popUpTo("login") { inclusive = true }
                             }
                         },
+                        onRequireVerification = {
+                            navController.navigate("verify") {
+                                popUpTo("login") { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        },
                         onRegisterClick = { navController.navigate("register") },
-                        onForgotPasswordClick = { navController.navigate("forgot") }
+                        onForgotPasswordClick = { navController.navigate("forgot") },
+                        resetSuccessMessage = resetMessage,
+                        onResetMessageShown = {
+                            backStackEntry.savedStateHandle["passwordResetMessage"] = null
+                        }
                     )
                 }
 
@@ -157,8 +254,16 @@ fun MainApp() {
                             navController.popBackStack()
                         },
                         onResetSuccess = {
-                            navController.navigate(Destinations.Home.route) {
-                                popUpTo("login") { inclusive = true }
+                            val resetMessage = context.getString(R.string.auth_password_reset_success_message)
+                            scope.launch {
+                                navController.navigate("login") {
+                                    popUpTo("login") { inclusive = true }
+                                    launchSingleTop = true
+                                }
+                                navController.currentBackStackEntry?.savedStateHandle?.set(
+                                    "passwordResetMessage",
+                                    resetMessage
+                                )
                             }
                         }
                     )
@@ -172,12 +277,43 @@ fun MainApp() {
                     )
                     com.example.englishforum.feature.auth.RegisterScreen(
                         viewModel = registerViewModel,
+                        onVerificationRequired = {
+                            navController.navigate("verify") {
+                                popUpTo("register") { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        },
                         onRegisterSuccess = {
                             navController.navigate(Destinations.Home.route) {
-                                popUpTo("register") { inclusive = true }
+                                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                                launchSingleTop = true
                             }
                         },
                         onCancel = { navController.popBackStack() }
+                    )
+                }
+
+                composable("verify") {
+                    val verificationViewModel: com.example.englishforum.feature.auth.EmailVerificationViewModel = viewModel(
+                        factory = remember(authRepository) {
+                            com.example.englishforum.feature.auth.EmailVerificationViewModel.Factory(authRepository)
+                        }
+                    )
+                    com.example.englishforum.feature.auth.EmailVerificationScreen(
+                        viewModel = verificationViewModel,
+                        onVerificationSuccess = {
+                            navController.navigate(Destinations.Home.route) {
+                                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        },
+                        onBackToLogin = {
+                            scope.launch { sessionRepository.clearSession() }
+                            navController.navigate("login") {
+                                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+                                launchSingleTop = true
+                            }
+                        }
                     )
                 }
 
@@ -189,6 +325,10 @@ fun MainApp() {
                         },
                         onCommentClick = { postId ->
                             navController.navigate("post/$postId")
+                        },
+                        onAuthorClick = { username ->
+                            val encoded = Uri.encode(username)
+                            navController.navigate("profile/$encoded")
                         }
                     )
                 }
@@ -200,6 +340,10 @@ fun MainApp() {
                         },
                         onCommentClick = { postId ->
                             navController.navigate("post/$postId")
+                        },
+                        onAuthorClick = { username ->
+                            val encoded = Uri.encode(username)
+                            navController.navigate("profile/$encoded")
                         }
                     )
                 }
@@ -215,10 +359,12 @@ fun MainApp() {
                     NotiRoute(
                         modifier = Modifier.fillMaxSize(),
                         onNotificationClick = { postId, commentId ->
-                            if (commentId != null) {
-                                navController.navigate("post/$postId?commentId=$commentId")
-                            } else {
-                                navController.navigate("post/$postId")
+                            if (postId != null) {
+                                if (commentId != null) {
+                                    navController.navigate("post/$postId?commentId=$commentId")
+                                } else {
+                                    navController.navigate("post/$postId")
+                                }
                             }
                         }
                     )
@@ -237,7 +383,42 @@ fun MainApp() {
                             } else {
                                 navController.navigate("post/$postId")
                             }
+                        },
+                        isOwnProfile = true
+                    )
+                }
+                composable(
+                    route = "profile/{username}",
+                    arguments = listOf(
+                        androidx.navigation.navArgument("username") {
+                            type = androidx.navigation.NavType.StringType
                         }
+                    )
+                ) { backStackEntry ->
+                    val usernameArg = backStackEntry.arguments?.getString("username")?.let(Uri::decode)
+                    val isOwnProfile = usernameArg?.let { username ->
+                        val session = userSession
+                        session != null && (
+                            username.equals(session.username, ignoreCase = true) ||
+                                username.equals(session.userId, ignoreCase = true)
+                            )
+                    } ?: false
+                    ProfileScreen(
+                        modifier = Modifier.fillMaxSize(),
+                        userId = usernameArg,
+                        onSettingsClick = { navController.navigate(Destinations.Settings.route) },
+                        onPostClick = { postId ->
+                            navController.navigate("post/$postId")
+                        },
+                        onReplyClick = { postId, commentId ->
+                            if (commentId != null) {
+                                navController.navigate("post/$postId?commentId=$commentId")
+                            } else {
+                                navController.navigate("post/$postId")
+                            }
+                        },
+                        isOwnProfile = isOwnProfile,
+                        onBackClick = { navController.popBackStack() }
                     )
                 }
                 composable(Destinations.Settings.route) {
@@ -256,6 +437,45 @@ fun MainApp() {
                                     popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                                     launchSingleTop = true
                                 }
+                            }
+                        },
+                        onPasswordChange = { currentPassword, newPassword ->
+                            scope.launch {
+                                profileRepository.updatePassword(currentPassword, newPassword)
+                                    .onSuccess {
+                                        snackbarHostState.showSnackbar("Mật khẩu đã được cập nhật thành công")
+                                    }
+                                    .onFailure { error ->
+                                        snackbarHostState.showSnackbar(
+                                            error.message ?: "Không thể cập nhật mật khẩu"
+                                        )
+                                    }
+                            }
+                        },
+                        onEmailChange = { newEmail ->
+                            scope.launch {
+                                profileRepository.updateEmail(newEmail)
+                                    .onSuccess {
+                                        snackbarHostState.showSnackbar("Mã xác nhận đã được gửi đến email mới")
+                                    }
+                                    .onFailure { error ->
+                                        snackbarHostState.showSnackbar(
+                                            error.message ?: "Không thể gửi mã xác nhận"
+                                        )
+                                    }
+                            }
+                        },
+                        onEmailConfirm = { otp ->
+                            scope.launch {
+                                profileRepository.confirmEmailUpdate(otp)
+                                    .onSuccess {
+                                        snackbarHostState.showSnackbar("Email đã được cập nhật thành công")
+                                    }
+                                    .onFailure { error ->
+                                        snackbarHostState.showSnackbar(
+                                            error.message ?: "Không thể xác nhận email"
+                                        )
+                                    }
                             }
                         }
                     )
@@ -287,6 +507,10 @@ fun MainApp() {
                             },
                             onEditPostClick = { editPostId ->
                                 navController.navigate("post/$editPostId/edit")
+                            },
+                            onAuthorClick = { username ->
+                                val encoded = Uri.encode(username)
+                                navController.navigate("profile/$encoded")
                             }
                         )
                     }

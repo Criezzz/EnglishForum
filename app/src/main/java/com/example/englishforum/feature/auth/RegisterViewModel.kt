@@ -7,26 +7,17 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.englishforum.data.auth.AuthRepository
-import com.example.englishforum.data.auth.FakeAuthRepository
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class RegisterViewModel(
-    private val authRepository: AuthRepository = FakeAuthRepository()
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     var uiState by mutableStateOf(RegisterUiState())
         private set
 
-    private var otpTimerJob: Job? = null
-
-    fun onNameChange(value: String) {
-        uiState = uiState.copy(name = value, errorMessage = null)
-    }
-
-    fun onPhoneChange(value: String) {
-        uiState = uiState.copy(phone = value, errorMessage = null)
+    fun onUsernameChange(value: String) {
+        uiState = uiState.copy(username = value, errorMessage = null)
     }
 
     fun onEmailChange(value: String) {
@@ -41,22 +32,14 @@ class RegisterViewModel(
         uiState = uiState.copy(confirmPassword = value, errorMessage = null)
     }
 
-    fun onDobChange(value: String) {
-        uiState = uiState.copy(dob = value, errorMessage = null)
-    }
-
     fun setError(message: String) {
         uiState = uiState.copy(errorMessage = message)
     }
 
     private fun validate(): Boolean {
         val state = uiState
-        if (state.name.trim().isEmpty()) {
-            uiState = state.copy(errorMessage = "Vui lòng nhập tên")
-            return false
-        }
-        if (state.phone.trim().isEmpty()) {
-            uiState = state.copy(errorMessage = "Vui lòng nhập số điện thoại")
+        if (state.username.trim().length < 8) {
+            uiState = state.copy(errorMessage = "Tên đăng nhập phải có ít nhất 8 ký tự")
             return false
         }
         if (state.email.trim().isEmpty() || !state.email.contains("@")) {
@@ -75,144 +58,53 @@ class RegisterViewModel(
             uiState = state.copy(errorMessage = "Mật khẩu xác nhận không khớp")
             return false
         }
-        if (state.dob.trim().isEmpty()) {
-            uiState = state.copy(errorMessage = "Vui lòng chọn ngày sinh")
-            return false
-        }
         return true
     }
 
-    fun register() {
+    fun register(
+        onVerificationRequired: () -> Unit,
+        onRegistrationComplete: () -> Unit
+    ) {
         if (!validate()) return
-        uiState = uiState.copy(isLoading = true, errorMessage = null)
-        
-        // First step: request OTP
+        uiState = uiState.copy(isLoading = true, errorMessage = null, successMessage = null)
+
         viewModelScope.launch {
-            val result = authRepository.requestOtp(uiState.email)
-            result.onSuccess {
-                uiState = uiState.copy(
-                    isLoading = false,
-                    isOtpRequested = true,
-                    successMessage = "Mã OTP đã được gửi đến ${uiState.email}",
-                    errorMessage = null,
-                    otp = "",
-                    otpErrorMessage = null
-                )
-                startOtpCountdown()
-            }.onFailure { throwable ->
-                uiState = uiState.copy(
-                    isLoading = false,
-                    errorMessage = throwable.message ?: "Không gửi được OTP"
-                )
-            }
-        }
-    }
+            val result = authRepository.register(
+                username = uiState.username,
+                email = uiState.email,
+                password = uiState.password
+            )
 
-    fun onOtpChange(value: String) {
-        val sanitized = value.filter { it.isDigit() }.take(6)
-        uiState = uiState.copy(otp = sanitized, otpErrorMessage = null)
-        if (sanitized.length < OTP_LENGTH) {
-            return
-        }
-        verifyOtpAndRegister()
-    }
-
-    private fun verifyOtpAndRegister() {
-        val state = uiState
-        if (!state.isOtpRequested) {
-            uiState = state.copy(otpErrorMessage = "Vui lòng yêu cầu mã OTP trước")
-            return
-        }
-        if (state.otp.length < OTP_LENGTH) {
-            uiState = state.copy(otpErrorMessage = "Mã OTP phải gồm 6 số")
-            return
-        }
-
-        uiState = uiState.copy(isRegistering = true, otpErrorMessage = null)
-        viewModelScope.launch {
-            // First verify OTP
-            val otpResult = authRepository.verifyOtp(state.otp)
-            otpResult.onSuccess { isValid ->
-                if (isValid) {
-                    // OTP is valid, proceed with registration
-                    val registerResult = authRepository.register(
-                        name = state.name,
-                        phone = state.phone,
-                        email = state.email,
-                        password = state.password,
-                        dob = state.dob
-                    )
-                    registerResult.onSuccess { session ->
-                        uiState = uiState.copy(
-                            isRegistering = false,
-                            isRegistrationComplete = true,
-                            successMessage = "Đăng ký thành công!"
-                        )
-                        // Navigation will be handled by the composable observing isRegistrationComplete
-                    }.onFailure { throwable ->
-                        uiState = uiState.copy(
-                            isRegistering = false,
-                            otpErrorMessage = throwable.message ?: "Đăng ký thất bại"
-                        )
-                    }
-                } else {
+            result
+                .onSuccess { registerResult ->
                     uiState = uiState.copy(
-                        isRegistering = false,
-                        otpErrorMessage = "Mã OTP không đúng"
+                        isLoading = false,
+                        isRegistrationComplete = true,
+                        requiresVerification = registerResult.requiresEmailVerification,
+                        successMessage = if (registerResult.requiresEmailVerification) {
+                            "Tài khoản đã được tạo. Vui lòng xác minh email để tiếp tục"
+                        } else {
+                            "Đăng ký thành công"
+                        }
+                    )
+                    if (registerResult.requiresEmailVerification) {
+                        onVerificationRequired()
+                    } else {
+                        onRegistrationComplete()
+                    }
+                }
+                .onFailure { throwable ->
+                    uiState = uiState.copy(
+                        isLoading = false,
+                        errorMessage = throwable.message ?: "Đăng ký thất bại",
+                        successMessage = null
                     )
                 }
-            }.onFailure { throwable ->
-                uiState = uiState.copy(
-                    isRegistering = false,
-                    otpErrorMessage = throwable.message ?: "Xác thực OTP thất bại"
-                )
-            }
-        }
-    }
-
-    fun requestNewOtp() {
-        if (uiState.otpSecondsRemaining > 0) return
-        
-        uiState = uiState.copy(isLoading = true, otpErrorMessage = null)
-        viewModelScope.launch {
-            val result = authRepository.requestOtp(uiState.email)
-            result.onSuccess {
-                uiState = uiState.copy(
-                    isLoading = false,
-                    successMessage = "Mã OTP mới đã được gửi đến ${uiState.email}",
-                    otp = "",
-                    otpErrorMessage = null
-                )
-                startOtpCountdown()
-            }.onFailure { throwable ->
-                uiState = uiState.copy(
-                    isLoading = false,
-                    otpErrorMessage = throwable.message ?: "Không gửi được OTP"
-                )
-            }
-        }
-    }
-
-    private fun startOtpCountdown() {
-        otpTimerJob?.cancel()
-        otpTimerJob = viewModelScope.launch {
-            uiState = uiState.copy(otpSecondsRemaining = OTP_COUNTDOWN_SECONDS)
-            while (uiState.otpSecondsRemaining > 0) {
-                delay(1000)
-                val next = uiState.otpSecondsRemaining - 1
-                uiState = uiState.copy(otpSecondsRemaining = next)
-            }
-            uiState = uiState.copy(otpSecondsRemaining = 0)
         }
     }
 
     fun clearError() {
-        uiState = uiState.copy(errorMessage = null, otpErrorMessage = null)
-    }
-
-    private companion object {
-        private const val OTP_COUNTDOWN_SECONDS = 60
-        private const val OTP_LENGTH = 6
+        uiState = uiState.copy(errorMessage = null, successMessage = null)
     }
 }
 
@@ -229,19 +121,13 @@ class RegisterViewModelFactory(
 }
 
 data class RegisterUiState(
-    val name: String = "",
-    val phone: String = "",
+    val username: String = "",
     val email: String = "",
     val password: String = "",
     val confirmPassword: String = "",
-    val dob: String = "",
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val successMessage: String? = null,
-    val otp: String = "",
-    val isOtpRequested: Boolean = false,
-    val otpErrorMessage: String? = null,
-    val isRegistering: Boolean = false,
     val isRegistrationComplete: Boolean = false,
-    val otpSecondsRemaining: Int = 0
+    val requiresVerification: Boolean = false
 )

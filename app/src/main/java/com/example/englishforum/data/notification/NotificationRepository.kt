@@ -6,6 +6,8 @@ import kotlinx.coroutines.flow.Flow
 interface NotificationRepository {
     val notificationsStream: Flow<List<ForumNotification>>
 
+    suspend fun refresh(): Result<Unit> = Result.success(Unit)
+
     suspend fun markNotificationAsRead(notificationId: String)
 
     suspend fun markAllAsRead()

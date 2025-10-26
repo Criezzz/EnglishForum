@@ -9,6 +9,7 @@ import com.example.englishforum.core.model.forum.ForumComment
 import com.example.englishforum.core.model.forum.ForumPostDetail
 import com.example.englishforum.data.aipractice.AiPracticeRepository
 import com.example.englishforum.data.aipractice.FakeAiPracticeRepository
+import com.example.englishforum.data.auth.UserSession
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.post.FakePostDetailRepository
 import com.example.englishforum.data.post.PostDetailRepository
@@ -28,27 +29,61 @@ class PostDetailViewModel(
 ) : ViewModel() {
 
     private val isLoading = MutableStateFlow(true)
+    private var hasLoadedInitialPost = false
     private val errorMessage = MutableStateFlow<String?>(null)
     private val aiPracticeChecking = MutableStateFlow(false)
     private val userMessage = MutableStateFlow<String?>(null)
     private val isProcessingAction = MutableStateFlow(false)
     private val postDeleted = MutableStateFlow(false)
+    private val isRefreshing = MutableStateFlow(false)
+    private val commentDraft = MutableStateFlow("")
+    private val replyTarget = MutableStateFlow<CommentReplyTargetUi?>(null)
+    private val isSubmittingComment = MutableStateFlow(false)
+    private val newlyPostedCommentId = MutableStateFlow<String?>(null)
 
     private val postStream = repository.observePost(postId)
-        .onEach { isLoading.value = false }
+        .onEach { post ->
+            if (post != null) {
+                hasLoadedInitialPost = true
+                isLoading.value = false
+            } else if (hasLoadedInitialPost) {
+                isLoading.value = false
+            }
+        }
 
-    private val baseState = combine(
+    private val baseInputs = combine(
         postStream,
         userSessionRepository.sessionFlow,
         isLoading,
         errorMessage,
         aiPracticeChecking
     ) { post, session, loading, error, aiChecking ->
+        BaseStateInputs(
+            post = post,
+            session = session,
+            isLoading = loading,
+            errorMessage = error,
+            isAiChecking = aiChecking
+        )
+    }
+
+    private val baseState = combine(
+        baseInputs,
+        isRefreshing,
+        commentDraft,
+        isSubmittingComment,
+        replyTarget
+    ) { inputs, refreshing, draft, submittingComment, target ->
+        val post = inputs.post
         val postUi = post?.toUiModel()
+        val currentUserId = inputs.session?.userId
+        val currentUsername = inputs.session?.username
         val commentUi = if (post != null) {
             post.comments.flatMapIndexed { index, comment ->
                 comment.toUiModel(
                     postAuthorName = post.authorName,
+                    currentUserId = currentUserId,
+                    currentUsername = currentUsername,
                     depth = 0,
                     isFirstChild = index == 0,
                     isLastChild = index == (post.comments.size - 1)
@@ -57,15 +92,26 @@ class PostDetailViewModel(
         } else {
             emptyList()
         }
-        val isOwner = post?.authorId != null && session?.userId == post.authorId
+        val isOwner = post?.let { detail ->
+            inputs.session?.let { user ->
+                detail.authorId.equals(user.userId, ignoreCase = true) ||
+                    detail.authorId.equals(user.username, ignoreCase = true)
+            } ?: false
+        } ?: false
 
         PostDetailUiState(
-            isLoading = loading,
+            isLoading = inputs.isLoading,
+            isRefreshing = refreshing,
             post = postUi,
             comments = commentUi,
-            errorMessage = error,
-            isAiPracticeChecking = aiChecking,
-            isCurrentUserPostOwner = isOwner
+            errorMessage = inputs.errorMessage,
+            isAiPracticeChecking = inputs.isAiChecking,
+            isCurrentUserPostOwner = isOwner,
+            commentComposer = CommentComposerUi(
+                draft = draft,
+                isSubmitting = submittingComment,
+                replyTarget = target
+            )
         )
     }
 
@@ -73,12 +119,14 @@ class PostDetailViewModel(
         baseState,
         userMessage,
         isProcessingAction,
-        postDeleted
-    ) { base, message, processing, deleted ->
+        postDeleted,
+        newlyPostedCommentId
+    ) { base, message, processing, deleted, newCommentId ->
         base.copy(
             userMessage = message,
             isPerformingAction = processing,
-            isPostDeleted = deleted
+            isPostDeleted = deleted,
+            newlyPostedCommentId = newCommentId
         )
     }
         .stateIn(
@@ -204,6 +252,135 @@ class PostDetailViewModel(
     fun onPostUpdatedExternally() {
         userMessage.value = "Đã cập nhật bài viết."
     }
+
+    fun onRefresh() {
+        if (isRefreshing.value) return
+        viewModelScope.launch {
+            isRefreshing.value = true
+            errorMessage.value = null
+            try {
+                val result = repository.refreshPost(postId)
+                if (result.isFailure) {
+                    errorMessage.value = result.exceptionOrNull()?.message ?: "Không thể tải lại bài viết."
+                }
+            } catch (throwable: Throwable) {
+                errorMessage.value = throwable.message ?: "Không thể tải lại bài viết."
+            } finally {
+                isRefreshing.value = false
+            }
+        }
+    }
+
+    fun onCommentDraftChanged(text: String) {
+        commentDraft.value = text
+    }
+
+    fun onSubmitComment() {
+        val originalDraft = commentDraft.value
+        val trimmedDraft = originalDraft.trim()
+        if (trimmedDraft.isEmpty() || isSubmittingComment.value) {
+            if (trimmedDraft.isEmpty() && originalDraft != trimmedDraft) {
+                commentDraft.value = trimmedDraft
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            isSubmittingComment.value = true
+            errorMessage.value = null
+            
+            // Store existing comment IDs before submission
+            val existingCommentIds = uiState.value.comments.map { it.id }.toSet()
+            val targetId = replyTarget.value?.commentId
+            
+            try {
+                val result = repository.addComment(postId, trimmedDraft, targetId)
+                result.onSuccess {
+                    commentDraft.value = ""
+                    replyTarget.value = null
+                    
+                    // Wait a bit for the post to refresh and find the new comment
+                    kotlinx.coroutines.delay(300)
+                    val newComments = uiState.value.comments
+                    
+                    // Find the comment that wasn't in the list before
+                    val newComment = newComments.firstOrNull { it.id !in existingCommentIds }
+                    if (newComment != null) {
+                        newlyPostedCommentId.value = newComment.id
+                    }
+                }
+                result.onFailure { throwable ->
+                    errorMessage.value = throwable.message ?: "Không thể đăng bình luận."
+                }
+            } catch (throwable: Throwable) {
+                errorMessage.value = throwable.message ?: "Không thể đăng bình luận."
+            } finally {
+                isSubmittingComment.value = false
+            }
+        }
+    }
+
+    fun onCancelReplyTarget() {
+        replyTarget.value = null
+    }
+
+    fun onReplyToComment(
+        commentId: String,
+        authorName: String,
+        authorUsername: String?
+    ) {
+        replyTarget.value = CommentReplyTargetUi(
+            commentId = commentId,
+            authorName = authorName,
+            authorUsername = authorUsername
+        )
+    }
+
+    fun onNewCommentHighlightShown() {
+        newlyPostedCommentId.value = null
+    }
+
+    fun onEditComment(commentId: String, newContent: String) {
+        if (isProcessingAction.value) return
+        viewModelScope.launch {
+            isProcessingAction.value = true
+            errorMessage.value = null
+            try {
+                val result = repository.updateComment(postId, commentId, newContent)
+                result.onSuccess {
+                    userMessage.value = "Đã cập nhật bình luận."
+                }
+                result.onFailure { throwable ->
+                    errorMessage.value = throwable.message ?: "Không thể cập nhật bình luận."
+                }
+            } catch (throwable: Throwable) {
+                errorMessage.value = throwable.message ?: "Không thể cập nhật bình luận."
+            } finally {
+                isProcessingAction.value = false
+            }
+        }
+    }
+
+    fun onDeleteComment(commentId: String) {
+        if (isProcessingAction.value) return
+        viewModelScope.launch {
+            isProcessingAction.value = true
+            errorMessage.value = null
+            try {
+                val result = repository.deleteComment(postId, commentId)
+                result.onSuccess {
+                    userMessage.value = "Đã xoá bình luận."
+                }
+                result.onFailure { throwable ->
+                    errorMessage.value = throwable.message ?: "Không thể xoá bình luận."
+                }
+            } catch (throwable: Throwable) {
+                errorMessage.value = throwable.message ?: "Không thể xoá bình luận."
+            } finally {
+                isProcessingAction.value = false
+            }
+        }
+    }
 }
 
 class PostDetailViewModelFactory(
@@ -221,11 +398,21 @@ class PostDetailViewModelFactory(
     }
 }
 
+private data class BaseStateInputs(
+    val post: ForumPostDetail?,
+    val session: UserSession?,
+    val isLoading: Boolean,
+    val errorMessage: String?,
+    val isAiChecking: Boolean
+)
+
 private fun ForumPostDetail.toUiModel(): PostDetailUi {
     return PostDetailUi(
         id = id,
         authorId = authorId,
         authorName = authorName,
+        authorUsername = authorUsername,
+        authorAvatarUrl = authorAvatarUrl,
         relativeTimeText = formatRelativeTime(minutesAgo),
         title = title,
         body = body,
@@ -239,18 +426,39 @@ private fun ForumPostDetail.toUiModel(): PostDetailUi {
 
 private fun ForumComment.toUiModel(
     postAuthorName: String,
+    currentUserId: String?,
+    currentUsername: String?,
     depth: Int,
     isFirstChild: Boolean,
     isLastChild: Boolean
 ): List<PostCommentUi> {
+    // Determine if this comment belongs to the current user
+    val isCurrentUserComment = when {
+        // Primary check: Match by authorId (numeric ID from backend)
+        currentUserId != null && authorId != null && 
+            authorId.equals(currentUserId, ignoreCase = true) -> true
+        
+        // Secondary check: Match by username
+        currentUsername != null && authorUsername != null && 
+            authorUsername.equals(currentUsername, ignoreCase = true) -> true
+        
+        // Tertiary check: authorUsername might match userId (fallback)
+        currentUserId != null && authorUsername != null && 
+            authorUsername.equals(currentUserId, ignoreCase = true) -> true
+        
+        else -> false
+    }
+    
     val commentUi = PostCommentUi(
         id = id,
         authorName = authorName,
+        authorUsername = authorUsername,
         relativeTimeText = formatRelativeTime(minutesAgo),
         body = body,
         voteCount = voteCount,
         voteState = voteState,
         isAuthor = isAuthor || authorName.equals(postAuthorName, ignoreCase = true),
+        isCurrentUserComment = isCurrentUserComment,
         depth = depth,
         hasReplies = replies.isNotEmpty(),
         isFirstChild = isFirstChild,
@@ -264,6 +472,8 @@ private fun ForumComment.toUiModel(
     val nestedReplies = replies.flatMapIndexed { index, reply ->
         reply.toUiModel(
             postAuthorName = postAuthorName,
+            currentUserId = currentUserId,
+            currentUsername = currentUsername,
             depth = depth + 1,
             isFirstChild = index == 0,
             isLastChild = index == replies.lastIndex
