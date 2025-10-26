@@ -1192,8 +1192,7 @@ private fun ZoomableImage(
         AuthenticatedRemoteImage(
             url = imageUrl,
             modifier = Modifier
-                .fillMaxWidth()
-                .aspectRatio(16f / 9f)
+                .fillMaxSize()
                 .graphicsLayer(
                     scaleX = scale,
                     scaleY = scale,
