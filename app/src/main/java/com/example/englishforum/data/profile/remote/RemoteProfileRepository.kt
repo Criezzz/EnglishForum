@@ -19,6 +19,7 @@ import com.example.englishforum.data.profile.ProfileRepository
 import com.example.englishforum.data.profile.remote.model.SimpleUserResponse
 import com.example.englishforum.data.profile.remote.model.UserCommentResponse
 import com.example.englishforum.data.profile.remote.model.UserPostResponse
+import com.example.englishforum.data.post.remote.model.resolvePreviewUrl
 import java.io.IOException
 import java.time.Duration
 import java.time.Instant
@@ -459,7 +460,8 @@ internal class RemoteProfileRepository(
             body = content.orEmpty(),
             timestampLabel = createdAt.toProfileTimestampLabel(),
             voteCount = voteCount ?: 0,
-            voteState = userVote.toVoteState()
+            voteState = userVote.toVoteState(),
+            previewImageUrl = attachments.resolvePreviewUrl()
         )
     }
 

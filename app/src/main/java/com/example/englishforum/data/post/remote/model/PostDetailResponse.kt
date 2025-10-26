@@ -1,6 +1,5 @@
 package com.example.englishforum.data.post.remote.model
 
-import com.example.englishforum.data.home.remote.model.AttachmentResponse
 import com.squareup.moshi.Json
 
 internal data class PostDetailResponse(

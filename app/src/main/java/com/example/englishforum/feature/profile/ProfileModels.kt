@@ -28,7 +28,8 @@ data class ProfilePost(
     val body: String,
     val timeLabel: String,
     val voteCount: Int,
-    val voteState: VoteState = VoteState.NONE
+    val voteState: VoteState = VoteState.NONE,
+    val previewImageUrl: String? = null
 )
 
 data class ProfileReply(

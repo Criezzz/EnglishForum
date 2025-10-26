@@ -229,7 +229,8 @@ class ProfileViewModel(
             body = body,
             timeLabel = timestampLabel,
             voteCount = voteCount,
-            voteState = voteState
+            voteState = voteState,
+            previewImageUrl = previewImageUrl
         )
     }
 

@@ -77,6 +77,7 @@ import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.ui.components.VoteIconButton
 import com.example.englishforum.core.ui.components.card.ForumContentCard
 import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImage
+import com.example.englishforum.core.ui.components.image.ForumPostPreviewImage
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 
 @Composable
@@ -276,7 +277,12 @@ private fun ProfileContent(
                             onCardClick = { onPostClick(post.id) },
                             onUpvoteClick = { onPostUpvote(post.id) },
                             onDownvoteClick = { onPostDownvote(post.id) },
-                            onMoreActionsClick = { onPostMoreClick(post) }
+                            onMoreActionsClick = { onPostMoreClick(post) },
+                            supportingContent = {
+                                post.previewImageUrl?.let { previewUrl ->
+                                    ForumPostPreviewImage(imageUrl = previewUrl)
+                                }
+                            }
                         )
                     }
                 }

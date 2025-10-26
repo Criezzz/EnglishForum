@@ -14,7 +14,8 @@ data class ForumProfilePost(
     val body: String,
     val timestampLabel: String,
     val voteCount: Int,
-    val voteState: VoteState
+    val voteState: VoteState,
+    val previewImageUrl: String? = null
 )
 
 data class ForumProfileReply(

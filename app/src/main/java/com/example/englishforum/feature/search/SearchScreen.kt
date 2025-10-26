@@ -2,12 +2,10 @@ package com.example.englishforum.feature.search
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -22,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,6 +55,7 @@ import com.example.englishforum.core.ui.components.ForumAuthorLink
 import com.example.englishforum.core.ui.components.ForumTagLabel
 import com.example.englishforum.core.ui.components.card.ForumContentCard
 import com.example.englishforum.core.ui.components.card.ForumContentCardPlaceholder
+import com.example.englishforum.core.ui.components.image.ForumPostPreviewImage
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 import com.example.englishforum.core.ui.toLabelResId
 
@@ -472,8 +470,8 @@ private fun SearchPostCard(
             }
         },
         supportingContent = {
-            if (result.previewImageUrl != null) {
-                SearchResultImagePlaceholder()
+            result.previewImageUrl?.let { previewUrl ->
+                ForumPostPreviewImage(imageUrl = previewUrl)
             }
         }
     )
@@ -546,31 +544,6 @@ private fun SearchUserCard(
             }
             Icon(
                 imageVector = Icons.Filled.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-    }
-}
-
-@Composable
-private fun SearchResultImagePlaceholder(
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(16f / 9f),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 0.dp
-    ) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.Image,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant
             )

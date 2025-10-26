@@ -11,6 +11,7 @@ import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.auth.bearerToken
 import com.example.englishforum.data.home.HomeRepository
 import com.example.englishforum.data.search.SearchRepository
+import com.example.englishforum.data.post.remote.model.resolvePreviewUrl
 import com.example.englishforum.data.search.remote.model.SearchPostResponse
 import com.example.englishforum.data.search.remote.model.SearchResponse
 import com.example.englishforum.data.search.remote.model.SearchUserResponse
@@ -116,7 +117,7 @@ class RemoteSearchRepository(
             commentCount = commentCount ?: 0,
             tag = tag.toPostTag(),
             authorAvatarUrl = authorAvatar.toDownloadUrl(baseUrl),
-            previewImageUrl = null
+            previewImageUrl = attachments.resolvePreviewUrl()
         )
     }
 

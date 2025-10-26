@@ -1,5 +1,6 @@
 package com.example.englishforum.data.home.remote.model
 
+import com.example.englishforum.data.post.remote.model.AttachmentResponse
 import com.squareup.moshi.Json
 
 data class FeedPostResponse(
@@ -18,12 +19,4 @@ data class FeedPostResponse(
     @Json(name = "author_avatar_url") val authorAvatarUrl: String? = null,
     @Json(name = "author_avatar") val authorAvatar: String? = null,
     val attachments: List<AttachmentResponse>? = null
-)
-
-data class AttachmentResponse(
-    @Json(name = "media_url") val mediaUrl: String? = null,
-    @Json(name = "media_filename") val mediaFilename: String? = null,
-    @Json(name = "media_type") val mediaType: String? = null,
-    @Json(name = "media_metadata") val mediaMetadata: String? = null,
-    val index: Int? = null
 )

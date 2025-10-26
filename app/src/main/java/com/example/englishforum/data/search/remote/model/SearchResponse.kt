@@ -1,5 +1,6 @@
 package com.example.englishforum.data.search.remote.model
 
+import com.example.englishforum.data.post.remote.model.AttachmentResponse
 import com.squareup.moshi.Json
 
 data class SearchResponse(
@@ -20,7 +21,8 @@ data class SearchPostResponse(
     @Json(name = "author_display_name") val authorDisplayName: String? = null,
     @Json(name = "author_name") val authorName: String? = null,
     @Json(name = "author_avatar") val authorAvatar: String? = null,
-    @Json(name = "user_vote") val userVote: Int? = null
+    @Json(name = "user_vote") val userVote: Int? = null,
+    val attachments: List<AttachmentResponse>? = null
 )
 
 data class SearchUserResponse(

@@ -1,5 +1,6 @@
 package com.example.englishforum.data.profile.remote.model
 
+import com.example.englishforum.data.post.remote.model.AttachmentResponse
 import com.squareup.moshi.Json
 
 data class UserPostResponse(
@@ -11,7 +12,8 @@ data class UserPostResponse(
     @Json(name = "created_at") val createdAt: String? = null,
     val tag: String? = null,
     @Json(name = "author_username") val authorUsername: String? = null,
-    @Json(name = "author_avatar") val authorAvatar: String? = null
+    @Json(name = "author_avatar") val authorAvatar: String? = null,
+    val attachments: List<AttachmentResponse>? = null
 )
 
 data class UserCommentResponse(

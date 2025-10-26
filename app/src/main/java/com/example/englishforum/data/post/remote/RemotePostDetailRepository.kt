@@ -13,6 +13,8 @@ import com.example.englishforum.data.post.PostDetailRepository
 import com.example.englishforum.data.post.ForumPostSummaryStore
 import com.example.englishforum.data.post.remote.model.PostCommentResponse
 import com.example.englishforum.data.post.remote.model.PostDetailResponse
+import com.example.englishforum.data.post.remote.model.resolveGalleryUrls
+import com.example.englishforum.data.post.remote.model.resolvePreviewUrl
 import java.io.IOException
 import java.time.Duration
 import java.time.Instant
@@ -486,29 +488,6 @@ internal class RemotePostDetailRepository(
             return null
         }
         return search(comments)
-    }
-
-    private fun List<com.example.englishforum.data.home.remote.model.AttachmentResponse>?.resolvePreviewUrl(): String? {
-        if (this.isNullOrEmpty()) return null
-        return this
-            .sortedWith(compareBy({ it.index ?: Int.MAX_VALUE }))
-            .firstNotNullOfOrNull { it.resolveMediaUrl() }
-    }
-
-    private fun List<com.example.englishforum.data.home.remote.model.AttachmentResponse>?.resolveGalleryUrls(): List<String>? {
-        if (this.isNullOrEmpty()) return null
-        val urls = this
-            .sortedWith(compareBy({ it.index ?: Int.MAX_VALUE }))
-            .mapNotNull { it.resolveMediaUrl() }
-        return urls.takeIf { it.isNotEmpty() }
-    }
-
-    private fun com.example.englishforum.data.home.remote.model.AttachmentResponse.resolveMediaUrl(): String? {
-        val explicitUrl = mediaUrl?.takeIf { it.isNotBlank() }
-        if (explicitUrl != null) return explicitUrl
-        val filename = mediaFilename?.takeIf { !it.isNullOrBlank() } ?: return null
-        val normalizedBase = BuildConfig.API_BASE_URL.trimEnd('/')
-        return "$normalizedBase/download/$filename"
     }
 
     private fun String?.normalizeAvatarUrl(): String? {

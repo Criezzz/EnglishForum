@@ -9,9 +9,9 @@ import com.example.englishforum.data.auth.UserSession
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.auth.bearerToken
 import com.example.englishforum.data.home.HomeRepository
-import com.example.englishforum.data.home.remote.model.AttachmentResponse
 import com.example.englishforum.data.home.remote.model.FeedPostResponse
 import com.example.englishforum.data.post.ForumPostSummaryStore
+import com.example.englishforum.data.post.remote.model.resolvePreviewUrl
 import java.io.IOException
 import java.time.Duration
 import java.time.Instant
@@ -163,29 +163,6 @@ class RemoteHomeRepository(
             authorUsername,
             authorName
         ).firstOrNull { it.isNotBlank() } ?: ANONYMOUS_AUTHOR
-    }
-
-    private fun List<AttachmentResponse>?.resolvePreviewUrl(): String? {
-        if (this.isNullOrEmpty()) return null
-        return this
-            .sortedWith(compareBy<AttachmentResponse> { it.index ?: Int.MAX_VALUE })
-            .firstNotNullOfOrNull { attachment -> attachment.resolveMediaUrl() }
-    }
-
-    private fun List<AttachmentResponse>?.resolveGalleryUrls(): List<String>? {
-        if (this.isNullOrEmpty()) return null
-        val urls = this
-            .sortedWith(compareBy<AttachmentResponse> { it.index ?: Int.MAX_VALUE })
-            .mapNotNull { attachment -> attachment.resolveMediaUrl() }
-        return urls.takeIf { it.isNotEmpty() }
-    }
-
-    private fun AttachmentResponse.resolveMediaUrl(): String? {
-        val explicitUrl = mediaUrl?.takeIf { it.isNotBlank() }
-        if (explicitUrl != null) return explicitUrl
-        val filename = mediaFilename?.takeIf { it.isNotBlank() } ?: return null
-        val normalizedBase = BuildConfig.API_BASE_URL.trimEnd('/')
-        return "$normalizedBase/download/$filename"
     }
 
     private fun String?.normalizeAvatarUrl(): String? {
