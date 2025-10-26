@@ -10,7 +10,7 @@ data class GenerateResponse(
     @Json(name = "items")
     val items: List<AiGeneratedItem>,
     @Json(name = "isAskable")
-    val isAskable: Boolean? = true
+    val isAskable: Boolean? = null
 )
 
 @JsonClass(generateAdapter = true)

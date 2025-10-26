@@ -327,8 +327,21 @@ fun MainApp() {
                             navController.navigate("post/$postId")
                         },
                         onAuthorClick = { username ->
-                            val encoded = Uri.encode(username)
-                            navController.navigate("profile/$encoded")
+                            // Check if clicking on own profile
+                            val session = userSession
+                            val isOwnProfile = session != null && (
+                                username.equals(session.username, ignoreCase = true) ||
+                                username.equals(session.userId, ignoreCase = true)
+                            )
+                            
+                            if (isOwnProfile) {
+                                // Navigate to own profile (no back button)
+                                navController.navigate(Destinations.Profile.route)
+                            } else {
+                                // Navigate to other user's profile (with back button)
+                                val encoded = Uri.encode(username)
+                                navController.navigate("profile/$encoded")
+                            }
                         }
                     )
                 }
@@ -342,8 +355,21 @@ fun MainApp() {
                             navController.navigate("post/$postId")
                         },
                         onAuthorClick = { username ->
-                            val encoded = Uri.encode(username)
-                            navController.navigate("profile/$encoded")
+                            // Check if clicking on own profile
+                            val session = userSession
+                            val isOwnProfile = session != null && (
+                                username.equals(session.username, ignoreCase = true) ||
+                                username.equals(session.userId, ignoreCase = true)
+                            )
+                            
+                            if (isOwnProfile) {
+                                // Navigate to own profile (no back button)
+                                navController.navigate(Destinations.Profile.route)
+                            } else {
+                                // Navigate to other user's profile (with back button)
+                                val encoded = Uri.encode(username)
+                                navController.navigate("profile/$encoded")
+                            }
                         }
                     )
                 }
@@ -351,7 +377,9 @@ fun MainApp() {
                     com.example.englishforum.feature.create.CreateRoute(
                         modifier = Modifier.fillMaxSize(),
                         onNavigateToPostDetail = { newPostId ->
-                            navController.navigate("post/$newPostId")
+                            navController.navigate("post/$newPostId") {
+                                popUpTo(Destinations.Create.route) { inclusive = true }
+                            }
                         }
                     )
                 }
@@ -511,8 +539,21 @@ fun MainApp() {
                                 navController.navigate("post/$editPostId/edit")
                             },
                             onAuthorClick = { username ->
-                                val encoded = Uri.encode(username)
-                                navController.navigate("profile/$encoded")
+                                // Check if clicking on own profile
+                                val session = userSession
+                                val isOwnProfile = session != null && (
+                                    username.equals(session.username, ignoreCase = true) ||
+                                    username.equals(session.userId, ignoreCase = true)
+                                )
+                                
+                                if (isOwnProfile) {
+                                    // Navigate to own profile (no back button)
+                                    navController.navigate(Destinations.Profile.route)
+                                } else {
+                                    // Navigate to other user's profile (with back button)
+                                    val encoded = Uri.encode(username)
+                                    navController.navigate("profile/$encoded")
+                                }
                             }
                         )
                     }
@@ -549,7 +590,10 @@ fun MainApp() {
                     if (postId != null) {
                         AiPracticeRoute(
                             postId = postId,
-                            onBackClick = { navController.popBackStack() }
+                            onBackClick = { 
+                        
+                                navController.popBackStack() 
+                            }
                         )
                     }
                 }

@@ -1,6 +1,7 @@
 package com.example.englishforum.feature.postdetail
 
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.model.forum.PostTag
 
 data class PostDetailUi(
     val id: String,
@@ -14,6 +15,7 @@ data class PostDetailUi(
     val voteCount: Int,
     val voteState: VoteState,
     val commentCount: Int,
+    val tag: PostTag,
     val previewImageUrl: String? = null,
     val galleryImages: List<String>? = null
 )

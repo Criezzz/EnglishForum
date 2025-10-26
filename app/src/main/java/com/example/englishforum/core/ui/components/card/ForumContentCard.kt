@@ -10,8 +10,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -29,6 +29,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.ui.components.VoteIconButton
 
@@ -60,13 +61,16 @@ fun ForumContentCard(
     headerContent: (@Composable ColumnScope.() -> Unit)? = null,
     bodyContent: (@Composable ColumnScope.() -> Unit)? = null
 ) {
+    val isDark = isSystemInDarkTheme()
+
     Surface(
         modifier = modifier,
         onClick = onCardClick ?: {},
         enabled = onCardClick != null,
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = 2.dp
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 0.dp,
+        shadowElevation = if (!isDark) 1.dp else 0.dp
     ) {
         Column(
             modifier = Modifier
@@ -233,9 +237,9 @@ private fun ForumVoteActionGroup(
             contentColor = colorScheme.onErrorContainer
         }
         VoteState.NONE -> {
-            containerColor = Color.Transparent
-            borderColor = colorScheme.outlineVariant
-            contentColor = colorScheme.onSurface
+            containerColor = colorScheme.surfaceContainerHigh
+            borderColor = null
+            contentColor = colorScheme.onSurfaceVariant
         }
     }
 
@@ -279,9 +283,10 @@ private fun ForumCommentActionButton(
     ForumActionContainer(
         modifier = modifier,
         onClick = onClick,
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        borderColor = MaterialTheme.colorScheme.outlineVariant
+        // KHÔNG border; dùng nền container trung tính
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        borderColor = null
     ) {
         Icon(
             imageVector = Icons.Outlined.ChatBubbleOutline,
@@ -353,7 +358,8 @@ fun ForumContentCardPlaceholder(modifier: Modifier = Modifier) {
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = 2.dp
+        tonalElevation = 0.dp,
+        shadowElevation = if (!isSystemInDarkTheme()) 1.dp else 0.dp
     ) {
         Column(
             modifier = Modifier

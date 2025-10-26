@@ -152,7 +152,7 @@ private fun HomeFeedList(
         modifier = Modifier.fillMaxSize(),
         state = state,
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         if (uiState.availableFilters.isNotEmpty()) {
             item {

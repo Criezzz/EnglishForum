@@ -12,5 +12,5 @@ data class GenerateFromTextRequest(
     @Json(name = "num_items")
     val numItems: Int,
     @Json(name = "mode")
-    val mode: String = "cot"
+    val mode: String? = null
 )

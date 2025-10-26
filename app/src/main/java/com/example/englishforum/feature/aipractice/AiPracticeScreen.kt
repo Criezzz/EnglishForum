@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,6 +23,7 @@ import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -32,11 +34,14 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -47,6 +52,26 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
+import kotlinx.coroutines.delay
+
+// Danh sách các fact tiếng Anh thú vị
+private val englishFacts = listOf(
+    "Did you know? The word 'set' has the most meanings in English - over 400 different definitions!",
+    "Fun fact: 'I am' is the shortest complete sentence in English.",
+    "Interesting: The word 'queue' is pronounced the same way even if you remove the last 4 letters!",
+    "Amazing: 'Bookkeeper' and 'bookkeeping' are the only words with 3 consecutive double letters.",
+    "Cool fact: The word 'therein' contains 10 words without rearranging any letters: the, there, he, in, rein, her, here, ere, therein, herein.",
+    "Fascinating: 'Rhythm' is the longest English word without a vowel.",
+    "Did you know? 'Dreamt' is the only English word that ends in 'mt'.",
+    "Fun fact: The word 'almost' is the longest word with all letters in alphabetical order.",
+    "Interesting: 'Underground' is the only word that begins and ends with 'und'.",
+    "Amazing: The word 'strengths' is the longest word with only one vowel.",
+    "Cool fact: 'Subdermatoglyphic' is the longest English word that can be written without repeating any letter.",
+    "Fascinating: The word 'queue' is pronounced the same way even if you remove the last 4 letters!",
+    "Did you know? 'The quick brown fox jumps over the lazy dog' uses every letter of the alphabet.",
+    "Fun fact: 'Go' is the shortest English word with 2 syllables.",
+    "Interesting: The word 'set' has the most meanings in English - over 400 different definitions!"
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,7 +103,9 @@ fun AiPracticeRoute(
     AiPracticeScreen(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
-        onBackClick = onBackClick,
+        onBackClick = {
+            onBackClick()
+        },
         onOptionSelected = viewModel::onOptionSelected,
         onAnswerInputChanged = viewModel::onAnswerInputChanged,
         onHintClick = viewModel::onRequestHint,
@@ -86,7 +113,8 @@ fun AiPracticeRoute(
         onNextClick = viewModel::onNextQuestion,
         onCompleteClick = viewModel::onCompletePractice,
         onRetakeClick = viewModel::onRetake,
-        onExitClick = onBackClick
+        onExitClick = onBackClick,
+        onRequestCancel = viewModel::cancelGeneration
     )
 }
 
@@ -96,6 +124,7 @@ fun AiPracticeScreen(
     uiState: AiPracticeUiState,
     snackbarHostState: SnackbarHostState,
     onBackClick: () -> Unit,
+    onRequestCancel: () -> Unit,
     onOptionSelected: (String) -> Unit,
     onAnswerInputChanged: (String) -> Unit,
     onHintClick: () -> Unit,
@@ -106,6 +135,8 @@ fun AiPracticeScreen(
     onExitClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var showCancelConfirm by remember { mutableStateOf(false) }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -114,7 +145,13 @@ fun AiPracticeScreen(
                     Text(text = stringResource(R.string.ai_practice_title))
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBackClick) {
+                    IconButton(onClick = {
+                        if (uiState.isLoading) {
+                            showCancelConfirm = true
+                        } else {
+                            onBackClick()
+                        }
+                    }) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.auth_back_action)
@@ -170,10 +207,49 @@ fun AiPracticeScreen(
             }
         }
     }
+
+    // Auto-dismiss confirm dialog if generation completed while dialog is shown
+    LaunchedEffect(uiState.isLoading) {
+        if (!uiState.isLoading) {
+            showCancelConfirm = false
+        }
+    }
+
+    if (showCancelConfirm) {
+        AlertDialog(
+            onDismissRequest = { showCancelConfirm = false },
+            title = { Text(text = "Huỷ tạo bài tập?") },
+            text = { Text(text = "Bạn có chắc muốn huỷ quá trình tạo?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showCancelConfirm = false
+                    onRequestCancel()
+                    onBackClick()
+                }) {
+                    Text(text = "Huỷ")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelConfirm = false }) {
+                    Text(text = "Ở lại")
+                }
+            }
+        )
+    }
 }
 
 @Composable
 private fun LoadingState(modifier: Modifier = Modifier) {
+    var showFact by remember { mutableStateOf(false) }
+    var currentFact by remember { mutableStateOf(englishFacts.random()) }
+    
+    // Thay đổi fact mỗi khi component được tạo lại
+    LaunchedEffect(Unit) {
+        currentFact = englishFacts.random()
+        delay(2000) // 2 giây
+        showFact = true
+    }
+    
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -183,12 +259,49 @@ private fun LoadingState(modifier: Modifier = Modifier) {
     ) {
         CircularProgressIndicator()
         Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = stringResource(R.string.ai_practice_loading_message),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center
-        )
+        
+        if (showFact) {
+            // Hiển thị fact thú vị sau 2 giây
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.TipsAndUpdates,
+                        contentDescription = null,
+                        modifier = Modifier.size(32.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "💡 English Fun Fact",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = currentFact,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        textAlign = TextAlign.Center,
+                        lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.2
+                    )
+                }
+            }
+        } else {
+            // Hiển thị loading message ban đầu trong 2 giây đầu
+            Text(
+                text = stringResource(R.string.ai_practice_loading_message),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
@@ -565,6 +678,7 @@ private fun AiPracticeScreenPreview() {
             uiState = sampleState,
             snackbarHostState = SnackbarHostState(),
             onBackClick = {},
+            onRequestCancel = {},
             onOptionSelected = {},
             onAnswerInputChanged = {},
             onHintClick = {},
@@ -601,6 +715,7 @@ private fun AiPracticeFillInBlankPreview() {
             uiState = sampleState,
             snackbarHostState = SnackbarHostState(),
             onBackClick = {},
+            onRequestCancel = {},
             onOptionSelected = {},
             onAnswerInputChanged = {},
             onHintClick = {},
@@ -627,6 +742,7 @@ private fun AiPracticeSummaryPreview() {
             uiState = summaryState,
             snackbarHostState = SnackbarHostState(),
             onBackClick = {},
+            onRequestCancel = {},
             onOptionSelected = {},
             onAnswerInputChanged = {},
             onHintClick = {},

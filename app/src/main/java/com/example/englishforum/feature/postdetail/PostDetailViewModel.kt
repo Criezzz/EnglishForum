@@ -33,6 +33,9 @@ class PostDetailViewModel(
     private var hasLoadedInitialPost = false
     private val errorMessage = MutableStateFlow<String?>(null)
     private val aiPracticeChecking = MutableStateFlow(false)
+    
+    init {
+    }
     private val userMessage = MutableStateFlow<String?>(null)
     private val isProcessingAction = MutableStateFlow(false)
     private val postDeleted = MutableStateFlow(false)
@@ -155,33 +158,55 @@ class PostDetailViewModel(
     fun onAiPracticeClick(onAvailable: (String) -> Unit) {
         Log.d("PostDetail", "AI Practice button clicked")
         val currentPost = uiState.value.post ?: return
-        if (aiPracticeChecking.value) return
-
+        
         // Navigate immediately to show loading state
         onAvailable(currentPost.id)
         
-        // Generate questions in background (will use cache if available)
+        // Check cache and generate in background
         viewModelScope.launch {
-            aiPracticeChecking.value = true
-            errorMessage.value = null
-
-            try {
-                Log.d("PostDetail", "Generating questions in background")
-                // Combine title and body for AI processing
-                val postContent = "${currentPost.title}\n\n${currentPost.body}"
-                Log.d("PostDetail", "Post content prepared, length: ${postContent.length}")
-                
-                // Generate 3 MCQ questions only
-                val result = aiPracticeRepository.generateQuestions(postContent, "mcq", 3)
-                result.onFailure { throwable ->
-                    Log.e("PostDetail", "Failed to generate questions: ${throwable.message}")
-                    // Note: We don't show error here since user is already in AI Practice screen
-                    // The AI Practice screen will handle the error state
+            val postContent = currentPost.body
+            val cachedQuestions = aiPracticeRepository.getCachedQuestions(postContent, "mcq", 3, currentPost.id)
+            
+            if (cachedQuestions != null && cachedQuestions.isNotEmpty()) {
+                Log.d("PostDetail", "Found cached questions, user will see them immediately")
+                // Questions are already cached, user will see them immediately in AI Practice screen
+            } else {
+                // No cache, check if already generating
+                if (!aiPracticeChecking.value) {
+                    Log.d("PostDetail", "No cached questions, starting generation in background")
+                    // Not already generating, start generation in background
+                    aiPracticeChecking.value = true
+                    
+                    // Generate questions in background
+                    errorMessage.value = null
+                    try {
+                        Log.d("PostDetail", "Generating questions in background")
+                        Log.d("PostDetail", "Post content prepared, length: ${postContent.length}")
+                        Log.d("PostDetail", "Post body: '${postContent}'")
+                        
+                        // Generate 3 MCQ questions only (this will cache the result)
+                        val result = aiPracticeRepository.generateQuestions(
+                            postContent = postContent, 
+                            type = "mcq", 
+                            numItems = 3,
+                            postId = currentPost.id
+                        )
+                        result.onSuccess { questions ->
+                            Log.d("PostDetail", "Successfully generated ${questions.size} questions and cached them")
+                        }
+                        result.onFailure { throwable ->
+                            Log.e("PostDetail", "Failed to generate questions: ${throwable.message}")
+                            // Note: We don't show error here since user is already in AI Practice screen
+                            // The AI Practice screen will handle the error state
+                        }
+                    } catch (throwable: Throwable) {
+                        Log.e("PostDetail", "Exception during question generation: ${throwable.message}")
+                    } finally {
+                        aiPracticeChecking.value = false
+                    }
+                } else {
+                    Log.d("PostDetail", "Already generating, user will see loading progress")
                 }
-            } catch (throwable: Throwable) {
-                Log.e("PostDetail", "Exception during question generation: ${throwable.message}")
-            } finally {
-                aiPracticeChecking.value = false
             }
         }
     }
@@ -388,12 +413,26 @@ class PostDetailViewModel(
             }
         }
     }
+    
+    fun resetAiPracticeChecking() {
+        Log.d("PostDetail", "Resetting AI practice checking state")
+        aiPracticeChecking.value = false
+    }
+    
+    fun isAiPracticeGenerating(): Boolean {
+        return aiPracticeChecking.value
+    }
+    
+    fun forceResetAiPracticeChecking() {
+        Log.d("PostDetail", "Force resetting AI practice checking state")
+        aiPracticeChecking.value = false
+    }
 }
 
 class PostDetailViewModelFactory(
     private val postId: String,
-    private val repository: PostDetailRepository = FakePostDetailRepository(),
-    private val aiPracticeRepository: AiPracticeRepository = FakeAiPracticeRepository(),
+    private val repository: PostDetailRepository,
+    private val aiPracticeRepository: AiPracticeRepository,
     private val userSessionRepository: UserSessionRepository
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -426,6 +465,7 @@ private fun ForumPostDetail.toUiModel(): PostDetailUi {
         voteCount = voteCount,
         voteState = voteState,
         commentCount = commentCount,
+        tag = tag,
         previewImageUrl = previewImageUrl,
         galleryImages = galleryImages
     )
