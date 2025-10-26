@@ -2,11 +2,17 @@ package com.example.englishforum.core.model.forum
 
 import com.example.englishforum.core.model.VoteState
 
-enum class PostTag {
-    Tutorial,
-    AskQuestion,
-    Resource,
-    Experience
+enum class PostTag(val serverValue: String) {
+    Tutorial("tutorial"),
+    AskQuestion("question"),
+    Resource("resource"),
+    Experience("experience");
+
+    companion object {
+        fun fromServerValue(value: String): PostTag? {
+            return values().firstOrNull { it.serverValue.equals(value, ignoreCase = true) }
+        }
+    }
 }
 
 data class ForumPostSummary(

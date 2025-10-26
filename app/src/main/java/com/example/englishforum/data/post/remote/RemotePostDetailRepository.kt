@@ -228,7 +228,7 @@ internal class RemotePostDetailRepository(
                     postId = numericId,
                     title = trimmedTitle,
                     content = trimmedBody,
-                    tag = tag.name
+                    tag = tag.serverValue
                 )
             }
         }
@@ -503,11 +503,11 @@ internal class RemotePostDetailRepository(
     }
 
     private fun String?.toPostTag(): PostTag {
-        return when (this?.lowercase(Locale.ROOT)) {
-            "tutorial" -> PostTag.Tutorial
-            "question", "ask", "ask_question" -> PostTag.AskQuestion
-            "resource" -> PostTag.Resource
-            "experience", "discussion" -> PostTag.Experience
+        val normalized = this?.trim().orEmpty()
+        PostTag.fromServerValue(normalized)?.let { return it }
+        return when (normalized.lowercase(Locale.ROOT)) {
+            "ask", "ask_question" -> PostTag.AskQuestion
+            "discussion" -> PostTag.Experience
             else -> PostTag.Experience
         }
     }

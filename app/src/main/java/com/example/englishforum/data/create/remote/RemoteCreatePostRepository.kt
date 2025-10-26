@@ -49,7 +49,7 @@ internal class RemoteCreatePostRepository(
             return Result.failure(IllegalArgumentException(EMPTY_CONTENT_MESSAGE))
         }
 
-        val tagValue = tag.toServerValue()
+        val tagValue = tag.serverValue
         val parts = withContext(ioDispatcher) {
             runCatching { buildAttachmentParts(images) }
         }.getOrElse { throwable ->
@@ -130,13 +130,6 @@ internal class RemoteCreatePostRepository(
             .getExtensionFromMimeType(mediaType.toString())
             ?.takeIf { it.isNotBlank() }
             ?: DEFAULT_ATTACHMENT_EXTENSION
-    }
-
-    private fun PostTag.toServerValue(): String = when (this) {
-        PostTag.Tutorial -> "tutorial"
-        PostTag.AskQuestion -> "question"
-        PostTag.Resource -> "resource"
-        PostTag.Experience -> "experience"
     }
 
     private fun Throwable.toFriendlyException(): Throwable = when (this) {
