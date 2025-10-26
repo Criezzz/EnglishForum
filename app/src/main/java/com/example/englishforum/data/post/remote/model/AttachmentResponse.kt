@@ -1,6 +1,7 @@
 package com.example.englishforum.data.post.remote.model
 
 import com.example.englishforum.BuildConfig
+import com.example.englishforum.core.model.forum.ForumPostAttachment
 import com.squareup.moshi.Json
 import java.util.Locale
 
@@ -34,6 +35,27 @@ fun List<AttachmentResponse>?.resolveGalleryUrls(): List<String>? {
         .sortedWith(compareBy<AttachmentResponse> { it.index ?: Int.MAX_VALUE })
         .mapNotNull { it.resolveMediaUrl() }
     return urls.takeIf { it.isNotEmpty() }
+}
+
+fun List<AttachmentResponse>?.toForumPostAttachments(): List<ForumPostAttachment> {
+    if (this.isNullOrEmpty()) return emptyList()
+    return this
+        .sortedWith(compareBy<AttachmentResponse> { it.index ?: Int.MAX_VALUE })
+        .mapNotNull { attachment ->
+            val url = attachment.resolveMediaUrl() ?: return@mapNotNull null
+            val identifier = attachment.mediaFilename
+                ?.takeIf { it.isNotBlank() }
+                ?: url
+            ForumPostAttachment(
+                id = identifier,
+                url = url,
+                index = attachment.index ?: Int.MAX_VALUE,
+                mediaType = attachment.mediaType
+            )
+        }
+        .mapIndexed { position, attachment ->
+            attachment.copy(index = position)
+        }
 }
 
 private fun AttachmentResponse.resolveMediaUrl(): String? {

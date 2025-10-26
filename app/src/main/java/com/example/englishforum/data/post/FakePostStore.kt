@@ -3,6 +3,7 @@ package com.example.englishforum.data.post
 import com.example.englishforum.core.common.resolveVoteChange
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumComment
+import com.example.englishforum.core.model.forum.ForumPostAttachment
 import com.example.englishforum.core.model.forum.ForumPostDetail
 import com.example.englishforum.core.model.forum.PostTag
 import kotlinx.coroutines.flow.Flow
@@ -49,21 +50,34 @@ object FakePostStore {
         title: String,
         body: String,
         tag: PostTag,
-        previewImageUrl: String?,
-        galleryImageUrls: List<String>
+        attachmentEdit: PostAttachmentEdit?
     ): Boolean {
         var updated = false
-        val sanitizedGallery = galleryImageUrls.distinct().takeIf { it.isNotEmpty() }
+        val finalAttachments = attachmentEdit?.finalState
+            ?.mapIndexed { index, state ->
+                ForumPostAttachment(
+                    id = state.id ?: state.uri.toString(),
+                    url = state.uri.toString(),
+                    index = index,
+                    mediaType = state.mediaType
+                )
+            }
         _posts.update { current ->
             current.map { post ->
                 if (post.id == postId) {
                     updated = true
+                    val resolvedAttachments = finalAttachments ?: post.attachments.mapIndexed { index, attachment ->
+                        attachment.copy(index = index)
+                    }
+                    val gallery = resolvedAttachments.takeIf { it.isNotEmpty() }
+                        ?.map { it.url }
                     post.copy(
                         title = title,
                         body = body,
                         tag = tag,
-                        previewImageUrl = previewImageUrl,
-                        galleryImages = sanitizedGallery
+                        previewImageUrl = gallery?.firstOrNull(),
+                        galleryImages = gallery,
+                        attachments = resolvedAttachments
                     )
                 } else {
                     post
@@ -650,6 +664,25 @@ object FakePostStore {
                 tag = PostTag.Resource,
                 authorAvatarUrl = "mock://avatar/anhvu"
             )
-        )
+        ).map { post ->
+            val orderedUrls = buildList {
+                post.previewImageUrl?.let { add(it) }
+                post.galleryImages?.let { addAll(it) }
+            }.distinct()
+
+            val attachments = orderedUrls.mapIndexed { index, url ->
+                ForumPostAttachment(
+                    id = "${post.id}_attachment_$index",
+                    url = url,
+                    index = index
+                )
+            }
+
+            post.copy(
+                previewImageUrl = orderedUrls.firstOrNull(),
+                galleryImages = orderedUrls.takeIf { it.isNotEmpty() },
+                attachments = attachments
+            )
+        }
     }
 }

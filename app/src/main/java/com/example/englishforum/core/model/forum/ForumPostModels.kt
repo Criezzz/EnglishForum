@@ -57,10 +57,18 @@ data class ForumPostDetail(
     val tag: PostTag,
     val authorAvatarUrl: String? = null,
     val previewImageUrl: String? = null,
-    val galleryImages: List<String>? = null
+    val galleryImages: List<String>? = null,
+    val attachments: List<ForumPostAttachment> = emptyList()
 ) {
     val commentCount: Int = comments.sumOf { it.totalThreadCount() }
 }
+
+data class ForumPostAttachment(
+    val id: String,
+    val url: String,
+    val index: Int,
+    val mediaType: String? = null
+)
 
 private fun ForumComment.totalThreadCount(): Int {
     return 1 + replies.sumOf { it.totalThreadCount() }

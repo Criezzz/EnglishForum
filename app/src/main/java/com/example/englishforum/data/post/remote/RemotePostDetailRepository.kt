@@ -1,8 +1,13 @@
 package com.example.englishforum.data.post.remote
 
+import android.content.ContentResolver
+import android.net.Uri
+import android.provider.OpenableColumns
+import android.webkit.MimeTypeMap
 import com.example.englishforum.core.common.resolveVoteChange
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumComment
+import com.example.englishforum.core.model.forum.ForumPostAttachment
 import com.example.englishforum.core.model.forum.ForumPostDetail
 import com.example.englishforum.BuildConfig
 import com.example.englishforum.core.model.forum.PostTag
@@ -10,11 +15,15 @@ import com.example.englishforum.data.auth.UserSession
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.auth.bearerToken
 import com.example.englishforum.data.post.PostDetailRepository
+import com.example.englishforum.data.post.PostAttachmentEdit
+import com.example.englishforum.data.post.PostAttachmentState
+import com.example.englishforum.data.post.PostAttachmentUpload
 import com.example.englishforum.data.post.ForumPostSummaryStore
 import com.example.englishforum.data.post.remote.model.PostCommentResponse
 import com.example.englishforum.data.post.remote.model.PostDetailResponse
 import com.example.englishforum.data.post.remote.model.resolveGalleryUrls
 import com.example.englishforum.data.post.remote.model.resolvePreviewUrl
+import com.example.englishforum.data.post.remote.model.toForumPostAttachments
 import java.io.IOException
 import java.time.Duration
 import java.time.Instant
@@ -31,8 +40,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import retrofit2.HttpException
 
@@ -40,6 +55,7 @@ internal class RemotePostDetailRepository(
     private val api: PostDetailApi,
     private val userSessionRepository: UserSessionRepository,
     private val summaryStore: ForumPostSummaryStore,
+    private val contentResolver: ContentResolver,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : PostDetailRepository {
 
@@ -207,8 +223,7 @@ internal class RemotePostDetailRepository(
         title: String,
         body: String,
         tag: PostTag,
-        previewImageUrl: String?,
-        galleryImageUrls: List<String>
+        attachmentEdits: PostAttachmentEdit?
     ): Result<Unit> {
         val session = currentSessionOrNull()
             ?: return Result.failure(IllegalStateException(SESSION_EXPIRED_MESSAGE))
@@ -221,24 +236,133 @@ internal class RemotePostDetailRepository(
             return Result.failure(IllegalArgumentException(EMPTY_POST_FIELDS_MESSAGE))
         }
 
+        val instructionBody = attachmentEdits?.instructions
+            ?.takeIf { it.isNotBlank() }
+            ?.toRequestBody(PLAIN_TEXT_MEDIA_TYPE)
+
+        val attachments = withContext(ioDispatcher) {
+            runCatching {
+                buildAttachmentParts(attachmentEdits?.newAttachments.orEmpty())
+            }
+        }.getOrElse { throwable -> return Result.failure(throwable) }
+
         val result = withContext(ioDispatcher) {
             runCatching {
                 api.updatePost(
                     bearer = session.bearerToken(),
                     postId = numericId,
-                    title = trimmedTitle,
-                    content = trimmedBody,
-                    tag = tag.serverValue
+                    title = trimmedTitle.toRequestBody(PLAIN_TEXT_MEDIA_TYPE),
+                    content = trimmedBody.toRequestBody(PLAIN_TEXT_MEDIA_TYPE),
+                    tag = tag.serverValue.toRequestBody(PLAIN_TEXT_MEDIA_TYPE),
+                    attachmentsUpdate = instructionBody,
+                    attachments = attachments
                 )
             }
         }
 
         return result
             .map {
+                applyLocalPostUpdate(
+                    postId = postId,
+                    title = trimmedTitle,
+                    body = trimmedBody,
+                    tag = tag,
+                    finalState = attachmentEdits?.finalState
+                )
                 fetchAndStorePost(postId)
                 Unit
             }
             .mapFailure { it.toFriendlyException() }
+    }
+
+    private fun applyLocalPostUpdate(
+        postId: String,
+        title: String,
+        body: String,
+        tag: PostTag,
+        finalState: List<PostAttachmentState>?
+    ) {
+        val current = postStates[postId]?.value ?: return
+        val resolvedAttachments = finalState?.mapIndexed { index, state ->
+            ForumPostAttachment(
+                id = state.id ?: state.uri.toString(),
+                url = state.uri.toString(),
+                index = index,
+                mediaType = state.mediaType
+            )
+        } ?: current.attachments.mapIndexed { index, attachment -> attachment.copy(index = index) }
+
+        val gallery = resolvedAttachments.takeIf { it.isNotEmpty() }?.map { it.url }
+
+        val updated = current.copy(
+            title = title,
+            body = body,
+            tag = tag,
+            previewImageUrl = gallery?.firstOrNull(),
+            galleryImages = gallery,
+            attachments = resolvedAttachments
+        )
+        postStates[postId]?.value = updated
+        summaryStore.upsertFromDetail(updated)
+    }
+
+    private fun buildAttachmentParts(
+        uploads: List<PostAttachmentUpload>
+    ): List<MultipartBody.Part> {
+        if (uploads.isEmpty()) return emptyList()
+        return uploads
+            .mapIndexed { index, upload ->
+                createAttachmentPart(upload, index)
+            }
+    }
+
+    private fun createAttachmentPart(
+        upload: PostAttachmentUpload,
+        index: Int
+    ): MultipartBody.Part {
+        val stream = contentResolver.openInputStream(upload.uri)
+            ?: throw IOException(MISSING_FILE_MESSAGE)
+        val bytes = stream.use { input -> input.readBytes() }
+        if (bytes.isEmpty()) {
+            throw IOException(MISSING_FILE_MESSAGE)
+        }
+        val mediaType = resolveMimeType(upload.uri)?.toMediaTypeOrNull() ?: FALLBACK_MEDIA_TYPE
+        val fileName = upload.displayName
+            ?: resolveDisplayName(upload.uri)
+            ?: "attachment_${index + 1}.${resolveExtension(mediaType)}"
+        val requestBody = bytes.toRequestBody(mediaType)
+        return MultipartBody.Part.createFormData(ATTACHMENT_FIELD_NAME, fileName, requestBody)
+    }
+
+    private fun resolveMimeType(uri: Uri): String? {
+        val detected = contentResolver.getType(uri)
+        if (!detected.isNullOrBlank()) return detected
+        val extension = MimeTypeMap.getFileExtensionFromUrl(uri.toString())
+            ?.takeIf { it.isNotBlank() }
+            ?.lowercase(Locale.ROOT)
+        return extension?.let { ext -> MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext) }
+    }
+
+    private fun resolveDisplayName(uri: Uri): String? {
+        return runCatching {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+                ?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val index = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                        if (index >= 0) cursor.getString(index) else null
+                    } else {
+                        null
+                    }
+                }
+        }.getOrNull()
+    }
+
+    private fun resolveExtension(mediaType: MediaType?): String {
+        if (mediaType == null) return DEFAULT_ATTACHMENT_EXTENSION
+        return MimeTypeMap.getSingleton()
+            .getExtensionFromMimeType(mediaType.toString())
+            ?.takeIf { it.isNotBlank() }
+            ?: DEFAULT_ATTACHMENT_EXTENSION
     }
 
     override suspend fun refreshPost(postId: String): Result<Unit> {
@@ -367,7 +491,8 @@ internal class RemotePostDetailRepository(
             tag = tag.toPostTag(),
             authorAvatarUrl = resolveAuthorAvatarUrl(),
             previewImageUrl = attachments.resolvePreviewUrl(),
-            galleryImages = attachments.resolveGalleryUrls()
+            galleryImages = attachments.resolveGalleryUrls(),
+            attachments = attachments.toForumPostAttachments()
         )
     }
 
@@ -585,5 +710,10 @@ internal class RemotePostDetailRepository(
         private const val GENERIC_ERROR_MESSAGE = "Đã xảy ra lỗi, vui lòng thử lại"
         private const val DEFAULT_AUTHOR_NAME = "Ẩn danh"
         private const val UNKNOWN_AUTHOR_ID = "unknown"
+        private val PLAIN_TEXT_MEDIA_TYPE = "text/plain".toMediaType()
+        private val FALLBACK_MEDIA_TYPE = "application/octet-stream".toMediaType()
+        private const val DEFAULT_ATTACHMENT_EXTENSION = "bin"
+        private const val ATTACHMENT_FIELD_NAME = "attachments"
+        private const val MISSING_FILE_MESSAGE = "Không thể đọc tệp đính kèm đã chọn"
     }
 }

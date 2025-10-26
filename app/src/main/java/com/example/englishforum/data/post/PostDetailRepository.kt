@@ -1,5 +1,6 @@
 package com.example.englishforum.data.post
 
+import android.net.Uri
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumPostDetail
 import com.example.englishforum.core.model.forum.PostTag
@@ -29,8 +30,7 @@ interface PostDetailRepository {
         title: String,
         body: String,
         tag: PostTag,
-        previewImageUrl: String?,
-        galleryImageUrls: List<String>
+        attachmentEdits: PostAttachmentEdit?
     ): Result<Unit>
 
     suspend fun updateComment(
@@ -44,3 +44,21 @@ interface PostDetailRepository {
         commentId: String
     ): Result<Unit>
 }
+
+data class PostAttachmentEdit(
+    val instructions: String,
+    val newAttachments: List<PostAttachmentUpload>,
+    val finalState: List<PostAttachmentState>
+)
+
+data class PostAttachmentUpload(
+    val uri: Uri,
+    val displayName: String? = null
+)
+
+data class PostAttachmentState(
+    val id: String?,
+    val uri: Uri,
+    val isRemote: Boolean,
+    val mediaType: String? = null
+)

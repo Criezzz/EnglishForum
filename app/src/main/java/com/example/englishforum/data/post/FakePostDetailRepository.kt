@@ -3,6 +3,7 @@ package com.example.englishforum.data.post
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumPostDetail
 import com.example.englishforum.core.model.forum.PostTag
+import com.example.englishforum.data.post.PostAttachmentEdit
 import kotlinx.coroutines.flow.Flow
 
 class FakePostDetailRepository(
@@ -69,8 +70,7 @@ class FakePostDetailRepository(
         title: String,
         body: String,
         tag: PostTag,
-        previewImageUrl: String?,
-        galleryImageUrls: List<String>
+        attachmentEdits: PostAttachmentEdit?
     ): Result<Unit> {
         val trimmedTitle = title.trim()
         val trimmedBody = body.trim()
@@ -83,8 +83,7 @@ class FakePostDetailRepository(
                 title = trimmedTitle,
                 body = trimmedBody,
                 tag = tag,
-                previewImageUrl = previewImageUrl,
-                galleryImageUrls = galleryImageUrls
+                attachmentEdit = attachmentEdits
             )
         ) {
             Result.success(Unit)

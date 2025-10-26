@@ -151,7 +151,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
         RemotePostDetailRepository(
             api = postDetailApi,
             userSessionRepository = userSessionRepository,
-            summaryStore = postSummaryStore
+            summaryStore = postSummaryStore,
+            contentResolver = appContext.contentResolver
         )
     }
 
