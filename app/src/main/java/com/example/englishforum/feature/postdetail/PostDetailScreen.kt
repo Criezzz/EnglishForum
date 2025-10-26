@@ -44,7 +44,6 @@ import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -60,6 +59,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
@@ -79,6 +79,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.tooling.preview.Preview
@@ -87,6 +88,7 @@ import kotlinx.coroutines.delay
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.SavedStateHandle
 import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImage
+import com.example.englishforum.core.ui.components.image.rememberAuthenticatedImageRequest
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.VoteState
@@ -96,8 +98,14 @@ import com.example.englishforum.core.ui.components.VoteIconButton
 import com.example.englishforum.core.ui.components.card.CommentPillPlacement
 import com.example.englishforum.core.ui.components.card.ForumContentCard
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
+import coil.request.ImageRequest
 
 private val CommentThreadIndent = 20.dp
+
+private data class PostImageResource(
+    val url: String,
+    val request: ImageRequest
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -276,8 +284,19 @@ fun PostDetailScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            CenterAlignedTopAppBar(
-                title = {},
+            TopAppBar(
+                title = {
+                    val titleText = post?.title.orEmpty()
+                    if (titleText.isNotBlank()) {
+                        Text(
+                            text = titleText,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
@@ -474,9 +493,22 @@ fun PostDetailScreen(
                                     var showFullScreenViewer by remember { mutableStateOf(false) }
                                     var selectedImageIndex by remember { mutableIntStateOf(0) }
 
+                                    val galleryImageResources = galleryImages?.map { url ->
+                                        PostImageResource(
+                                            url = url,
+                                            request = rememberAuthenticatedImageRequest(url)
+                                        )
+                                    }
+                                    val previewImageResource = previewImageUrl?.let { url ->
+                                        PostImageResource(
+                                            url = url,
+                                            request = rememberAuthenticatedImageRequest(url)
+                                        )
+                                    }
+
                                     when {
-                                        !galleryImages.isNullOrEmpty() -> {
-                                            val images = galleryImages
+                                        !galleryImageResources.isNullOrEmpty() -> {
+                                            val images = galleryImageResources
                                             PostImageGallery(
                                                 images = images,
                                                 onImageClick = { index ->
@@ -494,9 +526,9 @@ fun PostDetailScreen(
                                             }
                                         }
 
-                                        previewImageUrl != null -> {
+                                        previewImageResource != null -> {
                                             PostSingleImage(
-                                                imageUrl = previewImageUrl,
+                                                image = previewImageResource,
                                                 onClick = {
                                                     selectedImageIndex = 0
                                                     showFullScreenViewer = true
@@ -505,7 +537,7 @@ fun PostDetailScreen(
 
                                             if (showFullScreenViewer) {
                                                 FullScreenImageViewer(
-                                                    images = listOf(previewImageUrl),
+                                                    images = listOf(previewImageResource),
                                                     initialPage = 0,
                                                     onDismiss = { showFullScreenViewer = false }
                                                 )
@@ -957,23 +989,53 @@ private fun PostCommentItem(
 
 @Composable
 private fun PostSingleImage(
-    imageUrl: String,
+    image: PostImageResource,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
+    PostDetailImageCard(
+        image = image,
+        modifier = modifier,
+        onClick = onClick
+    )
+}
+
+@Composable
+private fun PostDetailImageCard(
+    image: PostImageResource,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
+) {
+    var aspectRatio by remember { mutableFloatStateOf(16f / 9f) }
+    var ratioResolved by remember { mutableStateOf(false) }
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .aspectRatio(16f / 9f),
+            .aspectRatio(aspectRatio),
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         tonalElevation = 0.dp,
         onClick = onClick
     ) {
         AuthenticatedRemoteImage(
-            url = imageUrl,
+            imageRequest = image.request,
             modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
+            contentScale = if (ratioResolved) ContentScale.FillBounds else ContentScale.Crop,
+            onSuccess = { success ->
+                if (!ratioResolved) {
+                    val intrinsicSize = success.painter.intrinsicSize
+                    val width = intrinsicSize.width
+                    val height = intrinsicSize.height
+                    if (width.isFinite() && height.isFinite() && width > 0f && height > 0f) {
+                        val resolvedRatio = width / height
+                        if (resolvedRatio > 0f && resolvedRatio.isFinite()) {
+                            aspectRatio = resolvedRatio
+                            ratioResolved = true
+                        }
+                    }
+                }
+            },
             loading = {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -1005,7 +1067,7 @@ private fun PostSingleImage(
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun PostImageGallery(
-    images: List<String>,
+    images: List<PostImageResource>,
     modifier: Modifier = Modifier,
     onImageClick: (Int) -> Unit = {}
 ) {
@@ -1021,7 +1083,7 @@ private fun PostImageGallery(
             modifier = Modifier.fillMaxWidth()
         ) { page ->
             PostGalleryImageItem(
-                imageUrl = images[page],
+                image = images[page],
                 onClick = { onImageClick(page) }
             )
         }
@@ -1114,54 +1176,20 @@ private fun PostImageGallery(
 
 @Composable
 private fun PostGalleryImageItem(
-    imageUrl: String,
+    image: PostImageResource,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .aspectRatio(16f / 9f),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        tonalElevation = 0.dp,
+    PostDetailImageCard(
+        image = image,
+        modifier = modifier,
         onClick = onClick
-    ) {
-        AuthenticatedRemoteImage(
-            url = imageUrl,
-            modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            loading = {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-                }
-            },
-            error = {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Image,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(48.dp)
-                    )
-                }
-            }
-        )
-    }
+    )
 }
 
 @Composable
 private fun ZoomableImage(
-    imageUrl: String,
+    image: PostImageResource,
     modifier: Modifier = Modifier
 ) {
     var scale by remember { mutableFloatStateOf(1f) }
@@ -1190,7 +1218,7 @@ private fun ZoomableImage(
         contentAlignment = Alignment.Center
     ) {
         AuthenticatedRemoteImage(
-            url = imageUrl,
+            imageRequest = image.request,
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer(
@@ -1231,7 +1259,7 @@ private fun ZoomableImage(
 @OptIn(androidx.compose.foundation.ExperimentalFoundationApi::class)
 @Composable
 private fun FullScreenImageViewer(
-    images: List<String>,
+    images: List<PostImageResource>,
     initialPage: Int = 0,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier
@@ -1250,7 +1278,7 @@ private fun FullScreenImageViewer(
         val coroutineScope = rememberCoroutineScope()
         
         Box(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxSize()
                 .background(Color.Black)
         ) {
@@ -1259,7 +1287,7 @@ private fun FullScreenImageViewer(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize()
             ) { page ->
-                ZoomableImage(imageUrl = images[page])
+                ZoomableImage(image = images[page])
             }
             
             // Close button
