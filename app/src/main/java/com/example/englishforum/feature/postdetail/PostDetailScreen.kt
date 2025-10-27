@@ -14,6 +14,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -1295,6 +1297,7 @@ private fun FullScreenImageViewer(
                 onClick = onDismiss,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
+                    .windowInsetsPadding(WindowInsets.systemBars)
                     .padding(16.dp)
             ) {
                 Surface(
@@ -1322,6 +1325,7 @@ private fun FullScreenImageViewer(
                         },
                         modifier = Modifier
                             .align(Alignment.CenterStart)
+                            .windowInsetsPadding(WindowInsets.systemBars)
                             .padding(start = 16.dp)
                     ) {
                         Surface(
@@ -1348,6 +1352,7 @@ private fun FullScreenImageViewer(
                         },
                         modifier = Modifier
                             .align(Alignment.CenterEnd)
+                            .windowInsetsPadding(WindowInsets.systemBars)
                             .padding(end = 16.dp)
                     ) {
                         Surface(
@@ -1391,6 +1396,7 @@ private fun FullScreenImageViewer(
                 Surface(
                     modifier = Modifier
                         .align(Alignment.TopCenter)
+                        .windowInsetsPadding(WindowInsets.systemBars)
                         .padding(top = 16.dp),
                     shape = MaterialTheme.shapes.small,
                     color = MaterialTheme.colorScheme.surface.copy(alpha = 0.8f),
