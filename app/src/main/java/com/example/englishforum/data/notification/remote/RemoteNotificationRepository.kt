@@ -214,10 +214,10 @@ class RemoteNotificationRepository(
         }
         val normalizedBase = BuildConfig.API_BASE_URL.trimEnd('/')
         return when {
-            candidate.startsWith("/download") -> "$normalizedBase$candidate"
+            candidate.startsWith("/download/") -> "$normalizedBase$candidate"
             candidate.startsWith("download/") -> "$normalizedBase/$candidate"
-            candidate.startsWith("/") -> "$normalizedBase$candidate"
-            else -> "$normalizedBase/$candidate"
+            candidate.startsWith("/") -> "$normalizedBase/download$candidate"
+            else -> "$normalizedBase/download/$candidate"
         }
     }
 
