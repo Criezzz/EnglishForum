@@ -6,6 +6,8 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +41,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
@@ -49,6 +53,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -68,7 +73,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.rememberAsyncImagePainter
 import com.example.englishforum.R
@@ -142,7 +146,6 @@ fun ProfileScreen(
     ProfileContent(
         modifier = modifier,
         uiState = uiState,
-        avatarState = avatarState,
         showAccountActions = canEditProfile,
         showBackButton = !canEditProfile,
         onSettingsClick = handleSettingsClick,
@@ -192,7 +195,6 @@ fun ProfileScreen(
 private fun ProfileContent(
     modifier: Modifier = Modifier,
     uiState: ProfileUiState,
-    avatarState: ProfileAvatarUiState,
     showAccountActions: Boolean,
     showBackButton: Boolean,
     onSettingsClick: () -> Unit,
@@ -238,7 +240,6 @@ private fun ProfileContent(
             ProfileHeader(
                 overview = uiState.overview,
                 isLoading = uiState.isLoading,
-                avatarState = avatarState,
                 showAccountActions = showAccountActions,
                 showBackButton = showBackButton,
                 onSettingsClick = onSettingsClick,
@@ -357,7 +358,6 @@ private fun ProfileTabs(
 private fun ProfileHeader(
     overview: ProfileOverview?,
     isLoading: Boolean,
-    avatarState: ProfileAvatarUiState,
     showAccountActions: Boolean,
     showBackButton: Boolean,
     onSettingsClick: () -> Unit,
@@ -434,8 +434,8 @@ private fun ProfileHeader(
                     ) {
                         ProfileAvatar(
                             avatarUrl = overview.avatarUrl,
-                            previewUri = avatarState.previewUri,
-                            isUploading = avatarState.isUploading,
+                            previewUri = null,
+                            isUploading = false,
                             size = 96.dp
                         )
 
@@ -715,7 +715,6 @@ private fun ProfileScreenPreview() {
             ),
             isLoading = false
         ),
-        avatarState = ProfileAvatarUiState(),
         showAccountActions = true,
         showBackButton = false,
         onSettingsClick = {},
@@ -734,6 +733,7 @@ private fun ProfileScreenPreview() {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ProfileEditDialog(
     currentName: String,
@@ -748,30 +748,56 @@ private fun ProfileEditDialog(
 ) {
     var editedName by rememberSaveable(currentName) { mutableStateOf(currentName) }
     var editedBio by rememberSaveable(currentBio) { mutableStateOf(currentBio.take(MAX_PROFILE_BIO_LENGTH)) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    Dialog(onDismissRequest = onDismiss) {
-        Surface(
-            shape = MaterialTheme.shapes.extraLarge,
-            tonalElevation = 6.dp
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            Column(
+            // Header
+            Row(
                 modifier = Modifier
-                    .padding(horizontal = 24.dp, vertical = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(20.dp)
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            imageVector = Icons.Filled.Close,
-                            contentDescription = stringResource(R.string.profile_edit_close_content_description)
-                        )
-                    }
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Chỉnh sửa hồ sơ",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Cập nhật thông tin cá nhân",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
+                
+                IconButton(onClick = onDismiss) {
+                    Icon(
+                        imageVector = Icons.Filled.Close,
+                        contentDescription = stringResource(R.string.profile_edit_close_content_description)
+                    )
+                }
+            }
 
+            // Avatar section
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 ProfileAvatar(
                     avatarUrl = avatarUrl,
                     previewUri = avatarState.previewUri,
@@ -782,7 +808,7 @@ private fun ProfileEditDialog(
                 FilledTonalButton(
                     onClick = onChangePhoto,
                     enabled = !avatarState.isUploading,
-                    shape = MaterialTheme.shapes.large,
+                    shape = MaterialTheme.shapes.medium,
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
                 ) {
                     Icon(
@@ -798,33 +824,47 @@ private fun ProfileEditDialog(
                     Text(
                         text = message,
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodySmall,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
+            }
 
+            // Form fields
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
                 OutlinedTextField(
                     value = editedName,
                     onValueChange = { editedName = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text(stringResource(R.string.profile_edit_display_name_label)) },
-                    singleLine = true,
-                    shape = MaterialTheme.shapes.large,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
                     trailingIcon = {
-                        IconButton(
-                            onClick = { editedName = "" },
-                            enabled = editedName.isNotBlank(),
-                            colors = IconButtonDefaults.iconButtonColors(
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        ) {
-                            Icon(
-                                imageVector = Icons.Filled.Close,
-                                contentDescription = stringResource(R.string.profile_edit_clear_name)
-                            )
+                        if (editedName.isNotBlank()) {
+                            IconButton(
+                                onClick = { editedName = "" },
+                                colors = IconButtonDefaults.iconButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Close,
+                                    contentDescription = stringResource(R.string.profile_edit_clear_name)
+                                )
+                            }
                         }
-                    }
+                    },
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium
                 )
 
                 OutlinedTextField(
@@ -836,15 +876,20 @@ private fun ProfileEditDialog(
                             newValue.take(MAX_PROFILE_BIO_LENGTH)
                         }
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 120.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     label = { Text(stringResource(R.string.profile_edit_bio_label)) },
                     placeholder = { Text(stringResource(R.string.profile_edit_bio_placeholder)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
                     supportingText = {
-                        Column(
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
                                 text = stringResource(R.string.profile_edit_bio_supporting, MAX_PROFILE_BIO_LENGTH),
@@ -854,33 +899,46 @@ private fun ProfileEditDialog(
                             Text(
                                 text = "${editedBio.length}/$MAX_PROFILE_BIO_LENGTH",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.End,
-                                modifier = Modifier.fillMaxWidth()
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     },
-                    shape = MaterialTheme.shapes.large,
-                    maxLines = 4
+                    singleLine = true,
+                    shape = MaterialTheme.shapes.medium
                 )
+            }
 
-                if (!errorMessage.isNullOrBlank()) {
-                    Text(
-                        text = errorMessage,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodyMedium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+            if (!errorMessage.isNullOrBlank()) {
+                Text(
+                    text = errorMessage,
+                    color = MaterialTheme.colorScheme.error,
+                    style = MaterialTheme.typography.bodyMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+
+            // Action buttons
+            val trimmedName = editedName.trim()
+            val trimmedBio = editedBio.trim()
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    enabled = !isSaving,
+                    modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.medium
+                ) {
+                    Text(text = stringResource(R.string.auth_cancel_action))
                 }
 
-                val trimmedName = editedName.trim()
-                val trimmedBio = editedBio.trim()
                 Button(
                     onClick = { onSave(trimmedName, trimmedBio) },
                     enabled = trimmedName.isNotBlank() && !isSaving,
-                    shape = MaterialTheme.shapes.large,
-                    contentPadding = PaddingValues(horizontal = 24.dp, vertical = 12.dp)
+                    modifier = Modifier.weight(1f),
+                    shape = MaterialTheme.shapes.medium
                 ) {
                     if (isSaving) {
                         CircularProgressIndicator(

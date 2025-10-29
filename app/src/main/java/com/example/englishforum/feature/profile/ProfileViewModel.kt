@@ -67,47 +67,25 @@ class ProfileViewModel(
     }
 
     fun onAvatarSelected(uri: Uri) {
-        avatarUploadJob?.cancel()
-        avatarUploadJob = viewModelScope.launch {
-            _avatarState.value = ProfileAvatarUiState(
-                previewUri = uri,
-                isUploading = true,
-                errorMessage = null
-            )
-            val result = repository.updateAvatar(userId, ProfileAvatarImage(uri))
-            result.fold(
-                onSuccess = {
-                    _avatarState.value = ProfileAvatarUiState(
-                        previewUri = uri,
-                        isUploading = false,
-                        errorMessage = null
-                    )
-                },
-                onFailure = { error ->
-                    if (error is CancellationException) {
-                        throw error
-                    }
-                    val message = error.message ?: "Could not update avatar"
-                    _avatarState.value = ProfileAvatarUiState(
-                        previewUri = uri,
-                        isUploading = false,
-                        errorMessage = message
-                    )
-                }
-            )
-        }
+        _avatarState.value = ProfileAvatarUiState(
+            previewUri = uri,
+            isUploading = false,
+            errorMessage = null
+        )
     }
 
     fun updateProfile(newName: String, newBio: String) {
         val trimmedName = newName.trim()
         val sanitizedBio = newBio.trim()
         val currentOverview = uiState.value.overview
+        val avatarUri = _avatarState.value.previewUri
 
         viewModelScope.launch {
             val nameChanged = currentOverview?.displayName != trimmedName
             val bioChanged = currentOverview?.bio.orEmpty() != sanitizedBio
+            val avatarChanged = avatarUri != null
 
-            if (!nameChanged && !bioChanged) {
+            if (!nameChanged && !bioChanged && !avatarChanged) {
                 _editState.value = ProfileEditState.Success
                 return@launch
             }
@@ -135,7 +113,23 @@ class ProfileViewModel(
             _editState.value = ProfileEditState.InProgress
 
             var failure: Throwable? = null
-            if (nameChanged) {
+            
+            // Upload avatar first if changed
+            if (avatarChanged && failure == null) {
+                _avatarState.value = _avatarState.value.copy(isUploading = true)
+                val avatarResult = repository.updateAvatar(userId, ProfileAvatarImage(avatarUri!!))
+                failure = avatarResult.exceptionOrNull()
+                if (failure != null) {
+                    _avatarState.value = _avatarState.value.copy(
+                        isUploading = false,
+                        errorMessage = failure.message ?: "Could not update avatar"
+                    )
+                } else {
+                    _avatarState.value = ProfileAvatarUiState()
+                }
+            }
+            
+            if (nameChanged && failure == null) {
                 val nameResult = repository.updateDisplayName(userId, trimmedName)
                 failure = nameResult.exceptionOrNull()
             }
