@@ -85,6 +85,23 @@
     <string name="post_edit_saving">Đang lưu...</string>
 
     <string name="create_post_title">Tạo bài viết</string>
+    <string name="create_post_subtitle">Chia sẻ kiến thức và trải nghiệm của bạn</string>
+    <string name="create_post_step1_subtitle">Chọn chủ đề phù hợp</string>
+    <string name="create_post_step2_subtitle">Viết nội dung bài viết</string>
+    <string name="create_post_step3_subtitle">Thêm ảnh minh họa (tuỳ chọn)</string>
+    <string name="create_post_step4_subtitle">Xem lại bố cục trước khi đăng</string>
+    <string name="create_post_next">Tiếp theo</string>
+    <string name="create_post_tag_selection_title">Chọn chủ đề bài viết</string>
+    <string name="create_post_content_title">Nội dung bài viết</string>
+    <string name="create_post_images_title">Ảnh minh họa (không bắt buộc)</string>
+    <string name="create_post_images_helper">Bạn có thể thêm tối đa 5 ảnh minh họa cho bài viết.</string>
+    <string name="create_post_review_title">Xem lại bài viết</string>
+    <string name="create_post_preview_meta">Bản xem trước</string>
+    <string name="create_post_preview_meta_now">Ngay bây giờ</string>
+    <string name="create_post_preview_author">Bạn</string>
+    <string name="create_post_preview_empty_title">Tiêu đề bài viết sẽ hiển thị ở đây</string>
+    <string name="create_post_preview_empty_body">Nội dung bài viết của bạn sẽ xuất hiện tại đây.</string>
+    <string name="create_post_preview_tag_placeholder">Chưa chọn chủ đề</string>
     <string name="create_post_title_label">Tiêu đề bài viết</string>
     <string name="create_post_title_placeholder">Chủ đề bạn muốn chia sẻ</string>
     <string name="create_post_body_label">Nội dung bài viết</string>

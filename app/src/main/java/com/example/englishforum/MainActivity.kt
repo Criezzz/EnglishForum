@@ -25,8 +25,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -106,6 +108,7 @@ fun MainApp() {
     val navController = rememberNavController()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    var showCreatePostSheet by remember { mutableStateOf(false) }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route
@@ -207,7 +210,10 @@ fun MainApp() {
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
             bottomBar = {
                 if (showBottomBar) {
-                    MainBottomBar(navController)
+                    MainBottomBar(
+                        navController = navController,
+                        onCreateClick = { showCreatePostSheet = true }
+                    )
                 }
             }
         ) { innerPadding ->
@@ -355,14 +361,7 @@ fun MainApp() {
                         }
                     )
                 }
-                composable(Destinations.Create.route) {
-                    com.example.englishforum.feature.create.CreateRoute(
-                        modifier = Modifier.fillMaxSize(),
-                        onNavigateToPostDetail = { newPostId ->
-                            navController.navigate("post/$newPostId")
-                        }
-                    )
-                }
+                // Create post is now a bottom sheet, not a navigation destination
                 composable(Destinations.Noti.route) {
                     NotiRoute(
                         modifier = Modifier.fillMaxSize(),
@@ -581,11 +580,25 @@ fun MainApp() {
                 }
             }
         }
+
+        // Create Post Bottom Sheet
+        if (showCreatePostSheet) {
+            com.example.englishforum.feature.create.CreatePostBottomSheet(
+                onDismiss = { showCreatePostSheet = false },
+                onNavigateToPostDetail = { postId ->
+                    showCreatePostSheet = false
+                    navController.navigate("post/$postId")
+                }
+            )
+        }
     }
 }
 
 @Composable
-private fun MainBottomBar(navController: androidx.navigation.NavHostController) {
+private fun MainBottomBar(
+    navController: androidx.navigation.NavHostController,
+    onCreateClick: () -> Unit
+) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
 
@@ -596,12 +609,16 @@ private fun MainBottomBar(navController: androidx.navigation.NavHostController) 
             NavigationBarItem(
                 selected = selected,
                 onClick = {
-                    navController.navigate(destination.route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+                    if (destination == Destinations.Create) {
+                        onCreateClick()
+                    } else {
+                        navController.navigate(destination.route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
                     }
                 },
                 icon = {
