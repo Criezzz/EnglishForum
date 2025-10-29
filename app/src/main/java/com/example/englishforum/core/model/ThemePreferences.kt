@@ -1,6 +1,6 @@
 package com.example.englishforum.core.model
 
-const val DEFAULT_SEED_COLOR: Long = 0xFF6750A4L
+const val DEFAULT_SEED_COLOR: Long = 0xFF66BB6AL // Green
 
 data class ThemePreferences(
     val themeOption: ThemeOption = ThemeOption.FOLLOW_SYSTEM,

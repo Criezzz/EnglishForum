@@ -1,11 +1,9 @@
 package com.example.englishforum.feature.settings
 
 import android.graphics.Color as AndroidColor
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,20 +18,34 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Style
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -45,6 +57,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -55,14 +68,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -201,7 +209,7 @@ fun SettingsScreen(
             item {
                 SettingsRow(
                     title = stringResource(R.string.settings_change_password),
-                    leadingIconPainter = painterResource(id = R.drawable.ic_settings_password),
+                    leadingIconPainter = rememberVectorPainter(image = Icons.Filled.Lock),
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                     onClick = { showPasswordDialog = true },
                 )
@@ -237,7 +245,7 @@ fun SettingsScreen(
     }
 
     if (showThemeDialog) {
-        ThemeSelectionDialog(
+        ThemeSelectionBottomSheet(
             initialSelection = currentTheme,
             onDismiss = { showThemeDialog = false },
             onConfirm = { option ->
@@ -248,7 +256,7 @@ fun SettingsScreen(
     }
 
     if (showPasswordDialog) {
-        ChangePasswordDialog(
+        ChangePasswordBottomSheet(
             onDismiss = { showPasswordDialog = false },
             onConfirm = { current, new ->
                 showPasswordDialog = false
@@ -259,7 +267,7 @@ fun SettingsScreen(
     }
 
     if (showEmailDialog) {
-        ChangeEmailDialog(
+        ChangeEmailBottomSheet(
             onDismiss = { showEmailDialog = false },
             onSendOtp = { email ->
                 onEmailChange(email)
@@ -273,7 +281,7 @@ fun SettingsScreen(
     }
 
     if (showSeedColorDialog) {
-        SeedColorDialog(
+        SeedColorBottomSheet(
             selectedColor = seedColor,
             onSelect = onSeedColorChange,
             onDismiss = { showSeedColorDialog = false }
@@ -281,63 +289,169 @@ fun SettingsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ThemeSelectionDialog(
+private fun ThemeSelectionBottomSheet(
     initialSelection: ThemeOption,
     onDismiss: () -> Unit,
     onConfirm: (ThemeOption) -> Unit
 ) {
     var selection by remember(initialSelection) { mutableStateOf(initialSelection) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = {
-            Text(text = stringResource(R.string.settings_theme_dialog_title))
-        },
-        text = {
-            Column {
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            // Header
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.size(56.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            painter = painterResource(id = R.drawable.ic_settings_theme),
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_theme_dialog_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Chọn giao diện ứng dụng",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Theme options
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 ThemeOption.entries.forEach { option ->
-                    ThemeOptionRow(
+                    ThemeOptionCard(
                         themeOption = option,
                         isSelected = selection == option,
                         onClick = { selection = option }
                     )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(selection) }) {
-                Text(text = stringResource(R.string.settings_theme_apply))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.auth_cancel_action))
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Action buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = stringResource(R.string.auth_cancel_action))
+                }
+
+                Button(
+                    onClick = { onConfirm(selection) },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = stringResource(R.string.settings_theme_apply))
+                }
             }
         }
-    )
+    }
 }
 
 @Composable
-private fun ThemeOptionRow(
+private fun ThemeOptionCard(
     themeOption: ThemeOption,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
     val label = themeOptionLabel(themeOption)
-    Row(
+    val icon = when (themeOption) {
+        ThemeOption.LIGHT -> Icons.Outlined.Style
+        ThemeOption.DARK -> Icons.Outlined.DarkMode
+        ThemeOption.FOLLOW_SYSTEM -> Icons.Outlined.Palette
+    }
+    
+    Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHigh
+            }
+        ),
+        shape = MaterialTheme.shapes.medium
     ) {
-        RadioButton(
-            selected = isSelected,
-            onClick = onClick
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(text = label)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isSelected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.size(24.dp)
+            )
+            
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (isSelected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
+                modifier = Modifier.weight(1f)
+            )
+            
+            RadioButton(
+                selected = isSelected,
+                onClick = onClick,
+                colors = androidx.compose.material3.RadioButtonDefaults.colors(
+                    selectedColor = if (isSelected) {
+                        MaterialTheme.colorScheme.onPrimaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    }
+                )
+            )
+        }
     }
 }
 
@@ -419,8 +533,9 @@ private fun SettingsRow(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SeedColorDialog(
+private fun SeedColorBottomSheet(
     selectedColor: Long,
     onSelect: (Long) -> Unit,
     onDismiss: () -> Unit
@@ -428,10 +543,7 @@ private fun SeedColorDialog(
     val initialColorInt = remember(selectedColor) { colorLongToInt(selectedColor) }
     var selectedHue by remember { mutableStateOf(0f) }
     var selectedSaturation by remember { mutableStateOf(1f) }
-    var selectedValue by remember { mutableStateOf(1f) }
-    var alpha by remember { 
-        mutableStateOf(((initialColorInt shr 24) and 0xFF) / 255f)
-    }
+    var selectedLightness by remember { mutableStateOf(0.5f) }
     
     // Initialize from selected color
     remember(selectedColor) {
@@ -439,127 +551,232 @@ private fun SeedColorDialog(
         AndroidColor.colorToHSV(initialColorInt, hsv)
         selectedHue = hsv[0]
         selectedSaturation = hsv[1]
-        selectedValue = hsv[2]
-        alpha = ((initialColorInt shr 24) and 0xFF) / 255f
+        selectedLightness = hsv[2]
     }
 
     val currentColorInt = AndroidColor.HSVToColor(
-        (alpha * 255).toInt(),
-        floatArrayOf(selectedHue, selectedSaturation, selectedValue)
+        floatArrayOf(selectedHue, selectedSaturation, selectedLightness)
     )
     val currentColor = Color(currentColorInt)
-    val currentHex = formatColorHex(currentColorInt, includeAlpha = true)
+    val currentHex = formatColorHex(currentColorInt, includeAlpha = false)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = {
-            Text(text = stringResource(R.string.settings_seed_color_dialog_title))
-        },
-        text = {
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            // Header with color preview
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.size(56.dp),
+                    color = currentColor,
+                    shape = CircleShape,
+                    tonalElevation = 4.dp,
+                    shadowElevation = 2.dp,
+                    border = androidx.compose.foundation.BorderStroke(
+                        2.dp,
+                        MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    )
+                ) {}
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_seed_color_dialog_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = currentHex,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
+                    )
+                }
+            }
+
+            // Preset colors
+            Text(
+                text = "Màu gợi ý",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+            
+            LazyRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(PRESET_COLORS.size) { index ->
+                    val presetColor = PRESET_COLORS[index]
+                    Surface(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clickable {
+                                val hsv = FloatArray(3)
+                                AndroidColor.colorToHSV(presetColor, hsv)
+                                selectedHue = hsv[0]
+                                selectedSaturation = hsv[1]
+                                selectedLightness = hsv[2]
+                            },
+                        color = Color(presetColor),
+                        shape = CircleShape,
+                        tonalElevation = 2.dp,
+                        border = androidx.compose.foundation.BorderStroke(
+                            2.dp,
+                            if (currentColorInt == presetColor) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                            }
+                        )
+                    ) {}
+                }
+            }
+
+            // Sliders
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                // Color preview
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        modifier = Modifier.size(56.dp),
-                        color = currentColor,
-                        shape = CircleShape,
-                        tonalElevation = 4.dp,
-                        shadowElevation = 2.dp
-                    ) {}
-                    Column {
+                // Hue slider
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
                         Text(
-                            text = currentHex,
-                            style = MaterialTheme.typography.titleMedium,
+                            text = "Màu sắc (Hue)",
+                            style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "Opacity: ${(alpha * 100).toInt()}%",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "${selectedHue.toInt()}°",
+                            style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
-                }
-
-                // Color palette picker
-                ColorPalettePicker(
-                    selectedHue = selectedHue,
-                    selectedSaturation = selectedSaturation,
-                    selectedValue = selectedValue,
-                    onColorSelected = { hue, saturation, value ->
-                        selectedHue = hue
-                        selectedSaturation = saturation
-                        selectedValue = value
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                )
-
-                // Hue slider
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Hue",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    HueSlider(
-                        hue = selectedHue,
-                        onHueChange = { selectedHue = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(32.dp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Slider(
+                        value = selectedHue,
+                        onValueChange = { selectedHue = it },
+                        valueRange = 0f..360f,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
 
-                // Transparency slider
+                // Saturation slider
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Text(
-                        text = "Transparency",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Độ bão hòa (Saturation)",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "${(selectedSaturation * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Slider(
+                        value = selectedSaturation,
+                        onValueChange = { selectedSaturation = it },
+                        valueRange = 0f..1f,
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    TransparencySlider(
-                        alpha = alpha,
-                        baseColor = Color(
-                            AndroidColor.HSVToColor(
-                                floatArrayOf(selectedHue, selectedSaturation, selectedValue)
-                            )
-                        ),
-                        onAlphaChange = { alpha = it },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(32.dp)
+                }
+
+                // Lightness slider
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Độ sáng (Brightness)",
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = "${(selectedLightness * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Slider(
+                        value = selectedLightness,
+                        onValueChange = { selectedLightness = it },
+                        valueRange = 0f..1f,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onSelect(colorIntToLong(currentColorInt))
-                    onDismiss()
-                }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Action buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(text = stringResource(R.string.settings_theme_apply))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = stringResource(R.string.auth_cancel_action))
+                OutlinedButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = stringResource(R.string.auth_cancel_action))
+                }
+
+                Button(
+                    onClick = {
+                        onSelect(colorIntToLong(currentColorInt))
+                        onDismiss()
+                    },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = stringResource(R.string.settings_theme_apply))
+                }
             }
         }
-    )
+    }
 }
+
+private val PRESET_COLORS = listOf(
+    0xFFEF5350.toInt(), // Red
+    0xFFEC407A.toInt(), // Pink
+    0xFFAB47BC.toInt(), // Purple
+    0xFF7E57C2.toInt(), // Deep Purple
+    0xFF5C6BC0.toInt(), // Indigo
+    0xFF42A5F5.toInt(), // Blue
+    0xFF29B6F6.toInt(), // Light Blue
+    0xFF26C6DA.toInt(), // Cyan
+    0xFF26A69A.toInt(), // Teal
+    0xFF66BB6A.toInt(), // Green
+    0xFF9CCC65.toInt(), // Light Green
+    0xFFD4E157.toInt(), // Lime
+    0xFFFFEE58.toInt(), // Yellow
+    0xFFFFCA28.toInt(), // Amber
+    0xFFFF7043.toInt(), // Deep Orange
+    0xFF8D6E63.toInt(), // Brown
+)
 
 @Composable
 private fun SeedColorPreview(color: Color) {
@@ -583,257 +800,6 @@ private fun formatColorHex(colorInt: Int, includeAlpha: Boolean = false): String
     } else {
         val rgb = colorInt and 0x00FFFFFF
         String.format("#%06X", rgb)
-    }
-}
-
-@Composable
-private fun ColorPalettePicker(
-    selectedHue: Float,
-    selectedSaturation: Float,
-    selectedValue: Float,
-    onColorSelected: (hue: Float, saturation: Float, value: Float) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val pureHueColor = remember(selectedHue) {
-        Color(AndroidColor.HSVToColor(floatArrayOf(selectedHue, 1f, 1f)))
-    }
-
-    Box(
-        modifier = modifier
-            .clip(MaterialTheme.shapes.medium)
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outline,
-                shape = MaterialTheme.shapes.medium
-            )
-    ) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(selectedHue) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            val saturation = (offset.x / size.width).coerceIn(0f, 1f)
-                            val value = 1f - (offset.y / size.height).coerceIn(0f, 1f)
-                            onColorSelected(selectedHue, saturation, value)
-                        },
-                        onDrag = { change, _ ->
-                            change.consume()
-                            val saturation = (change.position.x / size.width).coerceIn(0f, 1f)
-                            val value = 1f - (change.position.y / size.height).coerceIn(0f, 1f)
-                            onColorSelected(selectedHue, saturation, value)
-                        }
-                    )
-                }
-                .pointerInput(selectedHue) {
-                    detectTapGestures { offset ->
-                        val saturation = (offset.x / size.width).coerceIn(0f, 1f)
-                        val value = 1f - (offset.y / size.height).coerceIn(0f, 1f)
-                        onColorSelected(selectedHue, saturation, value)
-                    }
-                }
-        ) {
-            // Draw horizontal saturation gradient (white to pure hue)
-            drawRect(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(Color.White, pureHueColor)
-                )
-            )
-
-            // Draw vertical value gradient (transparent to black)
-            drawRect(
-                brush = Brush.verticalGradient(
-                    colors = listOf(Color.Transparent, Color.Black)
-                )
-            )
-
-            // Draw selection indicator
-            val selectedX = selectedSaturation * size.width
-            val selectedY = (1f - selectedValue) * size.height
-            drawCircle(
-                color = Color.White,
-                radius = 12f,
-                center = Offset(selectedX, selectedY),
-                style = Stroke(width = 3f)
-            )
-            drawCircle(
-                color = Color.Black,
-                radius = 12f,
-                center = Offset(selectedX, selectedY),
-                style = Stroke(width = 1.5f)
-            )
-        }
-    }
-}
-
-@Composable
-private fun HueSlider(
-    hue: Float,
-    onHueChange: (Float) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val hueColors = remember {
-        (0..360 step 10).map { h ->
-            Color(AndroidColor.HSVToColor(floatArrayOf(h.toFloat(), 1f, 1f)))
-        }
-    }
-
-    Box(
-        modifier = modifier
-            .clip(MaterialTheme.shapes.small)
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outline,
-                shape = MaterialTheme.shapes.small
-            )
-    ) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            val newHue = (offset.x / size.width * 360f).coerceIn(0f, 360f)
-                            onHueChange(newHue)
-                        },
-                        onDrag = { change, _ ->
-                            change.consume()
-                            val newHue = (change.position.x / size.width * 360f).coerceIn(0f, 360f)
-                            onHueChange(newHue)
-                        }
-                    )
-                }
-                .pointerInput(Unit) {
-                    detectTapGestures { offset ->
-                        val newHue = (offset.x / size.width * 360f).coerceIn(0f, 360f)
-                        onHueChange(newHue)
-                    }
-                }
-        ) {
-            // Draw hue gradient
-            drawRect(
-                brush = Brush.horizontalGradient(colors = hueColors)
-            )
-
-            // Draw selection indicator
-            val selectedX = (hue / 360f) * size.width
-            drawLine(
-                color = Color.White,
-                start = Offset(selectedX, 0f),
-                end = Offset(selectedX, size.height),
-                strokeWidth = 4f
-            )
-            drawLine(
-                color = Color.Black,
-                start = Offset(selectedX, 0f),
-                end = Offset(selectedX, size.height),
-                strokeWidth = 2f
-            )
-        }
-    }
-}
-
-@Composable
-private fun TransparencySlider(
-    alpha: Float,
-    baseColor: Color,
-    onAlphaChange: (Float) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .clip(MaterialTheme.shapes.small)
-            .border(
-                width = 1.dp,
-                color = MaterialTheme.colorScheme.outline,
-                shape = MaterialTheme.shapes.small
-            )
-    ) {
-        Canvas(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectDragGestures(
-                        onDragStart = { offset ->
-                            val newAlpha = (offset.x / size.width).coerceIn(0f, 1f)
-                            onAlphaChange(newAlpha)
-                        },
-                        onDrag = { change, _ ->
-                            change.consume()
-                            val newAlpha = (change.position.x / size.width).coerceIn(0f, 1f)
-                            onAlphaChange(newAlpha)
-                        }
-                    )
-                }
-                .pointerInput(Unit) {
-                    detectTapGestures { offset ->
-                        val newAlpha = (offset.x / size.width).coerceIn(0f, 1f)
-                        onAlphaChange(newAlpha)
-                    }
-                }
-        ) {
-            // Draw checkerboard pattern for transparency background
-            val checkerSize = 8f
-            val numX = (size.width / checkerSize).toInt()
-            val numY = (size.height / checkerSize).toInt()
-            for (x in 0..numX) {
-                for (y in 0..numY) {
-                    if ((x + y) % 2 == 0) {
-                        drawRect(
-                            color = Color.LightGray,
-                            topLeft = Offset(x * checkerSize, y * checkerSize),
-                            size = androidx.compose.ui.geometry.Size(checkerSize, checkerSize)
-                        )
-                    }
-                }
-            }
-
-            // Draw alpha gradient
-            drawRect(
-                brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        baseColor.copy(alpha = 0f),
-                        baseColor.copy(alpha = 1f)
-                    )
-                )
-            )
-
-            // Draw selection indicator
-            val selectedX = alpha * size.width
-            drawLine(
-                color = Color.White,
-                start = Offset(selectedX, 0f),
-                end = Offset(selectedX, size.height),
-                strokeWidth = 4f
-            )
-            drawLine(
-                color = Color.Black,
-                start = Offset(selectedX, 0f),
-                end = Offset(selectedX, size.height),
-                strokeWidth = 2f
-            )
-        }
-    }
-}
-
-@Composable
-private fun SliderGroup(
-    label: String,
-    value: Float,
-    onValueChange: (Float) -> Unit,
-    valueRange: ClosedFloatingPointRange<Float>
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange
-        )
     }
 }
 
@@ -863,8 +829,9 @@ private fun SettingsSectionHeader(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ChangePasswordDialog(
+private fun ChangePasswordBottomSheet(
     onDismiss: () -> Unit,
     onConfirm: (currentPassword: String, newPassword: String) -> Unit,
     snackbarHostState: SnackbarHostState
@@ -872,97 +839,213 @@ private fun ChangePasswordDialog(
     var currentPassword by rememberSaveable { mutableStateOf("") }
     var newPassword by rememberSaveable { mutableStateOf("") }
     var confirmPassword by rememberSaveable { mutableStateOf("") }
+    var currentPasswordVisible by rememberSaveable { mutableStateOf(false) }
+    var newPasswordVisible by rememberSaveable { mutableStateOf(false) }
+    var confirmPasswordVisible by rememberSaveable { mutableStateOf(false) }
     var isLoading by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = {
-            Text(text = stringResource(R.string.settings_password_dialog_title))
-        },
-        text = {
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            // Header with icon
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.size(56.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = Icons.Filled.Lock,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_password_dialog_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Cập nhật mật khẩu của bạn",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Form fields
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // Current password
                 OutlinedTextField(
                     value = currentPassword,
                     onValueChange = { currentPassword = it },
                     label = { Text(stringResource(R.string.settings_password_current_label)) },
-                    visualTransformation = PasswordVisualTransformation(),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Lock,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { currentPasswordVisible = !currentPasswordVisible }) {
+                            Icon(
+                                imageVector = if (currentPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                contentDescription = if (currentPasswordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu"
+                            )
+                        }
+                    },
+                    visualTransformation = if (currentPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    shape = MaterialTheme.shapes.medium
                 )
+
+                // New password
                 OutlinedTextField(
                     value = newPassword,
                     onValueChange = { newPassword = it },
                     label = { Text(stringResource(R.string.settings_password_new_label)) },
-                    visualTransformation = PasswordVisualTransformation(),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Lock,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { newPasswordVisible = !newPasswordVisible }) {
+                            Icon(
+                                imageVector = if (newPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                contentDescription = if (newPasswordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu"
+                            )
+                        }
+                    },
+                    visualTransformation = if (newPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    shape = MaterialTheme.shapes.medium
                 )
+
+                // Confirm password
                 OutlinedTextField(
                     value = confirmPassword,
                     onValueChange = { confirmPassword = it },
                     label = { Text(stringResource(R.string.settings_password_confirm_label)) },
-                    visualTransformation = PasswordVisualTransformation(),
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Filled.Lock,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                            Icon(
+                                imageVector = if (confirmPasswordVisible) Icons.Filled.Visibility else Icons.Filled.VisibilityOff,
+                                contentDescription = if (confirmPasswordVisible) "Ẩn mật khẩu" else "Hiện mật khẩu"
+                            )
+                        }
+                    },
+                    visualTransformation = if (confirmPasswordVisible) androidx.compose.ui.text.input.VisualTransformation.None else PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading
+                    enabled = !isLoading,
+                    shape = MaterialTheme.shapes.medium,
+                    isError = confirmPassword.isNotEmpty() && newPassword != confirmPassword,
+                    supportingText = if (confirmPassword.isNotEmpty() && newPassword != confirmPassword) {
+                        { Text("Mật khẩu không khớp") }
+                    } else null
                 )
             }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    when {
-                        currentPassword.isBlank() || newPassword.isBlank() || confirmPassword.isBlank() -> {
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = "Vui lòng điền đầy đủ thông tin"
-                                )
-                            }
-                        }
-                        newPassword != confirmPassword -> {
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = "Mật khẩu mới không khớp"
-                                )
-                            }
-                        }
-                        else -> {
-                            isLoading = true
-                            onConfirm(currentPassword, newPassword)
-                        }
-                    }
-                },
-                enabled = !isLoading
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Action buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                if (isLoading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Text(text = stringResource(R.string.settings_password_change_button))
+                OutlinedButton(
+                    onClick = onDismiss,
+                    enabled = !isLoading,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = stringResource(R.string.auth_cancel_action))
+                }
+
+                Button(
+                    onClick = {
+                        when {
+                            currentPassword.isBlank() || newPassword.isBlank() || confirmPassword.isBlank() -> {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Vui lòng điền đầy đủ thông tin"
+                                    )
+                                }
+                            }
+                            newPassword != confirmPassword -> {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Mật khẩu mới không khớp"
+                                    )
+                                }
+                            }
+                            else -> {
+                                isLoading = true
+                                onConfirm(currentPassword, newPassword)
+                            }
+                        }
+                    },
+                    enabled = !isLoading,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Text(text = stringResource(R.string.settings_password_change_button))
+                    }
                 }
             }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !isLoading
-            ) {
-                Text(text = stringResource(R.string.auth_cancel_action))
-            }
         }
-    )
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ChangeEmailDialog(
+private fun ChangeEmailBottomSheet(
     onDismiss: () -> Unit,
     onSendOtp: (email: String) -> Unit,
     onConfirm: (otp: String) -> Unit,
@@ -973,107 +1056,302 @@ private fun ChangeEmailDialog(
     var isOtpSent by rememberSaveable { mutableStateOf(false) }
     var isLoading by rememberSaveable { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = {
-            Text(text = stringResource(R.string.settings_email_dialog_title))
-        },
-        text = {
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(bottom = 32.dp)
+        ) {
+            // Header with icon
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Surface(
+                    modifier = Modifier.size(56.dp),
+                    shape = CircleShape,
+                    color = if (isOtpSent) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.primaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            imageVector = if (isOtpSent) Icons.Filled.CheckCircle else Icons.Filled.Email,
+                            contentDescription = null,
+                            tint = if (isOtpSent) MaterialTheme.colorScheme.onTertiaryContainer else MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                }
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = if (isOtpSent) "Xác nhận mã OTP" else stringResource(R.string.settings_email_dialog_title),
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = if (isOtpSent) "Nhập mã đã gửi đến email của bạn" else "Cập nhật địa chỉ email của bạn",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Step indicator
+            if (!isOtpSent) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Step 1 - Active
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(4.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = MaterialTheme.shapes.small
+                    ) {}
+                    
+                    // Step 2 - Inactive
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(4.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = MaterialTheme.shapes.small
+                    ) {}
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 24.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Step 1 - Completed
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(4.dp),
+                        color = MaterialTheme.colorScheme.tertiary,
+                        shape = MaterialTheme.shapes.small
+                    ) {}
+                    
+                    // Step 2 - Active
+                    Surface(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(4.dp),
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = MaterialTheme.shapes.small
+                    ) {}
+                }
+            }
+
+            // Form fields
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                OutlinedTextField(
-                    value = newEmail,
-                    onValueChange = { newEmail = it },
-                    label = { Text(stringResource(R.string.settings_email_new_label)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = !isLoading && !isOtpSent
-                )
-                
-                if (isOtpSent) {
+                if (!isOtpSent) {
+                    // Email input
+                    OutlinedTextField(
+                        value = newEmail,
+                        onValueChange = { newEmail = it },
+                        label = { Text(stringResource(R.string.settings_email_new_label)) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Email,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            capitalization = KeyboardCapitalization.None
+                        ),
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = !isLoading,
+                        shape = MaterialTheme.shapes.medium
+                    )
+                    
+                    // Info card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Email,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Mã xác nhận sẽ được gửi đến email mới của bạn",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                        }
+                    }
+                } else {
+                    // OTP input
                     OutlinedTextField(
                         value = otp,
                         onValueChange = { otp = it },
                         label = { Text(stringResource(R.string.settings_email_otp_label)) },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Filled.Lock,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        },
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Number
+                        ),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth(),
-                        enabled = !isLoading
+                        enabled = !isLoading,
+                        shape = MaterialTheme.shapes.medium
                     )
-                }
-            }
-        },
-        confirmButton = {
-            if (!isOtpSent) {
-                TextButton(
-                    onClick = {
-                        if (newEmail.isBlank()) {
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = "Vui lòng nhập email"
+                    
+                    // Success card
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.CheckCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Column {
+                                Text(
+                                    text = "Email đã được gửi",
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
                                 )
-                            }
-                        } else {
-                            isLoading = true
-                            onSendOtp(newEmail)
-                            isOtpSent = true
-                            isLoading = false
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = "Mã xác nhận đã được gửi đến email mới"
+                                Text(
+                                    text = "Kiểm tra hộp thư của bạn tại: $newEmail",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
                                 )
                             }
                         }
-                    },
-                    enabled = !isLoading
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(text = stringResource(R.string.settings_email_send_otp_button))
-                    }
-                }
-            } else {
-                TextButton(
-                    onClick = {
-                        if (otp.isBlank()) {
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    message = "Vui lòng nhập mã xác nhận"
-                                )
-                            }
-                        } else {
-                            isLoading = true
-                            onConfirm(otp)
-                        }
-                    },
-                    enabled = !isLoading
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(text = stringResource(R.string.settings_email_confirm_button))
                     }
                 }
             }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onDismiss,
-                enabled = !isLoading
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Action buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text(text = stringResource(R.string.auth_cancel_action))
+                OutlinedButton(
+                    onClick = onDismiss,
+                    enabled = !isLoading,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(text = stringResource(R.string.auth_cancel_action))
+                }
+
+                if (!isOtpSent) {
+                    Button(
+                        onClick = {
+                            if (newEmail.isBlank()) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Vui lòng nhập email"
+                                    )
+                                }
+                            } else {
+                                isLoading = true
+                                onSendOtp(newEmail)
+                                isOtpSent = true
+                                isLoading = false
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Mã xác nhận đã được gửi đến email mới"
+                                    )
+                                }
+                            }
+                        },
+                        enabled = !isLoading,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            Text(text = stringResource(R.string.settings_email_send_otp_button))
+                        }
+                    }
+                } else {
+                    Button(
+                        onClick = {
+                            if (otp.isBlank()) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Vui lòng nhập mã xác nhận"
+                                    )
+                                }
+                            } else {
+                                isLoading = true
+                                onConfirm(otp)
+                            }
+                        },
+                        enabled = !isLoading,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                        } else {
+                            Text(text = stringResource(R.string.settings_email_confirm_button))
+                        }
+                    }
+                }
             }
         }
-    )
+    }
 }
 
 @Composable

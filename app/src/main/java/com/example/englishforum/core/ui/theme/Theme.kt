@@ -9,6 +9,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.Color
@@ -90,82 +91,151 @@ private fun createSeedColorScheme(
     isDarkTheme: Boolean,
     useAmoled: Boolean
 ): ColorScheme {
+    // Convert to HSL for proper tone generation
+    val hsl = FloatArray(3)
+    ColorUtils.colorToHSL(seedColor.toArgb(), hsl)
+    val hue = hsl[0]
+    
     return if (isDarkTheme) {
-        val primary = seedColor.shiftLightness(0.75f)
-        val secondary = seedColor.shiftHue(20f).shiftLightness(0.65f)
-        val tertiary = seedColor.shiftHue(-35f).shiftLightness(0.7f)
-        val neutral = if (useAmoled) Color.Black else seedColor.shiftSaturation(0.15f).shiftLightness(0.18f)
-        val elevatedSurface = if (useAmoled) Color(0xFF101010) else neutral.shiftLightness(1.1f)
-
+        // Material 3 tonal palette approach
+        val primary = colorFromHslTone(hue, 0.48f, 0.80f)  // 80 tone
+        val onPrimary = colorFromHslTone(hue, 0.48f, 0.20f)  // 20 tone
+        val primaryContainer = colorFromHslTone(hue, 0.48f, 0.30f)  // 30 tone
+        val onPrimaryContainer = colorFromHslTone(hue, 0.48f, 0.90f)  // 90 tone
+        
+        val secondary = colorFromHslTone(hue + 20f, 0.36f, 0.80f)
+        val onSecondary = colorFromHslTone(hue + 20f, 0.36f, 0.20f)
+        val secondaryContainer = colorFromHslTone(hue + 20f, 0.36f, 0.30f)
+        val onSecondaryContainer = colorFromHslTone(hue + 20f, 0.36f, 0.90f)
+        
+        val tertiary = colorFromHslTone(hue - 35f, 0.40f, 0.80f)
+        val onTertiary = colorFromHslTone(hue - 35f, 0.40f, 0.20f)
+        val tertiaryContainer = colorFromHslTone(hue - 35f, 0.40f, 0.30f)
+        val onTertiaryContainer = colorFromHslTone(hue - 35f, 0.40f, 0.90f)
+        
+        val error = Color(0xFFFFB4AB)
+        val onError = Color(0xFF690005)
+        val errorContainer = Color(0xFF93000A)
+        val onErrorContainer = Color(0xFFFFDAD6)
+        
+        val background = if (useAmoled) Color.Black else colorFromHslTone(hue, 0.06f, 0.10f)
+        val onBackground = colorFromHslTone(hue, 0.06f, 0.90f)
+        
+        val surface = if (useAmoled) Color.Black else colorFromHslTone(hue, 0.06f, 0.10f)
+        val onSurface = colorFromHslTone(hue, 0.06f, 0.90f)
+        val surfaceVariant = if (useAmoled) Color(0xFF1C1C1C) else colorFromHslTone(hue, 0.12f, 0.20f)
+        val onSurfaceVariant = colorFromHslTone(hue, 0.12f, 0.80f)
+        
+        val outline = colorFromHslTone(hue, 0.12f, 0.60f)
+        val outlineVariant = colorFromHslTone(hue, 0.12f, 0.30f)
+        
         darkColorScheme(
             primary = primary,
-            onPrimary = Color.White,
-            primaryContainer = seedColor.shiftLightness(0.45f),
-            onPrimaryContainer = Color.White,
+            onPrimary = onPrimary,
+            primaryContainer = primaryContainer,
+            onPrimaryContainer = onPrimaryContainer,
             secondary = secondary,
-            onSecondary = Color.White,
-            secondaryContainer = secondary.shiftLightness(0.55f),
-            onSecondaryContainer = Color.White,
+            onSecondary = onSecondary,
+            secondaryContainer = secondaryContainer,
+            onSecondaryContainer = onSecondaryContainer,
             tertiary = tertiary,
-            onTertiary = Color.White,
-            tertiaryContainer = tertiary.shiftLightness(0.5f),
-            onTertiaryContainer = Color.White,
-            background = if (useAmoled) Color.Black else neutral,
-            onBackground = Color.White,
-            surface = if (useAmoled) Color.Black else neutral,
-            surfaceVariant = if (useAmoled) Color(0xFF1C1C1C) else elevatedSurface,
-            onSurface = Color.White,
-            onSurfaceVariant = Color(0xFFDADADA),
-            outline = Color(0xFF8F8F8F)
+            onTertiary = onTertiary,
+            tertiaryContainer = tertiaryContainer,
+            onTertiaryContainer = onTertiaryContainer,
+            error = error,
+            onError = onError,
+            errorContainer = errorContainer,
+            onErrorContainer = onErrorContainer,
+            background = background,
+            onBackground = onBackground,
+            surface = surface,
+            onSurface = onSurface,
+            surfaceVariant = surfaceVariant,
+            onSurfaceVariant = onSurfaceVariant,
+            surfaceContainer = if (useAmoled) Color(0xFF101010) else colorFromHslTone(hue, 0.06f, 0.12f),
+            surfaceContainerHigh = if (useAmoled) Color(0xFF1F1F1F) else colorFromHslTone(hue, 0.06f, 0.17f),
+            surfaceContainerHighest = if (useAmoled) Color(0xFF2A2A2A) else colorFromHslTone(hue, 0.06f, 0.22f),
+            surfaceContainerLow = if (useAmoled) Color(0xFF0A0A0A) else colorFromHslTone(hue, 0.06f, 0.08f),
+            surfaceContainerLowest = if (useAmoled) Color.Black else colorFromHslTone(hue, 0.06f, 0.04f),
+            outline = outline,
+            outlineVariant = outlineVariant,
+            inverseSurface = colorFromHslTone(hue, 0.06f, 0.90f),
+            inverseOnSurface = colorFromHslTone(hue, 0.06f, 0.20f),
+            inversePrimary = colorFromHslTone(hue, 0.48f, 0.40f)
         )
     } else {
-        val primary = seedColor.shiftLightness(1.05f)
-        val secondary = seedColor.shiftHue(20f).shiftLightness(1.15f)
-        val tertiary = seedColor.shiftHue(-25f).shiftLightness(1.1f)
-        val surface = seedColor.shiftSaturation(0.12f).shiftLightness(1.35f)
-
+        // Light theme with Material 3 tones
+        val primary = colorFromHslTone(hue, 0.48f, 0.40f)  // 40 tone
+        val onPrimary = Color.White
+        val primaryContainer = colorFromHslTone(hue, 0.48f, 0.90f)  // 90 tone
+        val onPrimaryContainer = colorFromHslTone(hue, 0.48f, 0.10f)  // 10 tone
+        
+        val secondary = colorFromHslTone(hue + 20f, 0.36f, 0.40f)
+        val onSecondary = Color.White
+        val secondaryContainer = colorFromHslTone(hue + 20f, 0.36f, 0.90f)
+        val onSecondaryContainer = colorFromHslTone(hue + 20f, 0.36f, 0.10f)
+        
+        val tertiary = colorFromHslTone(hue - 35f, 0.40f, 0.40f)
+        val onTertiary = Color.White
+        val tertiaryContainer = colorFromHslTone(hue - 35f, 0.40f, 0.90f)
+        val onTertiaryContainer = colorFromHslTone(hue - 35f, 0.40f, 0.10f)
+        
+        val error = Color(0xFFBA1A1A)
+        val onError = Color.White
+        val errorContainer = Color(0xFFFFDAD6)
+        val onErrorContainer = Color(0xFF410002)
+        
+        val background = colorFromHslTone(hue, 0.06f, 0.98f)
+        val onBackground = colorFromHslTone(hue, 0.06f, 0.10f)
+        
+        val surface = colorFromHslTone(hue, 0.06f, 0.98f)
+        val onSurface = colorFromHslTone(hue, 0.06f, 0.10f)
+        val surfaceVariant = colorFromHslTone(hue, 0.12f, 0.90f)
+        val onSurfaceVariant = colorFromHslTone(hue, 0.12f, 0.30f)
+        
+        val outline = colorFromHslTone(hue, 0.12f, 0.50f)
+        val outlineVariant = colorFromHslTone(hue, 0.12f, 0.80f)
+        
         lightColorScheme(
             primary = primary,
-            onPrimary = Color.White,
-            primaryContainer = primary.shiftLightness(1.25f),
-            onPrimaryContainer = Color(0xFF1B1B1F),
+            onPrimary = onPrimary,
+            primaryContainer = primaryContainer,
+            onPrimaryContainer = onPrimaryContainer,
             secondary = secondary,
-            onSecondary = Color.White,
-            secondaryContainer = secondary.shiftLightness(1.2f),
-            onSecondaryContainer = Color(0xFF1B1B1F),
+            onSecondary = onSecondary,
+            secondaryContainer = secondaryContainer,
+            onSecondaryContainer = onSecondaryContainer,
             tertiary = tertiary,
-            onTertiary = Color.White,
-            tertiaryContainer = tertiary.shiftLightness(1.2f),
-            onTertiaryContainer = Color(0xFF1B1B1F),
-            background = surface,
-            onBackground = Color(0xFF1B1B1F),
+            onTertiary = onTertiary,
+            tertiaryContainer = tertiaryContainer,
+            onTertiaryContainer = onTertiaryContainer,
+            error = error,
+            onError = onError,
+            errorContainer = errorContainer,
+            onErrorContainer = onErrorContainer,
+            background = background,
+            onBackground = onBackground,
             surface = surface,
-            surfaceVariant = surface.shiftLightness(0.95f),
-            onSurface = Color(0xFF1C1B1F),
-            onSurfaceVariant = Color(0xFF49454F),
-            outline = Color(0xFF79747E)
+            onSurface = onSurface,
+            surfaceVariant = surfaceVariant,
+            onSurfaceVariant = onSurfaceVariant,
+            surfaceContainer = colorFromHslTone(hue, 0.06f, 0.94f),
+            surfaceContainerHigh = colorFromHslTone(hue, 0.06f, 0.92f),
+            surfaceContainerHighest = colorFromHslTone(hue, 0.06f, 0.90f),
+            surfaceContainerLow = colorFromHslTone(hue, 0.06f, 0.96f),
+            surfaceContainerLowest = Color.White,
+            outline = outline,
+            outlineVariant = outlineVariant,
+            inverseSurface = colorFromHslTone(hue, 0.06f, 0.20f),
+            inverseOnSurface = colorFromHslTone(hue, 0.06f, 0.95f),
+            inversePrimary = colorFromHslTone(hue, 0.48f, 0.80f)
         )
     }
 }
 
-private fun Color.shiftLightness(factor: Float): Color {
-    val hsl = FloatArray(3)
-    ColorUtils.colorToHSL(this.toArgb(), hsl)
-    hsl[2] = (hsl[2] * factor).coerceIn(0f, 1f)
-    return Color(ColorUtils.HSLToColor(hsl))
+// Helper function to create colors using Material 3's tonal palette approach
+private fun colorFromHslTone(hue: Float, saturation: Float, lightness: Float): Color {
+    val normalizedHue = ((hue % 360f) + 360f) % 360f
+    return Color(ColorUtils.HSLToColor(floatArrayOf(normalizedHue, saturation, lightness)))
 }
 
-private fun Color.shiftSaturation(factor: Float): Color {
-    val hsl = FloatArray(3)
-    ColorUtils.colorToHSL(this.toArgb(), hsl)
-    hsl[1] = (hsl[1] * factor).coerceIn(0f, 1f)
-    return Color(ColorUtils.HSLToColor(hsl))
-}
-
-private fun Color.shiftHue(delta: Float): Color {
-    val hsl = FloatArray(3)
-    ColorUtils.colorToHSL(this.toArgb(), hsl)
-    hsl[0] = (hsl[0] + delta) % 360f
-    if (hsl[0] < 0f) hsl[0] += 360f
-    return Color(ColorUtils.HSLToColor(hsl))
-}
