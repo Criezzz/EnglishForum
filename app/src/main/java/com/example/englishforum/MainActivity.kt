@@ -39,8 +39,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.ui.graphics.Color
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.ThemeOption
+import com.example.englishforum.core.model.ThemePreferences
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 import com.example.englishforum.feature.auth.LoginScreen
 import com.example.englishforum.feature.auth.LoginViewModel
@@ -119,7 +121,8 @@ fun MainApp() {
         !isPostDetailRoute &&
         !isViewingOtherProfile
     val userSession by sessionRepository.sessionFlow.collectAsState(initial = null)
-    val themeOption by themeRepository.themeOptionFlow.collectAsState(initial = ThemeOption.FOLLOW_SYSTEM)
+    val themePreferences by themeRepository.themePreferencesFlow
+        .collectAsState(initial = ThemePreferences())
     val sessionMonitorViewModel: SessionMonitorViewModel = viewModel(
         factory = remember(
             sessionRepository,
@@ -193,7 +196,12 @@ fun MainApp() {
         }
     }
 
-    EnglishForumTheme(themeOption = themeOption) {
+    EnglishForumTheme(
+        themeOption = themePreferences.themeOption,
+        useDynamicColor = themePreferences.isMaterialThemeEnabled,
+        seedColor = Color(themePreferences.seedColor.toInt()),
+        useAmoled = themePreferences.isAmoledEnabled
+    ) {
         Scaffold(
             modifier = Modifier.fillMaxSize(),
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -423,10 +431,28 @@ fun MainApp() {
                 }
                 composable(Destinations.Settings.route) {
                     SettingsScreen(
-                        currentTheme = themeOption,
+                        currentTheme = themePreferences.themeOption,
                         onThemeChange = { option ->
                             scope.launch {
                                 themeRepository.setThemeOption(option)
+                            }
+                        },
+                        isMaterialThemeEnabled = themePreferences.isMaterialThemeEnabled,
+                        onMaterialThemeToggle = { enabled ->
+                            scope.launch {
+                                themeRepository.setMaterialThemeEnabled(enabled)
+                            }
+                        },
+                        seedColor = themePreferences.seedColor,
+                        onSeedColorChange = { color ->
+                            scope.launch {
+                                themeRepository.setSeedColor(color)
+                            }
+                        },
+                        isAmoledEnabled = themePreferences.isAmoledEnabled,
+                        onAmoledToggle = { enabled ->
+                            scope.launch {
+                                themeRepository.setAmoledEnabled(enabled)
                             }
                         },
                         onBackClick = { navController.popBackStack() },

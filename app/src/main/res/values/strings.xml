@@ -148,7 +148,7 @@
     <string name="profile_edit_bio_supporting">Tối đa %1$d ký tự. Hãy viết vài câu giới thiệu ngắn gọn.</string>
 
     <string name="settings_title">Cài đặt</string>
-    <string name="settings_theme">Giao diện</string>
+    <string name="settings_app_theme">Chế độ hiển thị</string>
     <string name="settings_theme_dialog_title">Chọn giao diện</string>
     <string name="settings_theme_follow_system">Theo hệ thống</string>
     <string name="settings_theme_light">Giao diện sáng</string>
@@ -157,6 +157,21 @@
     <string name="settings_change_password">Đổi mật khẩu</string>
     <string name="settings_change_email">Đổi email</string>
     <string name="settings_logout">Đăng xuất</string>
+    <string name="settings_section_look_and_feel">Giao diện &amp; cảm nhận</string>
+    <string name="settings_material_theme_title">Material You</string>
+    <string name="settings_material_theme_subtitle_on">Theo màu hệ thống</string>
+    <string name="settings_material_theme_subtitle_off">Sử dụng điểm nhấn đã chọn</string>
+    <string name="settings_seed_color">Màu điểm nhấn</string>
+    <string name="settings_seed_color_dialog_title">Chọn màu điểm nhấn</string>
+    <string name="settings_seed_color_hue">Sắc độ (Hue)</string>
+    <string name="settings_seed_color_saturation">Độ bão hòa (Saturation)</string>
+    <string name="settings_seed_color_lightness">Độ sáng (Lightness)</string>
+    <string name="settings_seed_color_hex_label">Mã màu</string>
+    <string name="settings_seed_color_hex_error">Nhập đủ 6 ký tự hex hợp lệ</string>
+    <string name="settings_amoled">Chế độ AMOLED</string>
+    <string name="settings_amoled_subtitle">Nền đen hoàn toàn cho màn hình OLED</string>
+    <string name="settings_section_account">Tài khoản</string>
+    <string name="settings_section_actions">Hành động</string>
     
     <string name="settings_password_dialog_title">Đổi mật khẩu</string>
     <string name="settings_password_current_label">Mật khẩu hiện tại</string>
