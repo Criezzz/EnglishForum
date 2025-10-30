@@ -546,7 +546,7 @@ private fun SeedColorBottomSheet(
     var selectedLightness by remember { mutableStateOf(0.5f) }
     
     // Initialize from selected color
-    remember(selectedColor) {
+    LaunchedEffect(selectedColor) {
         val hsv = FloatArray(3)
         AndroidColor.colorToHSV(initialColorInt, hsv)
         selectedHue = hsv[0]
