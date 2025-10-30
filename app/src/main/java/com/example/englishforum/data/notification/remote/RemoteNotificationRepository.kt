@@ -6,6 +6,7 @@ import com.example.englishforum.core.model.notification.ForumNotificationTarget
 import com.example.englishforum.data.auth.UserSession
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.auth.bearerToken
+import com.example.englishforum.data.post.remote.PostDetailApi
 import com.example.englishforum.data.notification.NotificationRepository
 import com.example.englishforum.data.notification.remote.model.NotificationResponse
 import java.time.Duration
@@ -26,8 +27,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-class RemoteNotificationRepository(
+internal class RemoteNotificationRepository(
     private val notificationApi: NotificationApi,
+    private val postDetailApi: PostDetailApi,
     private val userSessionRepository: UserSessionRepository,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : NotificationRepository {
@@ -40,6 +42,20 @@ class RemoteNotificationRepository(
 
     init {
         scope.launch { observeSessionChanges() }
+    }
+
+    private suspend fun fetchPostIdForComment(session: UserSession, commentId: Int): String? {
+        val response = withContext(ioDispatcher) {
+            runCatching {
+                postDetailApi.getCommentDetail(
+                    bearer = session.bearerToken(),
+                    commentId = commentId
+                )
+            }
+        }
+
+        val postId = response.getOrNull()?.postId
+        return postId?.takeIf { it > 0 }?.toString()
     }
 
     override suspend fun markNotificationAsRead(notificationId: String) {
@@ -125,27 +141,41 @@ class RemoteNotificationRepository(
             }
         }
 
-        response.onSuccess { list ->
-            val now = Instant.now()
-            val normalized = list.mapNotNull { it.toDomain(now) }
-            mutableNotifications.value = normalized
+        if (response.isFailure) return
+
+        val list = response.getOrNull().orEmpty()
+        if (list.isEmpty()) {
+            mutableNotifications.value = emptyList()
+            return
         }
+
+        val now = Instant.now()
+        val normalized = mutableListOf<ForumNotification>()
+        for (item in list) {
+            val normalizedItem = item.toDomain(now, session)
+            if (normalizedItem != null) {
+                normalized.add(normalizedItem)
+            }
+        }
+        mutableNotifications.value = normalized
     }
 
     private suspend fun currentSessionOrNull(): UserSession? {
         return userSessionRepository.sessionFlow.firstOrNull()
     }
 
-    private fun NotificationResponse.toDomain(now: Instant): ForumNotification? {
+    private suspend fun NotificationResponse.toDomain(now: Instant, session: UserSession): ForumNotification? {
         val id = notificationId.toString()
         val action = actionType?.lowercase(Locale.US) ?: "unknown"
         val target = when (targetType?.lowercase(Locale.US)) {
             "comment" -> {
                 val commentId = (targetId ?: actionId)?.takeIf { it > 0 }
                 if (commentId != null) {
+                    val initialPostId = actionId?.takeIf { it > 0 && it != commentId }?.toString()
+                    val resolvedPostId = initialPostId ?: fetchPostIdForComment(session, commentId)
                     ForumNotificationTarget.Comment(
                         commentId = commentId.toString(),
-                        postId = actionId?.takeIf { it > 0 && it != commentId }?.toString()
+                        postId = resolvedPostId
                     )
                 } else {
                     ForumNotificationTarget.Unknown(targetType, targetId?.toString(), actionId?.toString())

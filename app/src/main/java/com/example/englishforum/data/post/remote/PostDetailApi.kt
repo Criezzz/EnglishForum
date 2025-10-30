@@ -1,6 +1,7 @@
 package com.example.englishforum.data.post.remote
 
 import com.example.englishforum.data.auth.remote.model.MessageResponse
+import com.example.englishforum.data.post.remote.model.CommentDetailResponse
 import com.example.englishforum.data.post.remote.model.PostCommentResponse
 import com.example.englishforum.data.post.remote.model.PostDetailResponse
 import okhttp3.MultipartBody
@@ -23,6 +24,12 @@ internal interface PostDetailApi {
         @Header("Authorization") bearer: String,
         @Path("post_id") postId: Int
     ): PostDetailResponse
+
+    @GET("/comments/{comment_id}")
+    suspend fun getCommentDetail(
+        @Header("Authorization") bearer: String,
+        @Path("comment_id") commentId: Int
+    ): CommentDetailResponse
 
     @GET("/posts/{post_id}/comments")
     suspend fun getPostComments(

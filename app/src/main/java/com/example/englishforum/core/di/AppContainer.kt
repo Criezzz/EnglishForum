@@ -173,6 +173,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val notificationRepository: NotificationRepository by lazy {
         RemoteNotificationRepository(
             notificationApi = notificationApi,
+            postDetailApi = postDetailApi,
             userSessionRepository = userSessionRepository
         )
     }
