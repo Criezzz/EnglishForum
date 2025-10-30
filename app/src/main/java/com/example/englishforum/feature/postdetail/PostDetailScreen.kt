@@ -96,10 +96,12 @@ import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.ui.components.ForumAuthorAvatar
 import com.example.englishforum.core.ui.components.ForumAuthorLink
+import com.example.englishforum.core.ui.components.ForumTagLabel
 import com.example.englishforum.core.ui.components.VoteIconButton
 import com.example.englishforum.core.ui.components.card.CommentPillPlacement
 import com.example.englishforum.core.ui.components.card.ForumContentCard
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
+import com.example.englishforum.core.ui.toLabelResId
 import coil.request.ImageRequest
 
 private val CommentThreadIndent = 20.dp
@@ -287,18 +289,7 @@ fun PostDetailScreen(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = {
-                    val titleText = post?.title.orEmpty()
-                    if (titleText.isNotBlank()) {
-                        Text(
-                            text = titleText,
-                            style = MaterialTheme.typography.titleLarge,
-                            color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                },
+                title = { },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
@@ -456,11 +447,12 @@ fun PostDetailScreen(
                             val postAuthorClick = uiState.post.authorUsername?.let { username ->
                                 { onAuthorClick(username) }
                             }
+                            val tagLabel = stringResource(uiState.post.tag.toLabelResId())
                             ForumContentCard(
                                 meta = uiState.post.relativeTimeText,
                                 voteCount = uiState.post.voteCount,
-                                title = uiState.post.title,
-                                body = uiState.post.body,
+                                title = null,
+                                body = null,
                                 voteState = uiState.post.voteState,
                                 commentCount = uiState.post.commentCount,
                                 onUpvoteClick = onUpvotePost,
@@ -474,16 +466,43 @@ fun PostDetailScreen(
                                     )
                                 },
                                 headerContent = {
-                                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                        ForumAuthorLink(
-                                            name = uiState.post.authorName,
-                                            onClick = postAuthorClick,
-                                            color = MaterialTheme.colorScheme.onSurface,
-                                            style = MaterialTheme.typography.titleSmall
-                                        )
+                                    Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            ForumAuthorLink(
+                                                name = uiState.post.authorName,
+                                                onClick = postAuthorClick,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                style = MaterialTheme.typography.titleSmall
+                                            )
+                                            Spacer(Modifier.weight(1f))
+                                            ForumTagLabel(label = tagLabel)
+                                        }
                                         Text(
                                             text = uiState.post.relativeTimeText,
                                             style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                },
+                                bodyContent = {
+                                    var previousDisplayed = false
+                                    if (uiState.post.title.isNotBlank()) {
+                                        Spacer(Modifier.height(6.dp))
+                                        Text(
+                                            text = uiState.post.title,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        previousDisplayed = true
+                                    }
+                                    if (uiState.post.body.isNotBlank()) {
+                                        Spacer(Modifier.height(if (previousDisplayed) 4.dp else 6.dp))
+                                        Text(
+                                            text = uiState.post.body,
+                                            style = MaterialTheme.typography.bodyMedium,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
@@ -817,7 +836,6 @@ private fun PostCommentItem(
 
     val targetContainerColor = when {
         isHighlighted -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.35f)
-        comment.isAuthor -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.25f)
         else -> depthContainer
     }
 
@@ -829,7 +847,6 @@ private fun PostCommentItem(
 
     val targetBorderColor = when {
         isHighlighted -> MaterialTheme.colorScheme.secondary
-        comment.isAuthor -> MaterialTheme.colorScheme.outlineVariant
         else -> null
     }
 
@@ -845,7 +862,6 @@ private fun PostCommentItem(
         color = containerColor,
         tonalElevation = when {
             isHighlighted -> 4.dp
-            comment.isAuthor -> 3.dp
             else -> comment.depth.coerceIn(0, 4).dp
         },
         border = if (targetBorderColor != null) {
@@ -1429,6 +1445,7 @@ private fun PostDetailScreenPreview() {
             voteCount = 17,
             voteState = VoteState.UPVOTED,
             commentCount = 5,
+            tag = com.example.englishforum.core.model.forum.PostTag.AskQuestion,
             galleryImages = listOf(
                 "mock://gallery/image-1",
                 "mock://gallery/image-2",

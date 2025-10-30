@@ -426,6 +426,7 @@ private fun ForumPostDetail.toUiModel(): PostDetailUi {
         voteCount = voteCount,
         voteState = voteState,
         commentCount = commentCount,
+        tag = tag,
         previewImageUrl = previewImageUrl,
         galleryImages = galleryImages
     )
