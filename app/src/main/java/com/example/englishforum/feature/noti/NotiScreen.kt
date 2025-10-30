@@ -1,6 +1,7 @@
 package com.example.englishforum.feature.noti
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -25,12 +27,16 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -163,7 +169,7 @@ fun NotiScreen(
                             items = uiState.notifications,
                             key = { it.id }
                         ) { item ->
-                            NotificationListItem(
+                            SwipeableNotificationItem(
                                 item = item,
                                 onClick = {
                                     if (!item.isRead) {
@@ -171,6 +177,11 @@ fun NotiScreen(
                                     }
                                     if (item.postId != null) {
                                         onNotificationClick(item.postId, item.commentId)
+                                    }
+                                },
+                                onSwipeToMarkAsRead = {
+                                    if (!item.isRead) {
+                                        onMarkNotificationAsRead(item.id)
                                     }
                                 }
                             )
@@ -180,6 +191,101 @@ fun NotiScreen(
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeableNotificationItem(
+    item: NotificationItemUi,
+    onClick: () -> Unit,
+    onSwipeToMarkAsRead: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { dismissValue ->
+            when (dismissValue) {
+                SwipeToDismissBoxValue.EndToStart -> {
+                    // Swiped from right to left - mark as read
+                    if (!item.isRead) {
+                        onSwipeToMarkAsRead()
+                    }
+                    true // Allow the swipe animation to complete
+                }
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    // Swiped from left to right - also mark as read
+                    if (!item.isRead) {
+                        onSwipeToMarkAsRead()
+                    }
+                    true // Allow the swipe animation to complete
+                }
+                else -> false
+            }
+        }
+    )
+
+    // Reset the state after marking as read
+    LaunchedEffect(item.isRead) {
+        if (item.isRead && dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+            dismissState.reset()
+        }
+    }
+
+    SwipeToDismissBox(
+        state = dismissState,
+        modifier = modifier,
+        backgroundContent = {
+            // Background shown when swiping
+            val backgroundColor by animateColorAsState(
+                targetValue = when (dismissState.dismissDirection) {
+                    SwipeToDismissBoxValue.EndToStart -> {
+                        if (item.isRead) {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.primaryContainer
+                        }
+                    }
+                    SwipeToDismissBoxValue.StartToEnd -> {
+                        if (item.isRead) {
+                            MaterialTheme.colorScheme.surfaceVariant
+                        } else {
+                            MaterialTheme.colorScheme.primaryContainer
+                        }
+                    }
+                    else -> MaterialTheme.colorScheme.surface
+                },
+                label = "swipeBackgroundColor"
+            )
+
+            val alignment = when (dismissState.dismissDirection) {
+                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                else -> Alignment.Center
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(backgroundColor, MaterialTheme.shapes.large)
+                    .padding(horizontal = 20.dp),
+                contentAlignment = alignment
+            ) {
+                if (!item.isRead) {
+                    Icon(
+                        imageVector = Icons.Filled.Done,
+                        contentDescription = stringResource(id = R.string.notifications_mark_as_read),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+        },
+        enableDismissFromStartToEnd = !item.isRead, // Swipe right for unread
+        enableDismissFromEndToStart = !item.isRead  // Swipe left for unread
+    ) {
+        NotificationListItem(
+            item = item,
+            onClick = onClick
+        )
     }
 }
 
