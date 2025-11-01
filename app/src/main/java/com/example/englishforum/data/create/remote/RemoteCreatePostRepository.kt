@@ -22,6 +22,7 @@ import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import retrofit2.HttpException
@@ -84,20 +85,20 @@ internal class RemoteCreatePostRepository(
     ): List<MultipartBody.Part> {
         if (images.isEmpty()) return emptyList()
         return images.mapIndexed { index, image ->
-            val stream = contentResolver.openInputStream(image.uri)
-                ?: throw IOException(MISSING_FILE_MESSAGE)
-            stream.use { inputStream ->
-                val bytes = inputStream.readBytes()
-                if (bytes.isEmpty()) {
-                    throw IOException(MISSING_FILE_MESSAGE)
-                }
-                val mediaType = resolveMimeType(image.uri)?.toMediaTypeOrNull() ?: FALLBACK_MEDIA_TYPE
-                val fileName = image.displayName
-                    ?: resolveDisplayName(image.uri)
-                    ?: "attachment_${index + 1}.${resolveExtension(mediaType)}"
-                val requestBody = bytes.toRequestBody(mediaType)
-                MultipartBody.Part.createFormData(ATTACHMENT_FIELD_NAME, fileName, requestBody)
+            if (!image.file.exists() || image.file.length() == 0L) {
+                throw IOException(MISSING_FILE_MESSAGE)
             }
+
+            val mediaType = image.mimeType.toMediaTypeOrNull()
+                ?: resolveMimeType(image.originalUri)?.toMediaTypeOrNull()
+                ?: FALLBACK_MEDIA_TYPE
+
+            val fileName = image.displayName
+                ?: resolveDisplayName(image.originalUri)
+                ?: "attachment_${index + 1}.${resolveExtension(mediaType)}"
+
+            val requestBody = image.file.asRequestBody(mediaType)
+            MultipartBody.Part.createFormData(ATTACHMENT_FIELD_NAME, fileName, requestBody)
         }
     }
 

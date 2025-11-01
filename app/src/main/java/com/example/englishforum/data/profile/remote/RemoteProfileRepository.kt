@@ -49,7 +49,7 @@ import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
-import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import retrofit2.HttpException
 import java.util.concurrent.ConcurrentHashMap
 
@@ -215,19 +215,19 @@ internal class RemoteProfileRepository(
     }
 
     private fun buildAvatarPart(avatar: ProfileAvatarImage): MultipartBody.Part {
-        val uri = avatar.uri
-        val inputStream = contentResolver.openInputStream(uri)
-            ?: throw ProfileRepositoryException(AVATAR_FILE_READ_ERROR_MESSAGE)
-        val bytes = inputStream.use { stream -> stream.readBytes() }
-        if (bytes.isEmpty()) {
+        if (!avatar.file.exists() || avatar.file.length() == 0L) {
             throw ProfileRepositoryException(AVATAR_FILE_READ_ERROR_MESSAGE)
         }
 
-        val mediaType = resolveMimeType(uri)?.toMediaTypeOrNull() ?: DEFAULT_AVATAR_MEDIA_TYPE
+        val mediaType = avatar.mimeType.toMediaTypeOrNull()
+            ?: resolveMimeType(avatar.originalUri)?.toMediaTypeOrNull()
+            ?: DEFAULT_AVATAR_MEDIA_TYPE
+
         val fileName = avatar.displayName?.takeIf { it.isNotBlank() }
-            ?: resolveDisplayName(uri)
+            ?: resolveDisplayName(avatar.originalUri)
             ?: buildDefaultAvatarName(mediaType)
-        val requestBody = bytes.toRequestBody(mediaType)
+
+        val requestBody = avatar.file.asRequestBody(mediaType)
         return MultipartBody.Part.createFormData(AVATAR_FIELD_NAME, fileName, requestBody)
     }
 

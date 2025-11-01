@@ -6,6 +6,7 @@ import com.example.englishforum.core.model.forum.ForumProfilePost
 import com.example.englishforum.core.model.forum.ForumProfileReply
 import com.example.englishforum.core.model.forum.ForumProfileStats
 import com.example.englishforum.core.model.forum.ForumUserProfile
+import androidx.core.net.toUri
 import com.example.englishforum.data.profile.ProfileAvatarImage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,7 +32,7 @@ class FakeProfileRepository : ProfileRepository {
     }
 
     override suspend fun updateAvatar(userId: String, avatar: ProfileAvatarImage): Result<Unit> {
-        profileState.update { current -> current.copy(avatarUrl = avatar.uri.toString()) }
+        profileState.update { current -> current.copy(avatarUrl = avatar.file.toUri().toString()) }
         return Result.success(Unit)
     }
 

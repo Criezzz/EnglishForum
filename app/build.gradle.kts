@@ -61,6 +61,7 @@ dependencies {
     implementation(libs.moshi)
     implementation(libs.moshiKotlin)
     implementation(libs.coil.compose)
+    implementation(libs.androidx.exifinterface)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.foundation.layout)

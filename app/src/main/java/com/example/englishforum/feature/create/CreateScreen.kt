@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -118,7 +119,12 @@ fun CreatePostBottomSheet(
 ) {
     val appContainer = LocalAppContainer.current
     val viewModel: CreateViewModel = viewModel(
-        factory = remember(appContainer) { CreateViewModelFactory(appContainer.createPostRepository) }
+        factory = remember(appContainer) {
+            CreateViewModelFactory(
+                repository = appContainer.createPostRepository,
+                imageProcessor = appContainer.imageProcessor
+            )
+        }
     )
     val uiState by viewModel.uiState.collectAsState()
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -544,6 +550,7 @@ private fun CreateFormContent(
 
     ImagePickerSection(
         imageUris = uiState.imageUris,
+        isProcessing = uiState.isImageProcessing,
         onPickImage = { imagePickerLauncher.launch("image/*") },
         onRemoveImage = onRemoveImage
     )
@@ -599,6 +606,7 @@ private fun StepIndicator(
                 shape = MaterialTheme.shapes.small
             ) {}
         }
+
     }
 }
 
@@ -762,6 +770,7 @@ private fun Step3Images(
 
         ImagePickerSection(
             imageUris = uiState.imageUris,
+            isProcessing = uiState.isImageProcessing,
             onPickImage = { imagePickerLauncher.launch("image/*") },
             onRemoveImage = onRemoveImage,
             showHeader = false
@@ -935,6 +944,7 @@ private fun TagSelectorDropdown(
 @Composable
 private fun ImagePickerSection(
     imageUris: List<Uri>,
+    isProcessing: Boolean,
     onPickImage: () -> Unit,
     onRemoveImage: (Uri) -> Unit,
     modifier: Modifier = Modifier,
@@ -998,7 +1008,11 @@ private fun ImagePickerSection(
                 // Add image button inline
                 if (canAddMore) {
                     item {
-                        AddImageCard(onClick = onPickImage)
+                        AddImageCard(
+                            onClick = onPickImage,
+                            enabled = !isProcessing,
+                            isProcessing = isProcessing
+                        )
                     }
                 }
             }
@@ -1045,7 +1059,25 @@ private fun ImagePickerSection(
                 }
             }
         }
-        
+
+        if (isProcessing) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp
+                )
+                Text(
+                    text = stringResource(id = R.string.create_post_processing_image_label),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+
         // Show message when limit reached
         if (!canAddMore) {
             Text(
@@ -1101,11 +1133,14 @@ private fun ImagePreviewCard(
 @Composable
 private fun AddImageCard(
     onClick: () -> Unit,
+    enabled: Boolean,
+    isProcessing: Boolean,
     modifier: Modifier = Modifier
 ) {
     OutlinedCard(
         onClick = onClick,
-        modifier = modifier.size(120.dp)
+        modifier = modifier.size(120.dp),
+        enabled = enabled
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -1125,6 +1160,17 @@ private fun AddImageCard(
                     text = stringResource(id = R.string.create_post_add_image_short),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            if (isProcessing) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.7f))
+                )
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center)
                 )
             }
         }

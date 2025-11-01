@@ -18,6 +18,7 @@ data class ProfileStats(
 
 data class ProfileAvatarUiState(
     val previewUri: Uri? = null,
+    val isProcessing: Boolean = false,
     val isUploading: Boolean = false,
     val errorMessage: String? = null
 )

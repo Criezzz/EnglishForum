@@ -103,7 +103,8 @@ fun ProfileScreen(
         factory = remember(appContainer, resolvedUserId) {
             ProfileViewModelFactory(
                 repository = appContainer.profileRepository,
-                userId = resolvedUserId
+                userId = resolvedUserId,
+                imageProcessor = appContainer.imageProcessor
             )
         }
     )
@@ -435,6 +436,7 @@ private fun ProfileHeader(
                         ProfileAvatar(
                             avatarUrl = overview.avatarUrl,
                             previewUri = null,
+                            isProcessing = false,
                             isUploading = false,
                             size = 96.dp
                         )
@@ -606,6 +608,7 @@ private fun EmptyState(text: String) {
 private fun ProfileAvatar(
     avatarUrl: String?,
     previewUri: Uri?,
+    isProcessing: Boolean,
     isUploading: Boolean,
     size: Dp,
     modifier: Modifier = Modifier
@@ -651,7 +654,7 @@ private fun ProfileAvatar(
                 }
             }
 
-            if (isUploading) {
+            if (isProcessing || isUploading) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
@@ -801,13 +804,14 @@ private fun ProfileEditDialog(
                 ProfileAvatar(
                     avatarUrl = avatarUrl,
                     previewUri = avatarState.previewUri,
+                    isProcessing = avatarState.isProcessing,
                     isUploading = avatarState.isUploading,
                     size = 96.dp
                 )
 
                 FilledTonalButton(
                     onClick = onChangePhoto,
-                    enabled = !avatarState.isUploading,
+                    enabled = !avatarState.isUploading && !avatarState.isProcessing,
                     shape = MaterialTheme.shapes.medium,
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp)
                 ) {
@@ -936,7 +940,7 @@ private fun ProfileEditDialog(
 
                 Button(
                     onClick = { onSave(trimmedName, trimmedBio) },
-                    enabled = trimmedName.isNotBlank() && !isSaving,
+                    enabled = trimmedName.isNotBlank() && !isSaving && !avatarState.isProcessing,
                     modifier = Modifier.weight(1f),
                     shape = MaterialTheme.shapes.medium
                 ) {

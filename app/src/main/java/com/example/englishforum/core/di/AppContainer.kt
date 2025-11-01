@@ -2,6 +2,8 @@ package com.example.englishforum.core.di
 
 import android.content.Context
 import com.example.englishforum.BuildConfig
+import com.example.englishforum.core.image.DefaultImageProcessor
+import com.example.englishforum.core.image.ImageProcessor
 import com.example.englishforum.core.network.NetworkMonitor
 import com.example.englishforum.data.aipractice.AiPracticeRepository
 import com.example.englishforum.data.aipractice.FakeAiPracticeRepository
@@ -58,6 +60,7 @@ interface AppContainer {
     val profileRepository: ProfileRepository
     val sessionValidator: SessionValidator
     val networkMonitor: NetworkMonitor
+    val imageProcessor: ImageProcessor
 }
 
 class DefaultAppContainer(context: Context) : AppContainer {
@@ -195,6 +198,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     override val networkMonitor: NetworkMonitor by lazy {
         NetworkMonitor(appContext)
+    }
+
+    override val imageProcessor: ImageProcessor by lazy {
+        DefaultImageProcessor(appContext)
     }
 
     companion object {

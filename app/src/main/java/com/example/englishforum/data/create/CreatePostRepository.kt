@@ -1,6 +1,7 @@
 package com.example.englishforum.data.create
 
 import android.net.Uri
+import java.io.File
 import com.example.englishforum.core.model.forum.PostTag
 
 sealed class CreatePostResult {
@@ -18,9 +19,13 @@ data class CreatePostAttachment(
 )
 
 data class CreatePostImage(
-    val uri: Uri,
+    val originalUri: Uri,
+    val file: File,
+    val mimeType: String,
     val displayName: String? = null
-)
+) {
+    val sizeBytes: Long get() = file.length()
+}
 
 interface CreatePostRepository {
     suspend fun submitPost(

@@ -4,6 +4,10 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.englishforum.core.image.ImageProcessingFailure
+import com.example.englishforum.core.image.ImageProcessingTarget
+import com.example.englishforum.core.image.ImageProcessor
+import com.example.englishforum.core.image.ProcessedImage
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumProfilePost
 import com.example.englishforum.core.model.forum.ForumProfileReply
@@ -24,10 +28,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 
 internal const val MAX_PROFILE_BIO_LENGTH = 280
+private const val AVATAR_PROCESSING_GENERIC_ERROR = "Không thể xử lý ảnh đại diện đã chọn"
 
 class ProfileViewModel(
     private val repository: ProfileRepository,
-    private val userId: String
+    private val userId: String,
+    private val imageProcessor: ImageProcessor
 ) : ViewModel() {
 
     private val _editState = MutableStateFlow<ProfileEditState>(ProfileEditState.Idle)
@@ -39,6 +45,7 @@ class ProfileViewModel(
     private val _isRefreshing = MutableStateFlow(false)
 
     private var avatarUploadJob: Job? = null
+    private var pendingAvatar: ProcessedImage? = null
 
     val uiState: StateFlow<ProfileUiState> = combine(
         repository.observeProfile(userId),
@@ -67,23 +74,56 @@ class ProfileViewModel(
     }
 
     fun onAvatarSelected(uri: Uri) {
-        _avatarState.value = ProfileAvatarUiState(
-            previewUri = uri,
-            isUploading = false,
-            errorMessage = null
-        )
+        avatarUploadJob?.cancel()
+        avatarUploadJob = viewModelScope.launch {
+            try {
+                _avatarState.value = ProfileAvatarUiState(
+                    previewUri = null,
+                    isProcessing = true,
+                    isUploading = false,
+                    errorMessage = null
+                )
+                pendingAvatar?.outputFile?.delete()
+                pendingAvatar = null
+
+                val result = imageProcessor.process(uri, ImageProcessingTarget.Avatar)
+                result.onSuccess { processed ->
+                    pendingAvatar = processed
+                    _avatarState.value = ProfileAvatarUiState(
+                        previewUri = processed.previewUri,
+                        isProcessing = false,
+                        isUploading = false,
+                        errorMessage = null
+                    )
+                }
+                result.onFailure { throwable ->
+                    val message = when (throwable) {
+                        is ImageProcessingFailure -> throwable.message
+                        else -> throwable.message
+                    } ?: AVATAR_PROCESSING_GENERIC_ERROR
+                    _avatarState.value = ProfileAvatarUiState(
+                        previewUri = null,
+                        isProcessing = false,
+                        isUploading = false,
+                        errorMessage = message
+                    )
+                }
+            } finally {
+                avatarUploadJob = null
+            }
+        }
     }
 
     fun updateProfile(newName: String, newBio: String) {
         val trimmedName = newName.trim()
         val sanitizedBio = newBio.trim()
         val currentOverview = uiState.value.overview
-        val avatarUri = _avatarState.value.previewUri
+        val avatarPayload = pendingAvatar
 
         viewModelScope.launch {
             val nameChanged = currentOverview?.displayName != trimmedName
             val bioChanged = currentOverview?.bio.orEmpty() != sanitizedBio
-            val avatarChanged = avatarUri != null
+            val avatarChanged = avatarPayload != null
 
             if (!nameChanged && !bioChanged && !avatarChanged) {
                 _editState.value = ProfileEditState.Success
@@ -116,8 +156,18 @@ class ProfileViewModel(
             
             // Upload avatar first if changed
             if (avatarChanged && failure == null) {
-                _avatarState.value = _avatarState.value.copy(isUploading = true)
-                val avatarResult = repository.updateAvatar(userId, ProfileAvatarImage(avatarUri!!))
+                _avatarState.value = _avatarState.value.copy(
+                    isUploading = true,
+                    errorMessage = null
+                )
+                val avatarResult = repository.updateAvatar(
+                    userId,
+                    ProfileAvatarImage(
+                        originalUri = avatarPayload!!.originalUri,
+                        file = avatarPayload.outputFile,
+                        mimeType = avatarPayload.mimeType
+                    )
+                )
                 failure = avatarResult.exceptionOrNull()
                 if (failure != null) {
                     _avatarState.value = _avatarState.value.copy(
@@ -125,6 +175,8 @@ class ProfileViewModel(
                         errorMessage = failure.message ?: "Could not update avatar"
                     )
                 } else {
+                    avatarPayload.outputFile.delete()
+                    pendingAvatar = null
                     _avatarState.value = ProfileAvatarUiState()
                 }
             }
@@ -154,7 +206,15 @@ class ProfileViewModel(
     fun resetAvatarState() {
         avatarUploadJob?.cancel()
         avatarUploadJob = null
+        pendingAvatar?.outputFile?.delete()
+        pendingAvatar = null
         _avatarState.value = ProfileAvatarUiState()
+    }
+
+    override fun onCleared() {
+        pendingAvatar?.outputFile?.delete()
+        pendingAvatar = null
+        super.onCleared()
     }
 
     fun onPostUpvote(postId: String) {
@@ -248,12 +308,13 @@ private fun String.containsUnsupportedCharacters(): Boolean = any { Character.is
 
 class ProfileViewModelFactory(
     private val repository: ProfileRepository,
-    private val userId: String
+    private val userId: String,
+    private val imageProcessor: ImageProcessor
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(ProfileViewModel::class.java)) {
-            return ProfileViewModel(repository, userId) as T
+            return ProfileViewModel(repository, userId, imageProcessor) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
