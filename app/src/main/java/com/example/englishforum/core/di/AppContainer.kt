@@ -10,11 +10,12 @@ import com.example.englishforum.core.network.sse.SseClient
 import com.example.englishforum.data.aipractice.AiPracticeRepository
 import com.example.englishforum.data.aipractice.remote.AiPracticeApi
 import com.example.englishforum.data.aipractice.remote.RemoteAiPracticeRepository
+import java.io.File
 import com.example.englishforum.data.auth.AuthRepository
-import com.example.englishforum.data.auth.DataStoreUserSessionRepository
 import com.example.englishforum.data.auth.DataStoreSessionPreferenceRepository
-import com.example.englishforum.data.auth.SessionValidator
+import com.example.englishforum.data.auth.DataStoreUserSessionRepository
 import com.example.englishforum.data.auth.SessionPreferenceRepository
+import com.example.englishforum.data.auth.SessionValidator
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.auth.remote.AuthApi
 import com.example.englishforum.data.auth.remote.RemoteAuthRepository
@@ -28,9 +29,9 @@ import com.example.englishforum.data.home.remote.RemoteHomeRepository
 import com.example.englishforum.data.notification.NotificationRepository
 import com.example.englishforum.data.notification.remote.NotificationApi
 import com.example.englishforum.data.notification.remote.RemoteNotificationRepository
-import com.example.englishforum.data.post.PostDetailRepository
-import com.example.englishforum.data.post.ForumPostSummaryStore
 import com.example.englishforum.data.post.FakePostStore
+import com.example.englishforum.data.post.ForumPostSummaryStore
+import com.example.englishforum.data.post.PostDetailRepository
 import com.example.englishforum.data.post.remote.PostDetailApi
 import com.example.englishforum.data.post.remote.RemotePostDetailRepository
 import com.example.englishforum.data.profile.ProfileRepository
@@ -148,6 +149,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
             userSessionRepository = userSessionRepository,
             profileApi = profileApi
         )
+
     }
 
     override val sessionPreferenceRepository: SessionPreferenceRepository by lazy {
@@ -163,6 +165,9 @@ class DefaultAppContainer(context: Context) : AppContainer {
     private val searchApi: SearchApi by lazy { retrofit.create(SearchApi::class.java) }
     private val notificationApi: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     private val aiPracticeApi: AiPracticeApi by lazy { retrofit.create(AiPracticeApi::class.java) }
+    private val aiPracticeCacheDir: File by lazy {
+        File(appContext.filesDir, "ai_practice_cache").apply { mkdirs() }
+    }
 
     override val homeRepository: HomeRepository by lazy {
         RemoteHomeRepository(
@@ -193,7 +198,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
     override val aiPracticeRepository: AiPracticeRepository by lazy {
         RemoteAiPracticeRepository(
             aiPracticeApi = aiPracticeApi,
-            userSessionRepository = userSessionRepository
+            userSessionRepository = userSessionRepository,
+            cacheDirectory = aiPracticeCacheDir
         )
     }
 

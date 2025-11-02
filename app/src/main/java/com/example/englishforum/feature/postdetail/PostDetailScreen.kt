@@ -367,11 +367,7 @@ fun PostDetailScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = {
-                    if (!uiState.isAiPracticeChecking) {
-                        onOpenAiPracticeClick()
-                    }
-                },
+                onClick = onOpenAiPracticeClick,
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer
             ) {

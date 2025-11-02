@@ -68,6 +68,13 @@ class PostDetailViewModel(
             if (post != null) {
                 hasLoadedInitialPost = true
                 isLoading.value = false
+                // Observe AI generation status for this post content
+                val postContent = "${post.title}\n\n${post.body}"
+                viewModelScope.launch {
+                    aiPracticeRepository.observeGeneration(postContent, "mcq", 3, post.id).collect { isGen ->
+                        aiPracticeChecking.value = isGen
+                    }
+                }
             } else if (hasLoadedInitialPost) {
                 isLoading.value = false
             }
@@ -214,35 +221,13 @@ class PostDetailViewModel(
     fun onAiPracticeClick(onAvailable: (String) -> Unit) {
         Log.d("PostDetail", "AI Practice button clicked")
         val currentPost = uiState.value.post ?: return
-        if (aiPracticeChecking.value) return
 
         // Navigate immediately to show loading state
         onAvailable(currentPost.id)
         
-        // Generate questions in background (will use cache if available)
-        viewModelScope.launch {
-            aiPracticeChecking.value = true
-            errorMessage.value = null
-
-            try {
-                Log.d("PostDetail", "Generating questions in background")
-                // Combine title and body for AI processing
-                val postContent = "${currentPost.title}\n\n${currentPost.body}"
-                Log.d("PostDetail", "Post content prepared, length: ${postContent.length}")
-                
-                // Generate 3 MCQ questions only
-                val result = aiPracticeRepository.generateQuestions(postContent, "mcq", 3)
-                result.onFailure { throwable ->
-                    Log.e("PostDetail", "Failed to generate questions: ${throwable.message}")
-                    // Note: We don't show error here since user is already in AI Practice screen
-                    // The AI Practice screen will handle the error state
-                }
-            } catch (throwable: Throwable) {
-                Log.e("PostDetail", "Exception during question generation: ${throwable.message}")
-            } finally {
-                aiPracticeChecking.value = false
-            }
-        }
+        // Start background generation that persists beyond this screen
+        val postContent = "${currentPost.title}\n\n${currentPost.body}"
+        aiPracticeRepository.startGeneration(postContent, "mcq", 3, currentPost.id)
     }
 
     private fun updatePostVote(target: VoteState) {

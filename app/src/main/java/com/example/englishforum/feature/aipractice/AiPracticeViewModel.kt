@@ -287,7 +287,7 @@ class AiPracticeViewModel(
             val postContent = "${post.title}\n\n${post.body}"
             
             // Check cache first for instant loading
-            val cachedQuestions = repository.getCachedQuestions(postContent, "mcq", 3)
+            val cachedQuestions = repository.getCachedQuestions(postContent, "mcq", 3, postId)
             
             if (cachedQuestions != null) {
                 // Use cached questions immediately
@@ -329,7 +329,7 @@ class AiPracticeViewModel(
             }
             
             // No cache found, generate new questions
-            val result = repository.generateQuestions(postContent, "mcq", 3)
+            val result = repository.generateQuestions(postContent, "mcq", 3, postId)
             result.onSuccess { list ->
                 questions = list
                 if (list.isNotEmpty()) {

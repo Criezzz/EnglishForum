@@ -58,7 +58,7 @@ class FakeAiPracticeRepository : AiPracticeRepository {
         return generateQuestions(postContent, randomType, 1)
     }
 
-    override suspend fun generateQuestions(postContent: String, type: String, numItems: Int): Result<List<AiPracticeQuestion>> {
+    override suspend fun generateQuestions(postContent: String, type: String, numItems: Int, postId: String?): Result<List<AiPracticeQuestion>> {
         // For fake implementation, simulate feasibility based on content length
         // Posts with more content are more likely to be askable
         val isAskable = postContent.length > 50 && kotlin.random.Random.nextFloat() < 0.8f
@@ -96,7 +96,7 @@ class FakeAiPracticeRepository : AiPracticeRepository {
                         id = "generated-fib-${postContent.hashCode()}-$index",
                         prompt = "Generated fill-in-blank question $index based on content: ${postContent.take(50)}...: The answer is ___.",
                         correctAnswer = "correct",
-          
+                        
                         hint = "This is a generated hint for question $index"
                     )
                 }
@@ -135,16 +135,32 @@ class FakeAiPracticeRepository : AiPracticeRepository {
         }
     }
     
-    override suspend fun getCachedQuestions(postContent: String, type: String, numItems: Int): List<AiPracticeQuestion>? {
+    override fun startGeneration(postContent: String, type: String, numItems: Int, postId: String?) {
+        // No-op for fake implementation
+    }
+
+    override fun observeGeneration(postContent: String, type: String, numItems: Int, postId: String?): kotlinx.coroutines.flow.Flow<Boolean> {
+        return kotlinx.coroutines.flow.flowOf(false)
+    }
+
+    override suspend fun getCachedQuestions(postContent: String, type: String, numItems: Int, postId: String?): List<AiPracticeQuestion>? {
         // Fake implementation doesn't use cache
         return null
     }
     
-    override suspend fun cacheQuestions(postContent: String, type: String, numItems: Int, questions: List<AiPracticeQuestion>) {
+    override suspend fun cacheQuestions(postContent: String, type: String, numItems: Int, questions: List<AiPracticeQuestion>, postId: String?) {
         // Fake implementation doesn't use cache
     }
     
     override suspend fun clearCache() {
         // Fake implementation doesn't use cache
+    }
+
+    override suspend fun clearCacheForPost(postId: String) {
+        // Fake implementation doesn't use cache
+    }
+
+    override suspend fun cancelInFlight(postId: String, type: String, numItems: Int) {
+        // Fake implementation doesn't manage in-flight
     }
 }

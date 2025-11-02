@@ -36,6 +36,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +49,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -174,6 +177,15 @@ fun AiPracticeScreen(
 
 @Composable
 private fun LoadingState(modifier: Modifier = Modifier) {
+    var showQuote by remember { mutableStateOf(false) }
+    var quote by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        delay(2000)
+        showQuote = true
+        quote = LOADING_QUOTES.random()
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -189,6 +201,31 @@ private fun LoadingState(modifier: Modifier = Modifier) {
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center
         )
+        if (showQuote && !quote.isNullOrBlank()) {
+            Spacer(modifier = Modifier.height(20.dp))
+            Surface(
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.TipsAndUpdates,
+                        contentDescription = null
+                    )
+                    Text(
+                        text = "\"$quote\"",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -209,6 +246,30 @@ private fun EmptyState(modifier: Modifier = Modifier) {
         )
     }
 }
+
+// A small set of fun English language facts shown during long loading
+private val LOADING_QUOTES = listOf(
+    "The shortest complete sentence in English is 'Go.'",
+    "'Set' has held the record for the most definitions in English dictionaries.",
+    "The letter 'E' is the most frequently used letter in English.",
+    "'Dreamt' is one of the few English words that end with 'mt'.",
+    "The pangram 'The quick brown fox jumps over the lazy dog' uses every letter.",
+    "In 'queue', the last four letters are silent; it sounds like the letter 'Q'.",
+    "The dot above 'i' and 'j' is called a tittle.",
+    "The word 'alphabet' comes from the Greek letters alpha and beta.",
+    "'Bookkeeper' has three consecutive double letters: oo, kk, ee.",
+    "One of the longest English words is 'pneumonoultramicroscopicsilicovolcanoconiosis'.",
+    "The most common word in English is 'the'.",
+    "English has no official language academy regulating usage.",
+    "After 1066, thousands of French words entered English.",
+    "'Ghoti' is a playful spelling of 'fish' using odd English rules.",
+    "'Rhythm' is a common long word without the usual vowel letters.",
+    "Some words are contronyms: 'dust' can mean to add or to remove fine particles.",
+    "English typically uses Subject–Verb–Object (SVO) word order.",
+    "'Typewriter' is the longest word typeable using only the top QWERTY row.",
+    "The 'i before e except after c' rule has many exceptions, like 'weird' and 'science'.",
+    "English vocabulary is highly borrowed—from Latin, French, Norse, and many others."
+)
 
 @Composable
 private fun QuestionContent(

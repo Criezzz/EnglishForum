@@ -29,13 +29,39 @@ data class AiPracticeFillInBlankQuestion(
 
 interface AiPracticeRepository {
     suspend fun loadQuestions(postContent: String): Result<List<AiPracticeQuestion>>
-    
-    suspend fun generateQuestions(postContent: String, type: String, numItems: Int): Result<List<AiPracticeQuestion>>
-    
+
+    suspend fun generateQuestions(
+        postContent: String,
+        type: String,
+        numItems: Int,
+        postId: String? = null
+    ): Result<List<AiPracticeQuestion>>
+
+    // Fire-and-forget background generation that persists beyond screen lifecycle
+    fun startGeneration(
+        postContent: String,
+        type: String,
+        numItems: Int,
+        postId: String? = null
+    )
+
+    // Observe whether a specific generation task is running
+    fun observeGeneration(
+        postContent: String,
+        type: String,
+        numItems: Int,
+        postId: String? = null
+    ): kotlinx.coroutines.flow.Flow<Boolean>
+
     // Cache management
-    suspend fun getCachedQuestions(postContent: String, type: String, numItems: Int): List<AiPracticeQuestion>?
-    
-    suspend fun cacheQuestions(postContent: String, type: String, numItems: Int, questions: List<AiPracticeQuestion>)
-    
+    suspend fun getCachedQuestions(postContent: String, type: String, numItems: Int, postId: String? = null): List<AiPracticeQuestion>?
+
+    suspend fun cacheQuestions(postContent: String, type: String, numItems: Int, questions: List<AiPracticeQuestion>, postId: String? = null)
+
     suspend fun clearCache()
+
+    suspend fun clearCacheForPost(postId: String)
+
+    // Cancel any in-flight generation for the given key
+    suspend fun cancelInFlight(postId: String, type: String, numItems: Int)
 }
