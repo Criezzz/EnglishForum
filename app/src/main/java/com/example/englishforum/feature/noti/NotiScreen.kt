@@ -301,8 +301,11 @@ private fun SwipeableNotificationItem(
         modifier = modifier,
         backgroundContent = {
             // Background shown when swiping
+            // Use runCatching to safely access dismissDirection during layout
+            val dismissDirection = runCatching { dismissState.dismissDirection }.getOrNull()
+            
             val backgroundColor by animateColorAsState(
-                targetValue = when (dismissState.dismissDirection) {
+                targetValue = when (dismissDirection) {
                     SwipeToDismissBoxValue.EndToStart -> {
                         if (item.isRead) {
                             MaterialTheme.colorScheme.surfaceVariant
@@ -322,7 +325,7 @@ private fun SwipeableNotificationItem(
                 label = "swipeBackgroundColor"
             )
 
-            val alignment = when (dismissState.dismissDirection) {
+            val alignment = when (dismissDirection) {
                 SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
                 SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
                 else -> Alignment.Center
