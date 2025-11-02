@@ -13,6 +13,8 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -61,6 +63,7 @@ import com.example.englishforum.feature.session.SessionMonitorViewModel
 import com.example.englishforum.feature.session.SessionMonitorViewModelFactory
 import com.example.englishforum.feature.settings.SettingsScreen
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.map
 
 private sealed class Destinations(
     val route: String,
@@ -103,6 +106,7 @@ fun MainApp() {
     val sessionPreferenceRepository = remember { appContainer.sessionPreferenceRepository }
     val themeRepository = remember { appContainer.themePreferenceRepository }
     val profileRepository = remember { appContainer.profileRepository }
+    val notificationRepository = remember { appContainer.notificationRepository }
     val sessionValidator = remember { appContainer.sessionValidator }
     val networkMonitor = remember { appContainer.networkMonitor }
     val navController = rememberNavController()
@@ -199,6 +203,11 @@ fun MainApp() {
         }
     }
 
+    val unreadNotificationCount by remember(notificationRepository) {
+        notificationRepository.notificationsStream
+            .map { notifications -> notifications.count { !it.isRead } }
+    }.collectAsState(initial = 0)
+
     EnglishForumTheme(
         themeOption = themePreferences.themeOption,
         useDynamicColor = themePreferences.isMaterialThemeEnabled,
@@ -212,7 +221,8 @@ fun MainApp() {
                 if (showBottomBar) {
                     MainBottomBar(
                         navController = navController,
-                        onCreateClick = { showCreatePostSheet = true }
+                        onCreateClick = { showCreatePostSheet = true },
+                        unreadNotificationCount = unreadNotificationCount
                     )
                 }
             }
@@ -597,7 +607,8 @@ fun MainApp() {
 @Composable
 private fun MainBottomBar(
     navController: androidx.navigation.NavHostController,
-    onCreateClick: () -> Unit
+    onCreateClick: () -> Unit,
+    unreadNotificationCount: Int
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStackEntry?.destination
@@ -622,10 +633,30 @@ private fun MainBottomBar(
                     }
                 },
                 icon = {
-                    Icon(
-                        imageVector = destination.icon!!,
-                        contentDescription = stringResource(destination.labelRes)
-                    )
+                    val navIcon = destination.icon!!
+                    if (destination == Destinations.Noti) {
+                        BadgedBox(
+                            badge = {
+                                if (unreadNotificationCount > 0) {
+                                    Badge {
+                                        Text(
+                                            text = if (unreadNotificationCount > 99) "99+" else unreadNotificationCount.toString()
+                                        )
+                                    }
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = navIcon,
+                                contentDescription = stringResource(destination.labelRes)
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector = navIcon,
+                            contentDescription = stringResource(destination.labelRes)
+                        )
+                    }
                 },
                 label = { Text(stringResource(destination.labelRes)) }
             )
