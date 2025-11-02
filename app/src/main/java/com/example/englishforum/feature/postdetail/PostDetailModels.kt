@@ -33,7 +33,8 @@ data class PostCommentUi(
     val depth: Int,
     val hasReplies: Boolean,
     val isFirstChild: Boolean,
-    val isLastChild: Boolean
+    val isLastChild: Boolean,
+    val isNew: Boolean = false
 )
 
 data class CommentReplyTargetUi(

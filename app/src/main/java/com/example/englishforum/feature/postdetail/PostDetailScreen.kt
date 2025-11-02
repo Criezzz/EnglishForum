@@ -108,7 +108,6 @@ import com.example.englishforum.core.ui.components.card.CommentPillPlacement
 import com.example.englishforum.core.ui.components.card.ForumContentCard
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 import com.example.englishforum.core.ui.toLabelResId
-import com.example.englishforum.core.ui.components.RealtimeUpdatePill
 import coil.request.ImageRequest
 
 private val CommentThreadIndent = 20.dp
@@ -183,8 +182,7 @@ fun PostDetailRoute(
         onPostDeleted = onPostDeleted,
         onRefresh = viewModel::onRefresh,
         onAuthorClick = onAuthorClick,
-        onRealtimePromptDismiss = viewModel::onRealtimePromptDismissed,
-        onRealtimePromptReveal = viewModel::onRealtimePromptRevealed
+        onCommentViewed = viewModel::onCommentViewed
     )
 }
 
@@ -212,8 +210,7 @@ fun PostDetailScreen(
     onPostDeletionHandled: () -> Unit,
     onPostDeleted: () -> Unit,
     onRefresh: () -> Unit,
-    onRealtimePromptDismiss: (Int) -> Unit = { _ -> },
-    onRealtimePromptReveal: (Int) -> Unit = { _ -> },
+    onCommentViewed: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     targetCommentId: String? = null,
     onAuthorClick: (String) -> Unit = {}
@@ -226,7 +223,6 @@ fun PostDetailScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     val post = uiState.post
     val pullRefreshState = rememberPullToRefreshState()
-    val realtimePrompt = uiState.realtimePrompt
 
     LaunchedEffect(uiState.errorMessage) {
         val message = uiState.errorMessage
@@ -240,16 +236,6 @@ fun PostDetailScreen(
         if (message != null) {
             snackbarHostState.showSnackbar(message)
             onUserMessageShown()
-        }
-    }
-
-    LaunchedEffect(realtimePrompt?.version) {
-        val prompt = realtimePrompt
-        if (prompt != null) {
-            delay(5000)
-            if (uiState.realtimePrompt?.version == prompt.version) {
-                onRealtimePromptDismiss(prompt.version)
-            }
         }
     }
 
@@ -633,37 +619,18 @@ fun PostDetailScreen(
                                         isHighlighted = highlightedCommentId == comment.id,
                                         onAuthorClick = onAuthorClick
                                     )
+                                    
+                                    // Mark new comments as viewed when they become visible
+                                    if (comment.isNew) {
+                                        LaunchedEffect(comment.id) {
+                                            delay(2000) // Wait 2 seconds before removing badge
+                                            onCommentViewed(comment.id)
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-                }
-            }
-
-            val prompt = realtimePrompt
-            AnimatedVisibility(
-                visible = prompt != null,
-                enter = fadeIn() + slideInVertically { it / 2 },
-                exit = fadeOut() + slideOutVertically { it / 2 },
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = bottomPadding + 24.dp)
-                    .padding(horizontal = 16.dp)
-            ) {
-                prompt?.let { nonNullPrompt ->
-                    val pillText = if (nonNullPrompt.count > 1) {
-                        stringResource(
-                            id = R.string.post_detail_realtime_multiple_comments,
-                            nonNullPrompt.count
-                        )
-                    } else {
-                        stringResource(id = R.string.post_detail_realtime_single_comment)
-                    }
-                    RealtimeUpdatePill(
-                        text = pillText,
-                        icon = Icons.Outlined.KeyboardArrowDown,
-                        onClick = { onRealtimePromptReveal(nonNullPrompt.version) }
-                    )
                 }
             }
         }
@@ -944,6 +911,20 @@ private fun PostCommentItem(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(modifier = Modifier.weight(1f))
+                if (comment.isNew) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Text(
+                            text = "MỚI",
+                            style = MaterialTheme.typography.labelSmall,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
                 if (comment.isAuthor) {
                     Surface(
                         color = MaterialTheme.colorScheme.secondaryContainer,

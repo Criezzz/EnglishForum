@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 class NotiViewModel(
@@ -23,12 +24,13 @@ class NotiViewModel(
 
     private val refreshing = MutableStateFlow(false)
     private val realtimePrompt = MutableStateFlow<NotificationRealtimePromptUi?>(null)
+    private val newNotificationIds = MutableStateFlow<Set<String>>(emptySet())
 
     init {
         viewModelScope.launch {
             repository.realtimeEvents.collect { event ->
                 when (event) {
-                    is NotificationRealtimeEvent.NewNotifications -> onRealtimeNotifications(event.ids.size)
+                    is NotificationRealtimeEvent.NewNotifications -> onRealtimeNotifications(event.ids)
                 }
             }
         }
@@ -37,9 +39,12 @@ class NotiViewModel(
     val uiState: StateFlow<NotificationUiState> = combine(
         repository.notificationsStream,
         refreshing,
-        realtimePrompt
-    ) { notifications, isRefreshing, prompt ->
-        val items = notifications.map { it.toUiModel() }
+        realtimePrompt,
+        newNotificationIds
+    ) { notifications, isRefreshing, prompt, newIds ->
+        val items = notifications.map { notification ->
+            notification.toUiModel(isNew = notification.id in newIds)
+        }
         NotificationUiState(
             isLoading = false,
             isRefreshing = isRefreshing,
@@ -95,18 +100,18 @@ class NotiViewModel(
         }
     }
 
-    private fun onRealtimeNotifications(newCount: Int) {
-        if (newCount <= 0) return
-        val current = realtimePrompt.value
-        val updatedCount = (current?.count ?: 0) + newCount
-        val nextVersion = (current?.version ?: 0) + 1
-        realtimePrompt.value = NotificationRealtimePromptUi(
-            count = updatedCount,
-            version = nextVersion
-        )
+    private fun onRealtimeNotifications(newIds: List<String>) {
+        if (newIds.isEmpty()) return
+        // Add to new notification IDs set
+        newNotificationIds.update { it + newIds }
+    }
+    
+    fun onNotificationViewed(notificationId: String) {
+        // Remove from new notification IDs set when viewed
+        newNotificationIds.update { it - notificationId }
     }
 
-    private fun ForumNotification.toUiModel(): NotificationItemUi {
+    private fun ForumNotification.toUiModel(isNew: Boolean = false): NotificationItemUi {
         val initials = actorName
             .trim()
             .split(' ', '_', '-')
@@ -145,7 +150,8 @@ class NotiViewModel(
             timestampText = formatRelativeTime(minutesAgo),
             postId = postId,
             commentId = commentId,
-            isRead = isRead
+            isRead = isRead,
+            isNew = isNew
         )
     }
 }
@@ -179,7 +185,8 @@ data class NotificationItemUi(
     val timestampText: String,
     val postId: String?,
     val commentId: String?,
-    val isRead: Boolean
+    val isRead: Boolean,
+    val isNew: Boolean = false
 )
 
 data class NotificationRealtimePromptUi(

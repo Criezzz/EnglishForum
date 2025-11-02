@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import android.util.Log
 
@@ -44,6 +45,7 @@ class PostDetailViewModel(
     private val isSubmittingComment = MutableStateFlow(false)
     private val newlyPostedCommentId = MutableStateFlow<String?>(null)
     private val realtimePrompt = MutableStateFlow<PostRealtimePromptUi?>(null)
+    private val newCommentIds = MutableStateFlow<Set<String>>(emptySet())
 
     init {
         viewModelScope.launch {
@@ -88,6 +90,16 @@ class PostDetailViewModel(
         isSubmittingComment,
         replyTarget
     ) { inputs, refreshing, draft, submittingComment, target ->
+        BaseStateOutput(
+            inputs = inputs,
+            refreshing = refreshing,
+            draft = draft,
+            submittingComment = submittingComment,
+            target = target
+        )
+    }
+    .combine(newCommentIds) { baseOutput, newIds ->
+        val inputs = baseOutput.inputs
         val post = inputs.post
         val postUi = post?.toUiModel()
         val currentUserId = inputs.session?.userId
@@ -100,7 +112,8 @@ class PostDetailViewModel(
                     currentUsername = currentUsername,
                     depth = 0,
                     isFirstChild = index == 0,
-                    isLastChild = index == (post.comments.size - 1)
+                    isLastChild = index == (post.comments.size - 1),
+                    newCommentIds = newIds
                 )
             }
         } else {
@@ -115,16 +128,16 @@ class PostDetailViewModel(
 
         PostDetailUiState(
             isLoading = inputs.isLoading,
-            isRefreshing = refreshing,
+            isRefreshing = baseOutput.refreshing,
             post = postUi,
             comments = commentUi,
             errorMessage = inputs.errorMessage,
             isAiPracticeChecking = inputs.isAiChecking,
             isCurrentUserPostOwner = isOwner,
             commentComposer = CommentComposerUi(
-                draft = draft,
-                isSubmitting = submittingComment,
-                replyTarget = target
+                draft = baseOutput.draft,
+                isSubmitting = baseOutput.submittingComment,
+                replyTarget = baseOutput.target
             )
         )
     }
@@ -379,15 +392,13 @@ class PostDetailViewModel(
     }
 
     private fun onRealtimeCommentReceived(commentId: String) {
-        val existing = realtimePrompt.value
-        val existingIds = existing?.commentIds.orEmpty()
-        if (commentId in existingIds) return
-        val nextIds = existingIds + commentId
-        val nextVersion = (existing?.version ?: 0) + 1
-        realtimePrompt.value = PostRealtimePromptUi(
-            commentIds = nextIds,
-            version = nextVersion
-        )
+        // Add to new comment IDs set
+        newCommentIds.update { it + commentId }
+    }
+    
+    fun onCommentViewed(commentId: String) {
+        // Remove from new comment IDs set when viewed
+        newCommentIds.update { it - commentId }
     }
 
     fun onEditComment(commentId: String, newContent: String) {
@@ -456,6 +467,14 @@ private data class BaseStateInputs(
     val isAiChecking: Boolean
 )
 
+private data class BaseStateOutput(
+    val inputs: BaseStateInputs,
+    val refreshing: Boolean,
+    val draft: String,
+    val submittingComment: Boolean,
+    val target: CommentReplyTargetUi?
+)
+
 private fun ForumPostDetail.toUiModel(): PostDetailUi {
     return PostDetailUi(
         id = id,
@@ -481,7 +500,8 @@ private fun ForumComment.toUiModel(
     currentUsername: String?,
     depth: Int,
     isFirstChild: Boolean,
-    isLastChild: Boolean
+    isLastChild: Boolean,
+    newCommentIds: Set<String>
 ): List<PostCommentUi> {
     // Determine if this comment belongs to the current user
     val isCurrentUserComment = when {
@@ -513,7 +533,8 @@ private fun ForumComment.toUiModel(
         depth = depth,
         hasReplies = replies.isNotEmpty(),
         isFirstChild = isFirstChild,
-        isLastChild = isLastChild
+        isLastChild = isLastChild,
+        isNew = id in newCommentIds
     )
 
     if (replies.isEmpty()) {
@@ -527,7 +548,8 @@ private fun ForumComment.toUiModel(
             currentUsername = currentUsername,
             depth = depth + 1,
             isFirstChild = index == 0,
-            isLastChild = index == replies.lastIndex
+            isLastChild = index == replies.lastIndex,
+            newCommentIds = newCommentIds
         )
     }
 
