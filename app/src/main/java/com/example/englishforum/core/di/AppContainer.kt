@@ -8,7 +8,8 @@ import com.example.englishforum.core.network.NetworkMonitor
 import com.example.englishforum.core.network.sse.OkHttpSseClient
 import com.example.englishforum.core.network.sse.SseClient
 import com.example.englishforum.data.aipractice.AiPracticeRepository
-import com.example.englishforum.data.aipractice.FakeAiPracticeRepository
+import com.example.englishforum.data.aipractice.remote.AiPracticeApi
+import com.example.englishforum.data.aipractice.remote.RemoteAiPracticeRepository
 import com.example.englishforum.data.auth.AuthRepository
 import com.example.englishforum.data.auth.DataStoreUserSessionRepository
 import com.example.englishforum.data.auth.DataStoreSessionPreferenceRepository
@@ -161,6 +162,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
     private val postDetailApi: PostDetailApi by lazy { retrofit.create(PostDetailApi::class.java) }
     private val searchApi: SearchApi by lazy { retrofit.create(SearchApi::class.java) }
     private val notificationApi: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
+    private val aiPracticeApi: AiPracticeApi by lazy { retrofit.create(AiPracticeApi::class.java) }
 
     override val homeRepository: HomeRepository by lazy {
         RemoteHomeRepository(
@@ -189,7 +191,10 @@ class DefaultAppContainer(context: Context) : AppContainer {
     }
 
     override val aiPracticeRepository: AiPracticeRepository by lazy {
-        FakeAiPracticeRepository()
+        RemoteAiPracticeRepository(
+            aiPracticeApi = aiPracticeApi,
+            userSessionRepository = userSessionRepository
+        )
     }
 
     private val createPostApi: CreatePostApi by lazy { retrofit.create(CreatePostApi::class.java) }
