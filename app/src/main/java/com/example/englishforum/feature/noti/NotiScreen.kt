@@ -63,6 +63,20 @@ import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImag
 import androidx.compose.ui.layout.ContentScale
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
+import kotlinx.coroutines.launch
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -172,10 +186,13 @@ fun NotiScreen(
                 else -> {
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = innerPadding.calculateTopPadding() + 16.dp,
+                            bottom = innerPadding.calculateBottomPadding() + 16.dp
+                        ),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(
@@ -216,7 +233,6 @@ fun NotiScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeableNotificationItem(
     item: NotificationItemUi,
@@ -224,92 +240,82 @@ private fun SwipeableNotificationItem(
     onSwipeToMarkAsRead: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { dismissValue ->
-            when (dismissValue) {
-                SwipeToDismissBoxValue.EndToStart -> {
-                    // Swiped from right to left - mark as read
-                    if (!item.isRead) {
-                        onSwipeToMarkAsRead()
-                    }
-                    true // Allow the swipe animation to complete
-                }
-                SwipeToDismissBoxValue.StartToEnd -> {
-                    // Swiped from left to right - also mark as read
-                    if (!item.isRead) {
-                        onSwipeToMarkAsRead()
-                    }
-                    true // Allow the swipe animation to complete
-                }
-                else -> false
-            }
-        }
-    )
-
-    // Reset the state after marking as read
+    val scope = rememberCoroutineScope()
+    val offsetX = remember { Animatable(0f) }
+    val maxSwipeDistance = with(LocalDensity.current) { 100.dp.toPx() } // Limit to 100dp right
+    val swipeThreshold = maxSwipeDistance * 0.6f // Trigger at 60% of max distance
+    
+    // Reset offset when item becomes read
     LaunchedEffect(item.isRead) {
-        if (item.isRead && dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-            dismissState.reset()
+        if (item.isRead) {
+            offsetX.animateTo(0f, animationSpec = tween(300))
         }
     }
 
-    SwipeToDismissBox(
-        state = dismissState,
-        modifier = modifier,
-        backgroundContent = {
-            // Background shown when swiping
-            // Use runCatching to safely access dismissDirection during layout
-            val dismissDirection = runCatching { dismissState.dismissDirection }.getOrNull()
-            
-            val backgroundColor by animateColorAsState(
-                targetValue = when (dismissDirection) {
-                    SwipeToDismissBoxValue.EndToStart -> {
-                        if (item.isRead) {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.primaryContainer
-                        }
-                    }
-                    SwipeToDismissBoxValue.StartToEnd -> {
-                        if (item.isRead) {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.primaryContainer
-                        }
-                    }
-                    else -> MaterialTheme.colorScheme.surface
-                },
-                label = "swipeBackgroundColor"
-            )
+    val draggableState = rememberDraggableState { delta ->
+        scope.launch {
+            // Only allow dragging right (positive) and limit to maxSwipeDistance
+            val newOffset = (offsetX.value + delta).coerceIn(0f, maxSwipeDistance)
+            offsetX.snapTo(newOffset)
+        }
+    }
 
-            val alignment = when (dismissDirection) {
-                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
-                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
-                else -> Alignment.Center
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(backgroundColor, MaterialTheme.shapes.large)
-                    .padding(horizontal = 20.dp),
-                contentAlignment = alignment
-            ) {
-                if (!item.isRead) {
-                    Icon(
-                        imageVector = Icons.Filled.Done,
-                        contentDescription = stringResource(id = R.string.notifications_mark_as_read),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-        },
-        enableDismissFromStartToEnd = !item.isRead, // Swipe right for unread
-        enableDismissFromEndToStart = !item.isRead  // Swipe left for unread
+    Box(
+        modifier = modifier.fillMaxWidth()
     ) {
+        // Background
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    color = if (item.isRead) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.primaryContainer
+                    },
+                    shape = MaterialTheme.shapes.large
+                )
+                .padding(horizontal = 20.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            if (!item.isRead) {
+                Icon(
+                    imageVector = Icons.Filled.Done,
+                    contentDescription = stringResource(id = R.string.notifications_mark_as_read),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.graphicsLayer {
+                        // Fade in icon as we swipe
+                        alpha = (abs(offsetX.value) / abs(maxSwipeDistance)).coerceIn(0f, 1f)
+                    }
+                )
+            }
+        }
+
+        // Foreground content
         NotificationListItem(
             item = item,
-            onClick = onClick
+            onClick = onClick,
+            modifier = Modifier
+                .graphicsLayer {
+                    translationX = offsetX.value
+                }
+                .draggable(
+                    state = draggableState,
+                    orientation = Orientation.Horizontal,
+                    enabled = !item.isRead,
+                    onDragStopped = { velocity ->
+                        scope.launch {
+                            if (offsetX.value >= swipeThreshold) {
+                                // Swipe threshold reached - mark as read
+                                onSwipeToMarkAsRead()
+                                offsetX.animateTo(0f, animationSpec = tween(300))
+                            } else {
+                                // Snap back
+                                offsetX.animateTo(0f, animationSpec = tween(300))
+                            }
+                        }
+                    }
+                )
         )
     }
 }
