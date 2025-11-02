@@ -44,6 +44,7 @@ import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.ui.components.ForumAuthorAvatar
 import com.example.englishforum.core.ui.components.ForumAuthorLink
 import com.example.englishforum.core.ui.components.ForumTagLabel
+import com.example.englishforum.core.ui.components.card.CommentPillPlacement
 import com.example.englishforum.core.ui.components.card.ForumContentCardPlaceholder
 import com.example.englishforum.core.ui.components.card.ForumContentCard
 import com.example.englishforum.core.ui.components.image.ForumPostPreviewImage
@@ -200,11 +201,12 @@ private fun HomeFeedList(
                         body = null,
                         voteState = post.voteState,
                         commentCount = post.commentCount,
+                        commentPillPlacement = CommentPillPlacement.End,
+                        showMoreActions = false,
                         onCardClick = { onPostClick(post.id) },
                         onCommentClick = { onCommentClick(post.id) },
                         onUpvoteClick = { onUpvote(post.id) },
                         onDownvoteClick = { onDownvote(post.id) },
-                        onMoreActionsClick = { onMoreActionsClick(post.id) },
                         leadingContent = {
                             ForumAuthorAvatar(
                                 name = post.authorName,

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -26,7 +27,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.outlined.DoneAll
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -47,7 +47,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -63,9 +62,21 @@ import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImage
 import androidx.compose.ui.layout.ContentScale
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
-import com.example.englishforum.core.ui.components.RealtimeUpdatePill
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import kotlinx.coroutines.launch
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.graphicsLayer
+import kotlin.math.abs
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -86,8 +97,7 @@ fun NotiRoute(
         onMarkNotificationAsRead = viewModel::markNotificationAsRead,
         onMarkAllAsRead = viewModel::markAllNotificationsAsRead,
         onRefresh = viewModel::onRefresh,
-        onRealtimePromptDismiss = viewModel::onRealtimePromptDismissed,
-        onRealtimePromptReveal = viewModel::onRealtimePromptReveal
+        onNotificationViewed = viewModel::onNotificationViewed
     )
 }
 
@@ -99,24 +109,11 @@ fun NotiScreen(
     onMarkNotificationAsRead: (notificationId: String) -> Unit,
     onMarkAllAsRead: () -> Unit,
     onRefresh: () -> Unit,
-    onRealtimePromptDismiss: (Int) -> Unit = { _ -> },
-    onRealtimePromptReveal: (Int) -> Unit = { _ -> },
+    onNotificationViewed: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val pullRefreshState = rememberPullToRefreshState()
-    val coroutineScope = rememberCoroutineScope()
-    val realtimePrompt = uiState.realtimePrompt
     val listState = rememberLazyListState()
-
-    LaunchedEffect(realtimePrompt?.version) {
-        val prompt = realtimePrompt
-        if (prompt != null) {
-            delay(5000)
-            if (uiState.realtimePrompt?.version == prompt.version) {
-                onRealtimePromptDismiss(prompt.version)
-            }
-        }
-    }
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -189,10 +186,13 @@ fun NotiScreen(
                 else -> {
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(innerPadding),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = 16.dp,
+                            end = 16.dp,
+                            top = innerPadding.calculateTopPadding() + 16.dp,
+                            bottom = innerPadding.calculateBottomPadding() + 16.dp
+                        ),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(
@@ -215,51 +215,24 @@ fun NotiScreen(
                                     }
                                 }
                             )
+                            
+                            // Mark new notifications as viewed when they become visible
+                            if (item.isNew) {
+                                LaunchedEffect(item.id) {
+                                    delay(2000) // Wait 2 seconds before removing badge
+                                    onNotificationViewed(item.id)
+                                }
+                            }
                         }
                         item { Spacer(modifier = Modifier.height(8.dp)) }
                     }
                 }
             }
             }
-
-            val prompt = realtimePrompt
-            AnimatedVisibility(
-                visible = prompt != null,
-                enter = fadeIn() + slideInVertically { -it / 2 },
-                exit = fadeOut() + slideOutVertically { -it / 2 },
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .padding(top = topPadding + 16.dp)
-                    .padding(horizontal = 16.dp)
-            ) {
-                prompt?.let { nonNullPrompt ->
-                    val pillText = if (nonNullPrompt.count > 1) {
-                        stringResource(
-                            id = R.string.notifications_realtime_multiple,
-                            nonNullPrompt.count
-                        )
-                    } else {
-                        stringResource(id = R.string.notifications_realtime_single)
-                    }
-                    RealtimeUpdatePill(
-                        text = pillText,
-                        icon = Icons.Outlined.KeyboardArrowUp,
-                        onClick = {
-                            onRealtimePromptReveal(nonNullPrompt.version)
-                            if (uiState.notifications.isNotEmpty()) {
-                                coroutineScope.launch {
-                                    listState.animateScrollToItem(0)
-                                }
-                            }
-                        }
-                    )
-                }
-            }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SwipeableNotificationItem(
     item: NotificationItemUi,
@@ -267,92 +240,82 @@ private fun SwipeableNotificationItem(
     onSwipeToMarkAsRead: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { dismissValue ->
-            when (dismissValue) {
-                SwipeToDismissBoxValue.EndToStart -> {
-                    // Swiped from right to left - mark as read
-                    if (!item.isRead) {
-                        onSwipeToMarkAsRead()
-                    }
-                    true // Allow the swipe animation to complete
-                }
-                SwipeToDismissBoxValue.StartToEnd -> {
-                    // Swiped from left to right - also mark as read
-                    if (!item.isRead) {
-                        onSwipeToMarkAsRead()
-                    }
-                    true // Allow the swipe animation to complete
-                }
-                else -> false
-            }
-        }
-    )
-
-    // Reset the state after marking as read
+    val scope = rememberCoroutineScope()
+    val offsetX = remember { Animatable(0f) }
+    val maxSwipeDistance = with(LocalDensity.current) { 100.dp.toPx() } // Limit to 100dp right
+    val swipeThreshold = maxSwipeDistance * 0.6f // Trigger at 60% of max distance
+    
+    // Reset offset when item becomes read
     LaunchedEffect(item.isRead) {
-        if (item.isRead && dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
-            dismissState.reset()
+        if (item.isRead) {
+            offsetX.animateTo(0f, animationSpec = tween(300))
         }
     }
 
-    SwipeToDismissBox(
-        state = dismissState,
-        modifier = modifier,
-        backgroundContent = {
-            // Background shown when swiping
-            // Use runCatching to safely access dismissDirection during layout
-            val dismissDirection = runCatching { dismissState.dismissDirection }.getOrNull()
-            
-            val backgroundColor by animateColorAsState(
-                targetValue = when (dismissDirection) {
-                    SwipeToDismissBoxValue.EndToStart -> {
-                        if (item.isRead) {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.primaryContainer
-                        }
-                    }
-                    SwipeToDismissBoxValue.StartToEnd -> {
-                        if (item.isRead) {
-                            MaterialTheme.colorScheme.surfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.primaryContainer
-                        }
-                    }
-                    else -> MaterialTheme.colorScheme.surface
-                },
-                label = "swipeBackgroundColor"
-            )
+    val draggableState = rememberDraggableState { delta ->
+        scope.launch {
+            // Only allow dragging right (positive) and limit to maxSwipeDistance
+            val newOffset = (offsetX.value + delta).coerceIn(0f, maxSwipeDistance)
+            offsetX.snapTo(newOffset)
+        }
+    }
 
-            val alignment = when (dismissDirection) {
-                SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
-                SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
-                else -> Alignment.Center
-            }
-
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(backgroundColor, MaterialTheme.shapes.large)
-                    .padding(horizontal = 20.dp),
-                contentAlignment = alignment
-            ) {
-                if (!item.isRead) {
-                    Icon(
-                        imageVector = Icons.Filled.Done,
-                        contentDescription = stringResource(id = R.string.notifications_mark_as_read),
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
-                }
-            }
-        },
-        enableDismissFromStartToEnd = !item.isRead, // Swipe right for unread
-        enableDismissFromEndToStart = !item.isRead  // Swipe left for unread
+    Box(
+        modifier = modifier.fillMaxWidth()
     ) {
+        // Background
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .background(
+                    color = if (item.isRead) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.primaryContainer
+                    },
+                    shape = MaterialTheme.shapes.large
+                )
+                .padding(horizontal = 20.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            if (!item.isRead) {
+                Icon(
+                    imageVector = Icons.Filled.Done,
+                    contentDescription = stringResource(id = R.string.notifications_mark_as_read),
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.graphicsLayer {
+                        // Fade in icon as we swipe
+                        alpha = (abs(offsetX.value) / abs(maxSwipeDistance)).coerceIn(0f, 1f)
+                    }
+                )
+            }
+        }
+
+        // Foreground content
         NotificationListItem(
             item = item,
-            onClick = onClick
+            onClick = onClick,
+            modifier = Modifier
+                .graphicsLayer {
+                    translationX = offsetX.value
+                }
+                .draggable(
+                    state = draggableState,
+                    orientation = Orientation.Horizontal,
+                    enabled = !item.isRead,
+                    onDragStopped = { velocity ->
+                        scope.launch {
+                            if (offsetX.value >= swipeThreshold) {
+                                // Swipe threshold reached - mark as read
+                                onSwipeToMarkAsRead()
+                                offsetX.animateTo(0f, animationSpec = tween(300))
+                            } else {
+                                // Snap back
+                                offsetX.animateTo(0f, animationSpec = tween(300))
+                            }
+                        }
+                    }
+                )
         )
     }
 }
@@ -455,10 +418,32 @@ private fun NotificationListItem(
                         overflow = TextOverflow.Ellipsis
                     )
 
-                    NotificationMetadata(
-                        timestampText = item.timestampText,
-                        timestampColor = timestampColor
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        NotificationMetadata(
+                            timestampText = item.timestampText,
+                            timestampColor = timestampColor,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        
+                        if (item.isNew) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Surface(
+                                color = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary,
+                                shape = MaterialTheme.shapes.small
+                            ) {
+                                Text(
+                                    text = "MỚI",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
 
                     item.supportingText?.let { supporting ->
                         Text(
