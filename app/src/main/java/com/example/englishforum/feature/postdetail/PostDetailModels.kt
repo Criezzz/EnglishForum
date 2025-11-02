@@ -17,7 +17,9 @@ data class PostDetailUi(
     val commentCount: Int,
     val tag: PostTag,
     val previewImageUrl: String? = null,
-    val galleryImages: List<String>? = null
+    val galleryImages: List<String>? = null,
+    val voteCountAnimationKey: Int = 0,
+    val commentCountAnimationKey: Int = 0
 )
 
 data class PostCommentUi(

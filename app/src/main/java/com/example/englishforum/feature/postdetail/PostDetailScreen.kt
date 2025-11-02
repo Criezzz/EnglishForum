@@ -468,6 +468,8 @@ fun PostDetailScreen(
                                     onUpvoteClick = onUpvotePost,
                                     onDownvoteClick = onDownvotePost,
                                     showMoreActions = false,
+                                    voteCountAnimationKey = uiState.post.voteCountAnimationKey,
+                                    commentCountAnimationKey = uiState.post.commentCountAnimationKey,
                                     leadingContent = {
                                         ForumAuthorAvatar(
                                             name = uiState.post.authorName,

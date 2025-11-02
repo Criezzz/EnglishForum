@@ -46,6 +46,12 @@ class PostDetailViewModel(
     private val newlyPostedCommentId = MutableStateFlow<String?>(null)
     private val realtimePrompt = MutableStateFlow<PostRealtimePromptUi?>(null)
     private val newCommentIds = MutableStateFlow<Set<String>>(emptySet())
+    
+    // Track previous counts and animation keys for animation triggers
+    private var previousVoteCount: Int? = null
+    private var previousCommentCount: Int? = null
+    private var voteAnimationKey = 0
+    private var commentAnimationKey = 0
 
     init {
         viewModelScope.launch {
@@ -101,7 +107,32 @@ class PostDetailViewModel(
     .combine(newCommentIds) { baseOutput, newIds ->
         val inputs = baseOutput.inputs
         val post = inputs.post
-        val postUi = post?.toUiModel()
+        
+        // Detect count changes for animations
+        val animateVoteKey = post?.let { currentPost ->
+            val changed = previousVoteCount != null && 
+                         previousVoteCount != currentPost.voteCount
+            previousVoteCount = currentPost.voteCount
+            if (changed) {
+                voteAnimationKey++
+            }
+            voteAnimationKey
+        } ?: 0
+        
+        val animateCommentKey = post?.let { currentPost ->
+            val changed = previousCommentCount != null && 
+                         previousCommentCount != currentPost.commentCount
+            previousCommentCount = currentPost.commentCount
+            if (changed) {
+                commentAnimationKey++
+            }
+            commentAnimationKey
+        } ?: 0
+        
+        val postUi = post?.toUiModel(
+            voteCountAnimationKey = animateVoteKey,
+            commentCountAnimationKey = animateCommentKey
+        )
         val currentUserId = inputs.session?.userId
         val currentUsername = inputs.session?.username
         val commentUi = if (post != null) {
@@ -475,7 +506,10 @@ private data class BaseStateOutput(
     val target: CommentReplyTargetUi?
 )
 
-private fun ForumPostDetail.toUiModel(): PostDetailUi {
+private fun ForumPostDetail.toUiModel(
+    voteCountAnimationKey: Int = 0,
+    commentCountAnimationKey: Int = 0
+): PostDetailUi {
     return PostDetailUi(
         id = id,
         authorId = authorId,
@@ -490,7 +524,9 @@ private fun ForumPostDetail.toUiModel(): PostDetailUi {
         commentCount = commentCount,
         tag = tag,
         previewImageUrl = previewImageUrl,
-        galleryImages = galleryImages
+        galleryImages = galleryImages,
+        voteCountAnimationKey = voteCountAnimationKey,
+        commentCountAnimationKey = commentCountAnimationKey
     )
 }
 

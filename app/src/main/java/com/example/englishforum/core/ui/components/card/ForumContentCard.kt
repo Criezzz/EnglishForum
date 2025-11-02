@@ -1,5 +1,9 @@
 package com.example.englishforum.core.ui.components.card
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -24,13 +28,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.ui.components.VoteIconButton
+import kotlinx.coroutines.launch
 
 enum class CommentPillPlacement {
     BesideVotes,
@@ -58,7 +67,9 @@ fun ForumContentCard(
     bodyMaxLines: Int = Int.MAX_VALUE,
     bodyOverflow: TextOverflow = TextOverflow.Clip,
     headerContent: (@Composable ColumnScope.() -> Unit)? = null,
-    bodyContent: (@Composable ColumnScope.() -> Unit)? = null
+    bodyContent: (@Composable ColumnScope.() -> Unit)? = null,
+    voteCountAnimationKey: Int = 0,
+    commentCountAnimationKey: Int = 0
 ) {
     Surface(
         modifier = modifier,
@@ -167,7 +178,8 @@ fun ForumContentCard(
                     voteCount = voteCount,
                     voteState = voteState,
                     onUpvoteClick = onUpvoteClick,
-                    onDownvoteClick = onDownvoteClick
+                    onDownvoteClick = onDownvoteClick,
+                    animationKey = voteCountAnimationKey
                 )
 
                 val showCommentAction = commentCount != null
@@ -177,7 +189,8 @@ fun ForumContentCard(
                     ForumCommentActionButton(
                         commentCount = commentCount!!,
                         onClick = onCommentClick,
-                        modifier = Modifier.padding(start = 8.dp)
+                        modifier = Modifier.padding(start = 8.dp),
+                        animationKey = commentCountAnimationKey
                     )
                 }
 
@@ -187,7 +200,8 @@ fun ForumContentCard(
                     ForumCommentActionButton(
                         commentCount = commentCount!!,
                         onClick = onCommentClick,
-                        modifier = Modifier.padding(start = 8.dp)
+                        modifier = Modifier.padding(start = 8.dp),
+                        animationKey = commentCountAnimationKey
                     )
                 }
 
@@ -213,7 +227,8 @@ private fun ForumVoteActionGroup(
     voteState: VoteState,
     onUpvoteClick: () -> Unit,
     onDownvoteClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    animationKey: Int = 0
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -238,10 +253,59 @@ private fun ForumVoteActionGroup(
             contentColor = colorScheme.onSurface
         }
     }
+    
+    // Enhanced animation state
+    val scale = remember { Animatable(1f) }
+    val highlightProgress = remember { Animatable(0f) }
+    
+    // Highlight color (subtle primary tint)
+    val highlightColor = colorScheme.primary.copy(alpha = 0.15f)
+    val animatedContainerColor = if (highlightProgress.value > 0f) {
+        lerp(containerColor, highlightColor, highlightProgress.value)
+    } else {
+        containerColor
+    }
+    
+    LaunchedEffect(animationKey) {
+        if (animationKey > 0) {
+            // Launch both animations in parallel
+            launch {
+                // Bouncy scale animation
+                scale.animateTo(
+                    targetValue = 1.2f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                )
+                scale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                )
+            }
+            launch {
+                // Color pulse animation
+                highlightProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 200)
+                )
+                highlightProgress.animateTo(
+                    targetValue = 0f,
+                    animationSpec = tween(durationMillis = 400)
+                )
+            }
+        }
+    }
 
     ForumActionContainer(
-        modifier = modifier,
-        containerColor = containerColor,
+        modifier = modifier.graphicsLayer {
+            scaleX = scale.value
+            scaleY = scale.value
+        },
+        containerColor = animatedContainerColor,
         contentColor = contentColor,
         borderColor = borderColor
     ) {
@@ -274,12 +338,65 @@ private fun ForumVoteActionGroup(
 private fun ForumCommentActionButton(
     commentCount: Int,
     onClick: (() -> Unit)?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    animationKey: Int = 0
 ) {
+    val colorScheme = MaterialTheme.colorScheme
+    
+    // Enhanced animation state
+    val scale = remember { Animatable(1f) }
+    val highlightProgress = remember { Animatable(0f) }
+    
+    // Highlight color (subtle primary tint)
+    val highlightColor = colorScheme.primary.copy(alpha = 0.15f)
+    val baseColor = Color.Transparent
+    val animatedContainerColor = if (highlightProgress.value > 0f) {
+        lerp(baseColor, highlightColor, highlightProgress.value)
+    } else {
+        baseColor
+    }
+    
+    LaunchedEffect(animationKey) {
+        if (animationKey > 0) {
+            // Launch both animations in parallel
+            launch {
+                // Bouncy scale animation
+                scale.animateTo(
+                    targetValue = 1.2f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioMediumBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                )
+                scale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = Spring.DampingRatioLowBouncy,
+                        stiffness = Spring.StiffnessMedium
+                    )
+                )
+            }
+            launch {
+                // Color pulse animation
+                highlightProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(durationMillis = 200)
+                )
+                highlightProgress.animateTo(
+                    targetValue = 0f,
+                    animationSpec = tween(durationMillis = 400)
+                )
+            }
+        }
+    }
+    
     ForumActionContainer(
-        modifier = modifier,
+        modifier = modifier.graphicsLayer {
+            scaleX = scale.value
+            scaleY = scale.value
+        },
         onClick = onClick,
-        containerColor = Color.Transparent,
+        containerColor = animatedContainerColor,
         contentColor = MaterialTheme.colorScheme.onSurface,
         borderColor = MaterialTheme.colorScheme.outlineVariant
     ) {
