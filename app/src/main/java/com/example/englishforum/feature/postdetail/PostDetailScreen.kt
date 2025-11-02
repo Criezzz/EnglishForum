@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.pager.HorizontalPager
@@ -48,8 +47,6 @@ import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -78,6 +75,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,15 +86,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.SavedStateHandle
-import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImage
-import com.example.englishforum.core.ui.components.image.rememberAuthenticatedImageRequest
+import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.request.ImageRequest
 import com.example.englishforum.R
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.model.VoteState
@@ -106,9 +102,13 @@ import com.example.englishforum.core.ui.components.ForumTagLabel
 import com.example.englishforum.core.ui.components.VoteIconButton
 import com.example.englishforum.core.ui.components.card.CommentPillPlacement
 import com.example.englishforum.core.ui.components.card.ForumContentCard
+import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImage
+import com.example.englishforum.core.ui.components.image.rememberAuthenticatedImageRequest
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
 import com.example.englishforum.core.ui.toLabelResId
 import coil.request.ImageRequest
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val CommentThreadIndent = 20.dp
 
@@ -368,9 +368,8 @@ fun PostDetailScreen(
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    if (!uiState.isAiPracticeChecking) {
-                        onOpenAiPracticeClick()
-                    }
+                    // Always allow navigating to AI Practice to view progress or results
+                    onOpenAiPracticeClick()
                 },
                 containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 contentColor = MaterialTheme.colorScheme.onSecondaryContainer

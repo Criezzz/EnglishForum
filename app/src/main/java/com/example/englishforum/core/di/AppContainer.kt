@@ -1,5 +1,6 @@
 package com.example.englishforum.core.di
 
+import com.example.englishforum.data.auth.FakeAuthRepository
 import android.content.Context
 import com.example.englishforum.BuildConfig
 import com.example.englishforum.core.image.DefaultImageProcessor
@@ -8,6 +9,9 @@ import com.example.englishforum.core.network.NetworkMonitor
 import com.example.englishforum.core.network.sse.OkHttpSseClient
 import com.example.englishforum.core.network.sse.SseClient
 import com.example.englishforum.data.aipractice.AiPracticeRepository
+import com.example.englishforum.core.ui.components.card.ForumContentCard
+import com.example.englishforum.data.aipractice.AiPracticeRepository
+import com.example.englishforum.data.aipractice.FakeAiPracticeRepository
 import com.example.englishforum.data.aipractice.remote.AiPracticeApi
 import com.example.englishforum.data.aipractice.remote.RemoteAiPracticeRepository
 import com.example.englishforum.data.auth.AuthRepository
@@ -74,7 +78,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     private val moshi: Moshi by lazy {
         Moshi.Builder()
-            .add(KotlinJsonAdapterFactory())
+            .addLast(KotlinJsonAdapterFactory())
             .build()
     }
 
@@ -148,6 +152,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
             userSessionRepository = userSessionRepository,
             profileApi = profileApi
         )
+
     }
 
     override val sessionPreferenceRepository: SessionPreferenceRepository by lazy {

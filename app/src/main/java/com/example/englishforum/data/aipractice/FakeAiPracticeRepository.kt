@@ -55,10 +55,15 @@ class FakeAiPracticeRepository : AiPracticeRepository {
     override suspend fun loadQuestions(postContent: String): Result<List<AiPracticeQuestion>> {
         // For backward compatibility, use generateQuestions with random type and 1 question (50-50 chance)
         val randomType = if (kotlin.random.Random.nextBoolean()) "mcq" else "fill"
-        return generateQuestions(postContent, randomType, 1)
+        return generateQuestions(postContent, randomType, 1, null)
     }
 
-    override suspend fun generateQuestions(postContent: String, type: String, numItems: Int): Result<List<AiPracticeQuestion>> {
+    override suspend fun generateQuestions(
+        postContent: String, 
+        type: String, 
+        numItems: Int,
+        postId: String?
+    ): Result<List<AiPracticeQuestion>> {
         // For fake implementation, simulate feasibility based on content length
         // Posts with more content are more likely to be askable
         val isAskable = postContent.length > 50 && kotlin.random.Random.nextFloat() < 0.8f
@@ -135,16 +140,23 @@ class FakeAiPracticeRepository : AiPracticeRepository {
         }
     }
     
-    override suspend fun getCachedQuestions(postContent: String, type: String, numItems: Int): List<AiPracticeQuestion>? {
+    override suspend fun getCachedQuestions(postContent: String, type: String, numItems: Int, postId: String?): List<AiPracticeQuestion>? {
         // Fake implementation doesn't use cache
         return null
     }
     
-    override suspend fun cacheQuestions(postContent: String, type: String, numItems: Int, questions: List<AiPracticeQuestion>) {
+    override suspend fun cacheQuestions(postContent: String, type: String, numItems: Int, questions: List<AiPracticeQuestion>, postId: String?) {
         // Fake implementation doesn't use cache
     }
     
     override suspend fun clearCache() {
         // Fake implementation doesn't use cache
+    }
+    
+    override suspend fun clearCacheForPost(postId: String) {
+        // Fake implementation doesn't use cache
+    }
+
+    override suspend fun cancelInFlight(postId: String, type: String, numItems: Int) {
     }
 }

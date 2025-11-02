@@ -14,8 +14,8 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.ui.components.VoteIconButton
 import kotlinx.coroutines.launch
@@ -71,13 +72,16 @@ fun ForumContentCard(
     voteCountAnimationKey: Int = 0,
     commentCountAnimationKey: Int = 0
 ) {
+    val isDark = isSystemInDarkTheme()
+
     Surface(
         modifier = modifier,
         onClick = onCardClick ?: {},
         enabled = onCardClick != null,
         shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = 2.dp
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        tonalElevation = 0.dp,
+        shadowElevation = if (!isDark) 1.dp else 0.dp
     ) {
         Column(
             modifier = Modifier
@@ -248,9 +252,9 @@ private fun ForumVoteActionGroup(
             contentColor = colorScheme.onErrorContainer
         }
         VoteState.NONE -> {
-            containerColor = Color.Transparent
-            borderColor = colorScheme.outlineVariant
-            contentColor = colorScheme.onSurface
+            containerColor = colorScheme.surfaceContainerHigh
+            borderColor = null
+            contentColor = colorScheme.onSurfaceVariant
         }
     }
     
@@ -470,7 +474,8 @@ fun ForumContentCardPlaceholder(modifier: Modifier = Modifier) {
         modifier = modifier,
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        tonalElevation = 2.dp
+        tonalElevation = 0.dp,
+        shadowElevation = if (!isSystemInDarkTheme()) 1.dp else 0.dp
     ) {
         Column(
             modifier = Modifier

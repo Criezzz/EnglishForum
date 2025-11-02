@@ -89,6 +89,12 @@ class AiPracticeViewModel(
         loadQuestions()
     }
 
+    fun cancelGeneration() {
+        viewModelScope.launch {
+            repository.cancelInFlight(postId, "mcq", 3)
+        }
+    }
+
     fun onOptionSelected(optionId: String) {
         _uiState.update { state ->
             if (state.stage == AiPracticeStage.Answering && state.question is AiPracticeMultipleChoiceQuestionUi) {
@@ -283,11 +289,11 @@ class AiPracticeViewModel(
                 return@launch
             }
             
-            // Combine title and body for AI processing
-            val postContent = "${post.title}\n\n${post.body}"
+            // Use only post body for AI processing
+            val postContent = post.body
             
-            // Check cache first for instant loading
-            val cachedQuestions = repository.getCachedQuestions(postContent, "mcq", 3)
+            // Check cache first for instant loading (use postId for consistent cache key)
+            val cachedQuestions = repository.getCachedQuestions(postContent, "mcq", 3, postId)
             
             if (cachedQuestions != null) {
                 // Use cached questions immediately
@@ -328,8 +334,8 @@ class AiPracticeViewModel(
                 return@launch
             }
             
-            // No cache found, generate new questions
-            val result = repository.generateQuestions(postContent, "mcq", 3)
+            // No cache found, generate new questions (use postId for consistent cache key)
+            val result = repository.generateQuestions(postContent, "mcq", 3, postId)
             result.onSuccess { list ->
                 questions = list
                 if (list.isNotEmpty()) {
@@ -366,16 +372,86 @@ class AiPracticeViewModel(
                     }
                 }
             }
-            result.onFailure { throwable ->
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        question = null,
-                        currentQuestionNumber = 0,
-                        totalQuestionCount = 0,
-                        errorMessage = throwable.message ?: "Không thể tải câu hỏi luyện tập.",
-                        summary = null
-                    )
+            result.onFailure { _ ->
+                // If failed (e.g., API returned 0 items while still generating), stay in loading and retry once after short delay
+                viewModelScope.launch {
+                    kotlinx.coroutines.delay(600)
+                    // Try cache again first
+                    val retryCached = repository.getCachedQuestions(postContent, "mcq", 3, postId)
+                    if (retryCached != null && retryCached.isNotEmpty()) {
+                        questions = retryCached
+                        currentIndex = 0
+                        val initialQuestion = retryCached[currentIndex]
+                        _uiState.update {
+                            it.copy(
+                                isLoading = false,
+                                question = initialQuestion.toUiModel(),
+                                currentQuestionNumber = 1,
+                                totalQuestionCount = retryCached.size,
+                                selectedOptionId = null,
+                                answerInput = "",
+                                hintVisible = false,
+                                stage = AiPracticeStage.Answering,
+                                isCurrentAnswerCorrect = null,
+                                errorMessage = null,
+                                isLastQuestion = retryCached.size == 1,
+                                isCompleted = false,
+                                summary = null,
+                                fillInCorrectAnswer = null
+                            )
+                        }
+                    } else {
+                        // Retry the generate call once
+                        val retry = repository.generateQuestions(postContent, "mcq", 3, postId)
+                        retry.onSuccess { list ->
+                            questions = list
+                            if (list.isNotEmpty()) {
+                                currentIndex = 0
+                                val initialQuestion = list[currentIndex]
+                                _uiState.update {
+                                    it.copy(
+                                        isLoading = false,
+                                        question = initialQuestion.toUiModel(),
+                                        currentQuestionNumber = 1,
+                                        totalQuestionCount = list.size,
+                                        selectedOptionId = null,
+                                        answerInput = "",
+                                        hintVisible = false,
+                                        stage = AiPracticeStage.Answering,
+                                        isCurrentAnswerCorrect = null,
+                                        errorMessage = null,
+                                        isLastQuestion = list.size == 1,
+                                        isCompleted = false,
+                                        summary = null,
+                                        fillInCorrectAnswer = null
+                                    )
+                                }
+                            } else {
+                                _uiState.update {
+                                    it.copy(
+                                        isLoading = false,
+                                        question = null,
+                                        currentQuestionNumber = 0,
+                                        totalQuestionCount = 0,
+                                        errorMessage = "Không có câu hỏi luyện tập cho bài viết này.",
+                                        summary = null
+                                    )
+                                }
+                            }
+                        }
+                        retry.onFailure { throwable2 ->
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    question = null,
+                                    currentQuestionNumber = 0,
+                                    totalQuestionCount = 0,
+                                    errorMessage = throwable2.message ?: "Không thể tải câu hỏi luyện tập.",
+                                    summary = null
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -406,8 +482,8 @@ class AiPracticeViewModel(
 
 class AiPracticeViewModelFactory(
     private val postId: String,
-    private val repository: AiPracticeRepository = FakeAiPracticeRepository(),
-    private val postRepository: PostDetailRepository = FakePostDetailRepository()
+    private val repository: AiPracticeRepository,
+    private val postRepository: PostDetailRepository
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
