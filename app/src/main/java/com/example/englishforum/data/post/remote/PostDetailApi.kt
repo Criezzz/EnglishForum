@@ -93,5 +93,5 @@ internal interface PostDetailApi {
     suspend fun deleteComment(
         @Header("Authorization") bearer: String,
         @Path("comment_id") commentId: Int
-    ): MessageResponse
+    ): Unit
 }
