@@ -3,10 +3,15 @@ package com.example.englishforum.data.notification.remote
 import com.example.englishforum.BuildConfig
 import com.example.englishforum.core.model.notification.ForumNotification
 import com.example.englishforum.core.model.notification.ForumNotificationTarget
+import com.example.englishforum.core.network.sse.SseClient
+import com.example.englishforum.core.network.sse.SseConnection
+import com.example.englishforum.core.network.sse.SseListener
+import com.example.englishforum.core.network.sse.SseMessage
 import com.example.englishforum.data.auth.UserSession
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.auth.bearerToken
 import com.example.englishforum.data.post.remote.PostDetailApi
+import com.example.englishforum.data.notification.NotificationRealtimeEvent
 import com.example.englishforum.data.notification.NotificationRepository
 import com.example.englishforum.data.notification.remote.model.NotificationResponse
 import java.time.Duration
@@ -14,23 +19,31 @@ import java.time.Instant
 import java.time.OffsetDateTime
 import java.time.format.DateTimeParseException
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 internal class RemoteNotificationRepository(
     private val notificationApi: NotificationApi,
     private val postDetailApi: PostDetailApi,
     private val userSessionRepository: UserSessionRepository,
+    private val sseClient: SseClient,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : NotificationRepository {
 
@@ -38,7 +51,18 @@ internal class RemoteNotificationRepository(
     private val mutableNotifications = MutableStateFlow<List<ForumNotification>>(emptyList())
     override val notificationsStream: Flow<List<ForumNotification>> = mutableNotifications.asStateFlow()
 
+    private val realtimeEventsFlow = MutableSharedFlow<NotificationRealtimeEvent>(
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+    override val realtimeEvents: Flow<NotificationRealtimeEvent> = realtimeEventsFlow.asSharedFlow()
+
     private var lastSessionUserId: String? = null
+    private var lastSessionAccessToken: String? = null
+    private var activeSession: UserSession? = null
+    private var notificationConnection: SseConnection? = null
+    private val reconnectScheduled = AtomicBoolean(false)
+    private val refreshMutex = Mutex()
 
     init {
         scope.launch { observeSessionChanges() }
@@ -118,23 +142,41 @@ internal class RemoteNotificationRepository(
             ?: return Result.failure(IllegalStateException("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại."))
         
         return runCatching {
-            fetchNotifications(session)
+            fetchNotifications(session, UpdateReason.ManualRefresh)
         }
     }
 
     private suspend fun observeSessionChanges() {
         userSessionRepository.sessionFlow.collectLatest { session ->
             if (session == null) {
+                activeSession = null
                 lastSessionUserId = null
+                lastSessionAccessToken = null
                 mutableNotifications.value = emptyList()
-            } else if (session.userId != lastSessionUserId || mutableNotifications.value.isEmpty()) {
+                stopNotificationStream()
+            } else {
+                val isNewUser = session.userId != lastSessionUserId
+                val tokenChanged = session.accessToken != lastSessionAccessToken
+                activeSession = session
+
+                if (isNewUser || tokenChanged || mutableNotifications.value.isEmpty()) {
+                    fetchNotifications(session, UpdateReason.Initial)
+                }
+
                 lastSessionUserId = session.userId
-                fetchNotifications(session)
+                lastSessionAccessToken = session.accessToken
+
+                if (notificationConnection == null || isNewUser || tokenChanged) {
+                    restartNotificationStream(session)
+                }
             }
         }
     }
 
-    private suspend fun fetchNotifications(session: UserSession) {
+    private suspend fun fetchNotifications(
+        session: UserSession,
+        reason: UpdateReason
+    ) {
         val response = withContext(ioDispatcher) {
             runCatching {
                 notificationApi.getNotifications(bearer = session.bearerToken())
@@ -144,11 +186,6 @@ internal class RemoteNotificationRepository(
         if (response.isFailure) return
 
         val list = response.getOrNull().orEmpty()
-        if (list.isEmpty()) {
-            mutableNotifications.value = emptyList()
-            return
-        }
-
         val now = Instant.now()
         val normalized = mutableListOf<ForumNotification>()
         for (item in list) {
@@ -157,7 +194,81 @@ internal class RemoteNotificationRepository(
                 normalized.add(normalizedItem)
             }
         }
-        mutableNotifications.value = normalized
+
+        refreshMutex.withLock {
+            val previous = mutableNotifications.value
+            mutableNotifications.value = normalized
+            if (reason == UpdateReason.Realtime) {
+                val previousIds = previous.mapTo(mutableSetOf()) { it.id }
+                val newIds = normalized.mapNotNull { notification ->
+                    notification.id.takeIf { id -> id !in previousIds }
+                }
+                if (newIds.isNotEmpty()) {
+                    realtimeEventsFlow.tryEmit(NotificationRealtimeEvent.NewNotifications(newIds))
+                }
+            }
+        }
+    }
+
+    private fun restartNotificationStream(session: UserSession) {
+        stopNotificationStream()
+        startNotificationStream(session)
+    }
+
+    private fun startNotificationStream(session: UserSession) {
+        val headers = mapOf("Authorization" to session.bearerToken())
+        val result = runCatching {
+            sseClient.open(
+                path = "sse/notifications",
+                headers = headers,
+                listener = object : SseListener {
+                    override fun onMessage(message: SseMessage) {
+                        scope.launch {
+                            handleRealtimeNotificationEvent()
+                        }
+                    }
+
+                    override fun onClosed() {
+                        scheduleNotificationReconnect()
+                    }
+
+                    override fun onFailure(cause: Throwable) {
+                        scheduleNotificationReconnect()
+                    }
+                }
+            )
+        }
+
+        notificationConnection = result.getOrElse {
+            scheduleNotificationReconnect()
+            null
+        }
+    }
+
+    private fun stopNotificationStream() {
+        notificationConnection?.close()
+        notificationConnection = null
+    }
+
+    private fun scheduleNotificationReconnect(delayMillis: Long = 2_000) {
+        if (!reconnectScheduled.compareAndSet(false, true)) return
+        scope.launch {
+            delay(delayMillis)
+            reconnectScheduled.set(false)
+            val session = activeSession ?: return@launch
+            restartNotificationStream(session)
+        }
+    }
+
+    private suspend fun handleRealtimeNotificationEvent() {
+        val session = activeSession ?: return
+        fetchNotifications(session, UpdateReason.Realtime)
+    }
+
+    private enum class UpdateReason {
+        Initial,
+        ManualRefresh,
+        Realtime
     }
 
     private suspend fun currentSessionOrNull(): UserSession? {

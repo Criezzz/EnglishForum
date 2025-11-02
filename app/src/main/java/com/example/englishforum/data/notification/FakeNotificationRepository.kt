@@ -7,6 +7,7 @@ import com.example.englishforum.data.post.FakePostStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.update
 
 class FakeNotificationRepository(
@@ -31,6 +32,8 @@ class FakeNotificationRepository(
             }
         }
     }
+
+    override val realtimeEvents: Flow<NotificationRealtimeEvent> = emptyFlow()
 
     override suspend fun markNotificationAsRead(notificationId: String) {
         readNotificationIds.update { current -> current + notificationId }

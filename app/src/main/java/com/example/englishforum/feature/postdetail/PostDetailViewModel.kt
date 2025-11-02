@@ -13,10 +13,12 @@ import com.example.englishforum.data.auth.UserSession
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.post.FakePostDetailRepository
 import com.example.englishforum.data.post.PostDetailRepository
+import com.example.englishforum.data.post.PostRealtimeEvent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -41,6 +43,17 @@ class PostDetailViewModel(
     private val replyTarget = MutableStateFlow<CommentReplyTargetUi?>(null)
     private val isSubmittingComment = MutableStateFlow(false)
     private val newlyPostedCommentId = MutableStateFlow<String?>(null)
+    private val realtimePrompt = MutableStateFlow<PostRealtimePromptUi?>(null)
+
+    init {
+        viewModelScope.launch {
+            repository.observeRealtimeEvents(postId).collect { event ->
+                when (event) {
+                    is PostRealtimeEvent.NewComment -> onRealtimeCommentReceived(event.commentId)
+                }
+            }
+        }
+    }
 
     private val postStream = repository.observePost(postId)
         .onEach { post ->
@@ -116,20 +129,22 @@ class PostDetailViewModel(
         )
     }
 
-    val uiState: StateFlow<PostDetailUiState> = combine(
-        baseState,
-        userMessage,
-        isProcessingAction,
-        postDeleted,
-        newlyPostedCommentId
-    ) { base, message, processing, deleted, newCommentId ->
-        base.copy(
-            userMessage = message,
-            isPerformingAction = processing,
-            isPostDeleted = deleted,
-            newlyPostedCommentId = newCommentId
-        )
-    }
+    val uiState: StateFlow<PostDetailUiState> = baseState
+        .combine(userMessage) { base, message ->
+            base.copy(userMessage = message)
+        }
+        .combine(isProcessingAction) { state, processing ->
+            state.copy(isPerformingAction = processing)
+        }
+        .combine(postDeleted) { state, deleted ->
+            state.copy(isPostDeleted = deleted)
+        }
+        .combine(newlyPostedCommentId) { state, newCommentId ->
+            state.copy(newlyPostedCommentId = newCommentId)
+        }
+        .combine(realtimePrompt) { state, prompt ->
+            state.copy(realtimePrompt = prompt)
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(stopTimeoutMillis = 5_000),
@@ -236,6 +251,7 @@ class PostDetailViewModel(
                 val result = repository.deletePost(postId)
                 result.onSuccess {
                     postDeleted.value = true
+                    realtimePrompt.value = null
                 }
                 result.onFailure { throwable ->
                     errorMessage.value = throwable.message ?: "Không thể xoá bài viết."
@@ -345,6 +361,33 @@ class PostDetailViewModel(
 
     fun onNewCommentHighlightShown() {
         newlyPostedCommentId.value = null
+    }
+
+    fun onRealtimePromptDismissed(version: Int) {
+        val current = realtimePrompt.value
+        if (current?.version == version) {
+            realtimePrompt.value = null
+        }
+    }
+
+    fun onRealtimePromptRevealed(version: Int) {
+        val current = realtimePrompt.value
+        if (current?.version != version) return
+        realtimePrompt.value = null
+        val targetId = current.commentIds.lastOrNull() ?: return
+        newlyPostedCommentId.value = targetId
+    }
+
+    private fun onRealtimeCommentReceived(commentId: String) {
+        val existing = realtimePrompt.value
+        val existingIds = existing?.commentIds.orEmpty()
+        if (commentId in existingIds) return
+        val nextIds = existingIds + commentId
+        val nextVersion = (existing?.version ?: 0) + 1
+        realtimePrompt.value = PostRealtimePromptUi(
+            commentIds = nextIds,
+            version = nextVersion
+        )
     }
 
     fun onEditComment(commentId: String, newContent: String) {

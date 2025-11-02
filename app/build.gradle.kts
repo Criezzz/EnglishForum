@@ -57,6 +57,7 @@ dependencies {
     implementation(libs.retrofit)
     implementation(libs.retrofitMoshi)
     implementation(libs.okhttp)
+    implementation(libs.okhttp.sse)
     implementation(libs.okhttpLogging)
     implementation(libs.moshi)
     implementation(libs.moshiKotlin)

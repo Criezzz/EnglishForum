@@ -5,6 +5,8 @@ import com.example.englishforum.BuildConfig
 import com.example.englishforum.core.image.DefaultImageProcessor
 import com.example.englishforum.core.image.ImageProcessor
 import com.example.englishforum.core.network.NetworkMonitor
+import com.example.englishforum.core.network.sse.OkHttpSseClient
+import com.example.englishforum.core.network.sse.SseClient
 import com.example.englishforum.data.aipractice.AiPracticeRepository
 import com.example.englishforum.data.aipractice.FakeAiPracticeRepository
 import com.example.englishforum.data.auth.AuthRepository
@@ -99,12 +101,38 @@ class DefaultAppContainer(context: Context) : AppContainer {
             .build()
     }
 
+    // Separate OkHttp client for SSE with longer timeouts
+    private val sseOkHttpClient: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .addInterceptor(authInterceptor)
+            .connectTimeout(NETWORK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .readTimeout(0, TimeUnit.SECONDS)  // No read timeout for SSE
+            .writeTimeout(NETWORK_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .pingInterval(30, TimeUnit.SECONDS)  // Send ping every 30s to detect dead connections
+            .apply {
+                if (BuildConfig.DEBUG) {
+                    val logger = HttpLoggingInterceptor().apply {
+                        level = HttpLoggingInterceptor.Level.BASIC  // Use BASIC for SSE to avoid flooding logs
+                    }
+                    addInterceptor(logger)
+                }
+            }
+            .build()
+    }
+
     private val retrofit: Retrofit by lazy {
         Retrofit.Builder()
             .baseUrl(BuildConfig.API_BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(MoshiConverterFactory.create(moshi))
             .build()
+    }
+
+    private val sseClient: SseClient by lazy {
+        OkHttpSseClient(
+            baseUrl = BuildConfig.API_BASE_URL,
+            okHttpClient = sseOkHttpClient  // Use dedicated SSE client with no read timeout
+        )
     }
 
     private val authApi: AuthApi by lazy { retrofit.create(AuthApi::class.java) }
@@ -155,7 +183,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
             api = postDetailApi,
             userSessionRepository = userSessionRepository,
             summaryStore = postSummaryStore,
-            contentResolver = appContext.contentResolver
+            contentResolver = appContext.contentResolver,
+            sseClient = sseClient
         )
     }
 
@@ -177,7 +206,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
         RemoteNotificationRepository(
             notificationApi = notificationApi,
             postDetailApi = postDetailApi,
-            userSessionRepository = userSessionRepository
+            userSessionRepository = userSessionRepository,
+            sseClient = sseClient
         )
     }
 

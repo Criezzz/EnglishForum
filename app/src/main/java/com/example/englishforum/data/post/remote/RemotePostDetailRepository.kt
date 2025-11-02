@@ -11,6 +11,10 @@ import com.example.englishforum.core.model.forum.ForumPostAttachment
 import com.example.englishforum.core.model.forum.ForumPostDetail
 import com.example.englishforum.BuildConfig
 import com.example.englishforum.core.model.forum.PostTag
+import com.example.englishforum.core.network.sse.SseClient
+import com.example.englishforum.core.network.sse.SseConnection
+import com.example.englishforum.core.network.sse.SseListener
+import com.example.englishforum.core.network.sse.SseMessage
 import com.example.englishforum.data.auth.UserSession
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.auth.bearerToken
@@ -19,6 +23,7 @@ import com.example.englishforum.data.post.PostAttachmentEdit
 import com.example.englishforum.data.post.PostAttachmentState
 import com.example.englishforum.data.post.PostAttachmentUpload
 import com.example.englishforum.data.post.ForumPostSummaryStore
+import com.example.englishforum.data.post.PostRealtimeEvent
 import com.example.englishforum.data.post.remote.model.PostCommentResponse
 import com.example.englishforum.data.post.remote.model.PostDetailResponse
 import com.example.englishforum.data.post.remote.model.resolveGalleryUrls
@@ -32,16 +37,24 @@ import java.time.OffsetDateTime
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -56,17 +69,50 @@ internal class RemotePostDetailRepository(
     private val userSessionRepository: UserSessionRepository,
     private val summaryStore: ForumPostSummaryStore,
     private val contentResolver: ContentResolver,
+    private val sseClient: SseClient,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : PostDetailRepository {
 
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
     private val postStates = mutableMapOf<String, MutableStateFlow<ForumPostDetail?>>()
     private val commentIdLookup = mutableMapOf<String, Map<String, Int>>()
+    private val postRealtimeFlows = mutableMapOf<String, MutableSharedFlow<PostRealtimeEvent>>()
+    private val postEventConnections = mutableMapOf<String, SseConnection>()
+    private val postReconnectGuards = mutableMapOf<String, AtomicBoolean>()
+    private val postUpdateLocks = mutableMapOf<String, Mutex>()
+    private var activeSession: UserSession? = null
+    private var lastSessionAccessToken: String? = null
+
+    init {
+        scope.launch { observeSessionUpdates() }
+    }
+
+    private suspend fun observeSessionUpdates() {
+        userSessionRepository.sessionFlow.collectLatest { session ->
+            activeSession = session
+            if (session == null) {
+                lastSessionAccessToken = null
+                stopAllPostStreams()
+            } else {
+                val tokenChanged = session.accessToken != lastSessionAccessToken
+                lastSessionAccessToken = session.accessToken
+                if (tokenChanged || (postEventConnections.isEmpty() && postStates.isNotEmpty())) {
+                    restartAllPostStreams(session)
+                }
+            }
+        }
+    }
 
     override fun observePost(postId: String): Flow<ForumPostDetail?> {
         val state = postStates.getOrPut(postId) { MutableStateFlow<ForumPostDetail?>(null) }
         scope.launch { fetchAndStorePost(postId) }
+        scope.launch { ensurePostEventStream(postId) }
         return state.asStateFlow()
+    }
+
+    override fun observeRealtimeEvents(postId: String): Flow<PostRealtimeEvent> {
+        scope.launch { ensurePostEventStream(postId) }
+        return postRealtimeFlow(postId).asSharedFlow()
     }
 
     override suspend fun setPostVote(postId: String, target: VoteState): Result<Unit> {
@@ -169,6 +215,9 @@ internal class RemotePostDetailRepository(
                 postStates[postId]?.value = null
                 commentIdLookup.remove(postId)
                 summaryStore.remove(postId)
+                stopPostEventStream(postId)
+                postRealtimeFlows.remove(postId)
+                postUpdateLocks.remove(postId)
                 Unit
             }
             .mapFailure { it.toFriendlyException() }
@@ -459,6 +508,152 @@ internal class RemotePostDetailRepository(
                 Unit
             }
             .mapFailure { it.toFriendlyException() }
+    }
+
+    private suspend fun ensurePostEventStream(postId: String) {
+        if (postEventConnections.containsKey(postId)) return
+        restartPostEventStream(postId)
+    }
+
+    private fun postRealtimeFlow(postId: String): MutableSharedFlow<PostRealtimeEvent> {
+        return postRealtimeFlows.getOrPut(postId) {
+            MutableSharedFlow(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+        }
+    }
+
+    private fun lockForPost(postId: String): Mutex {
+        return postUpdateLocks.getOrPut(postId) { Mutex() }
+    }
+
+    private suspend fun restartPostEventStream(
+        postId: String,
+        sessionOverride: UserSession? = null
+    ) {
+        val session = sessionOverride ?: activeSession ?: currentSessionOrNull() ?: return
+        val numericId = postId.toIntOrNull() ?: return
+        stopPostEventStream(postId)
+        startPostEventStream(postId, numericId, session)
+    }
+
+    private fun startPostEventStream(
+        postId: String,
+        numericId: Int,
+        session: UserSession
+    ) {
+        val headers = mapOf("Authorization" to session.bearerToken())
+        val result = runCatching {
+            sseClient.open(
+                path = "sse/post/$numericId",
+                headers = headers,
+                listener = object : SseListener {
+                    override fun onMessage(message: SseMessage) {
+                        scope.launch {
+                            handlePostRealtimeEvent(postId, message)
+                        }
+                    }
+
+                    override fun onClosed() {
+                        schedulePostReconnect(postId)
+                    }
+
+                    override fun onFailure(cause: Throwable) {
+                        schedulePostReconnect(postId)
+                    }
+                }
+            )
+        }
+
+        val connection = result.getOrElse {
+            schedulePostReconnect(postId)
+            return
+        }
+        postEventConnections[postId] = connection
+    }
+
+    private fun stopPostEventStream(postId: String) {
+        postEventConnections.remove(postId)?.close()
+        postReconnectGuards.remove(postId)
+    }
+
+    private fun schedulePostReconnect(postId: String, delayMillis: Long = 2_000L) {
+        val guard = postReconnectGuards.getOrPut(postId) { AtomicBoolean(false) }
+        if (!guard.compareAndSet(false, true)) return
+        scope.launch {
+            delay(delayMillis)
+            guard.set(false)
+            restartPostEventStream(postId)
+        }
+    }
+
+    private fun stopAllPostStreams() {
+        val ids = postEventConnections.keys.toList()
+        ids.forEach { stopPostEventStream(it) }
+    }
+
+    private suspend fun restartAllPostStreams(session: UserSession) {
+        if (postStates.isEmpty()) return
+        val ids = postStates.keys.toList()
+        ids.forEach { restartPostEventStream(it, session) }
+    }
+
+    private suspend fun handlePostRealtimeEvent(postId: String, message: SseMessage) {
+        val payload = parsePostPayload(message.data) ?: return
+        val normalizedMessage = payload.message?.lowercase(Locale.US) ?: return
+        val shouldRefresh = normalizedMessage.contains("comment") || normalizedMessage.contains("post")
+        if (!shouldRefresh) return
+
+        val mutex = lockForPost(postId)
+        mutex.withLock {
+            val previousCommentIds = postStates[postId]?.value?.comments?.collectCommentIds().orEmpty()
+            val fetchResult = fetchAndStorePost(postId)
+            if (fetchResult.isFailure) {
+                return@withLock
+            }
+
+            if (normalizedMessage.contains("new comment") && payload.commentId != null) {
+                val updatedComments = postStates[postId]?.value?.comments.orEmpty()
+                val updatedIds = updatedComments.collectCommentIds()
+                val commentId = payload.commentId
+                if (commentId != null && commentId !in previousCommentIds && commentId in updatedIds) {
+                    postRealtimeFlow(postId).tryEmit(PostRealtimeEvent.NewComment(commentId))
+                }
+            }
+        }
+    }
+
+    private fun parsePostPayload(data: String?): PostSsePayload? {
+        if (data.isNullOrBlank()) return null
+        return runCatching {
+            val json = JSONObject(data)
+            val message = json.optString("message", null)
+            val commentId = when {
+                json.has("comment_id") && !json.isNull("comment_id") -> json.getLong("comment_id").toString()
+                else -> null
+            }
+            PostSsePayload(
+                message = message,
+                commentId = commentId
+            )
+        }.getOrNull()
+    }
+
+    private data class PostSsePayload(
+        val message: String?,
+        val commentId: String?
+    )
+
+    private fun List<ForumComment>.collectCommentIds(): Set<String> {
+        if (isEmpty()) return emptySet()
+        val ids = mutableSetOf<String>()
+        forEach { comment ->
+            comment.collectCommentIds(ids)
+        }
+        return ids
+    }
+
+    private fun ForumComment.collectCommentIds(target: MutableSet<String>) {
+        target += id
+        replies.forEach { reply -> reply.collectCommentIds(target) }
     }
 
     private suspend fun currentSessionOrNull(): UserSession? {

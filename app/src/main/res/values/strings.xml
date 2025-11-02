@@ -37,6 +37,8 @@
     <string name="notifications_empty_state">Hiện chưa có thông báo mới</string>
     <string name="notifications_mark_all_read">Đánh dấu tất cả đã đọc</string>
     <string name="notifications_mark_as_read">Đánh dấu đã đọc</string>
+    <string name="notifications_realtime_single">Có thông báo mới</string>
+    <string name="notifications_realtime_multiple">Có %1$d thông báo mới</string>
     <string name="nav_profile">Hồ sơ</string>
     <string name="home_search_placeholder">Tìm kiếm</string>
     <string name="home_clear_search_content_description">Xoá nội dung tìm kiếm</string>
@@ -81,6 +83,8 @@
     <string name="post_detail_delete_dialog_title">Xoá bài viết?</string>
     <string name="post_detail_delete_dialog_body">Hành động này không thể hoàn tác. Bạn có chắc chắn muốn xoá bài viết này?</string>
     <string name="post_detail_delete_confirm">Xoá</string>
+    <string name="post_detail_realtime_single_comment">Có bình luận mới</string>
+    <string name="post_detail_realtime_multiple_comments">Có %1$d bình luận mới</string>
     <string name="post_edit_title">Chỉnh sửa bài viết</string>
     <string name="post_edit_save">Lưu thay đổi</string>
     <string name="post_edit_saving">Đang lưu...</string>

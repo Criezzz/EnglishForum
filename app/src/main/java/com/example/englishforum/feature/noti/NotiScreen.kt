@@ -1,6 +1,11 @@
 package com.example.englishforum.feature.noti
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,10 +21,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -40,6 +47,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -55,6 +63,9 @@ import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.ui.components.image.AuthenticatedRemoteImage
 import androidx.compose.ui.layout.ContentScale
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
+import com.example.englishforum.core.ui.components.RealtimeUpdatePill
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,7 +85,9 @@ fun NotiRoute(
         onNotificationClick = onNotificationClick,
         onMarkNotificationAsRead = viewModel::markNotificationAsRead,
         onMarkAllAsRead = viewModel::markAllNotificationsAsRead,
-        onRefresh = viewModel::onRefresh
+        onRefresh = viewModel::onRefresh,
+        onRealtimePromptDismiss = viewModel::onRealtimePromptDismissed,
+        onRealtimePromptReveal = viewModel::onRealtimePromptReveal
     )
 }
 
@@ -86,9 +99,24 @@ fun NotiScreen(
     onMarkNotificationAsRead: (notificationId: String) -> Unit,
     onMarkAllAsRead: () -> Unit,
     onRefresh: () -> Unit,
+    onRealtimePromptDismiss: (Int) -> Unit = { _ -> },
+    onRealtimePromptReveal: (Int) -> Unit = { _ -> },
     modifier: Modifier = Modifier
 ) {
     val pullRefreshState = rememberPullToRefreshState()
+    val coroutineScope = rememberCoroutineScope()
+    val realtimePrompt = uiState.realtimePrompt
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(realtimePrompt?.version) {
+        val prompt = realtimePrompt
+        if (prompt != null) {
+            delay(5000)
+            if (uiState.realtimePrompt?.version == prompt.version) {
+                onRealtimePromptDismiss(prompt.version)
+            }
+        }
+    }
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -111,26 +139,27 @@ fun NotiScreen(
     ) { innerPadding ->
         val topPadding = innerPadding.calculateTopPadding()
 
-        PullToRefreshBox(
-            modifier = Modifier.fillMaxSize(),
-            state = pullRefreshState,
-            isRefreshing = uiState.isRefreshing,
-            onRefresh = {
-                if (!uiState.isLoading) {
-                    onRefresh()
+        Box(modifier = Modifier.fillMaxSize()) {
+            PullToRefreshBox(
+                modifier = Modifier.fillMaxSize(),
+                state = pullRefreshState,
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = {
+                    if (!uiState.isLoading) {
+                        onRefresh()
+                    }
+                },
+                indicator = {
+                    PullToRefreshDefaults.Indicator(
+                        state = pullRefreshState,
+                        isRefreshing = uiState.isRefreshing,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .padding(top = topPadding)
+                    )
                 }
-            },
-            indicator = {
-                PullToRefreshDefaults.Indicator(
-                    state = pullRefreshState,
-                    isRefreshing = uiState.isRefreshing,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = topPadding)
-                )
-            }
-        ) {
-            when {
+            ) {
+                when {
                 uiState.isLoading -> {
                     Box(
                         modifier = Modifier
@@ -159,6 +188,7 @@ fun NotiScreen(
 
                 else -> {
                     LazyColumn(
+                        state = listState,
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(innerPadding),
@@ -188,6 +218,41 @@ fun NotiScreen(
                         }
                         item { Spacer(modifier = Modifier.height(8.dp)) }
                     }
+                }
+            }
+            }
+
+            val prompt = realtimePrompt
+            AnimatedVisibility(
+                visible = prompt != null,
+                enter = fadeIn() + slideInVertically { -it / 2 },
+                exit = fadeOut() + slideOutVertically { -it / 2 },
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = topPadding + 16.dp)
+                    .padding(horizontal = 16.dp)
+            ) {
+                prompt?.let { nonNullPrompt ->
+                    val pillText = if (nonNullPrompt.count > 1) {
+                        stringResource(
+                            id = R.string.notifications_realtime_multiple,
+                            nonNullPrompt.count
+                        )
+                    } else {
+                        stringResource(id = R.string.notifications_realtime_single)
+                    }
+                    RealtimeUpdatePill(
+                        text = pillText,
+                        icon = Icons.Outlined.KeyboardArrowUp,
+                        onClick = {
+                            onRealtimePromptReveal(nonNullPrompt.version)
+                            if (uiState.notifications.isNotEmpty()) {
+                                coroutineScope.launch {
+                                    listState.animateScrollToItem(0)
+                                }
+                            }
+                        }
+                    )
                 }
             }
         }

@@ -7,12 +7,13 @@ import com.example.englishforum.core.common.formatRelativeTime
 import com.example.englishforum.core.model.notification.ForumNotification
 import com.example.englishforum.core.model.notification.ForumNotificationTarget
 import com.example.englishforum.data.notification.FakeNotificationRepository
+import com.example.englishforum.data.notification.NotificationRealtimeEvent
 import com.example.englishforum.data.notification.NotificationRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -21,17 +22,30 @@ class NotiViewModel(
 ) : ViewModel() {
 
     private val refreshing = MutableStateFlow(false)
+    private val realtimePrompt = MutableStateFlow<NotificationRealtimePromptUi?>(null)
+
+    init {
+        viewModelScope.launch {
+            repository.realtimeEvents.collect { event ->
+                when (event) {
+                    is NotificationRealtimeEvent.NewNotifications -> onRealtimeNotifications(event.ids.size)
+                }
+            }
+        }
+    }
 
     val uiState: StateFlow<NotificationUiState> = combine(
         repository.notificationsStream,
-        refreshing
-    ) { notifications, isRefreshing ->
+        refreshing,
+        realtimePrompt
+    ) { notifications, isRefreshing, prompt ->
         val items = notifications.map { it.toUiModel() }
         NotificationUiState(
             isLoading = false,
             isRefreshing = isRefreshing,
             notifications = items,
-            unreadCount = notifications.count { !it.isRead }
+            unreadCount = notifications.count { !it.isRead },
+            realtimePrompt = prompt
         )
     }
         .stateIn(
@@ -65,6 +79,31 @@ class NotiViewModel(
                 refreshing.value = false
             }
         }
+    }
+
+    fun onRealtimePromptDismissed(version: Int) {
+        val current = realtimePrompt.value
+        if (current?.version == version) {
+            realtimePrompt.value = null
+        }
+    }
+
+    fun onRealtimePromptReveal(version: Int) {
+        val current = realtimePrompt.value
+        if (current?.version == version) {
+            realtimePrompt.value = null
+        }
+    }
+
+    private fun onRealtimeNotifications(newCount: Int) {
+        if (newCount <= 0) return
+        val current = realtimePrompt.value
+        val updatedCount = (current?.count ?: 0) + newCount
+        val nextVersion = (current?.version ?: 0) + 1
+        realtimePrompt.value = NotificationRealtimePromptUi(
+            count = updatedCount,
+            version = nextVersion
+        )
     }
 
     private fun ForumNotification.toUiModel(): NotificationItemUi {
@@ -127,7 +166,8 @@ data class NotificationUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
     val notifications: List<NotificationItemUi> = emptyList(),
-    val unreadCount: Int = 0
+    val unreadCount: Int = 0,
+    val realtimePrompt: NotificationRealtimePromptUi? = null
 )
 
 data class NotificationItemUi(
@@ -140,4 +180,9 @@ data class NotificationItemUi(
     val postId: String?,
     val commentId: String?,
     val isRead: Boolean
+)
+
+data class NotificationRealtimePromptUi(
+    val count: Int,
+    val version: Int
 )

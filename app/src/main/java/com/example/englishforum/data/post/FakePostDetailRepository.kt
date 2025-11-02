@@ -5,6 +5,7 @@ import com.example.englishforum.core.model.forum.ForumPostDetail
 import com.example.englishforum.core.model.forum.PostTag
 import com.example.englishforum.data.post.PostAttachmentEdit
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 
 class FakePostDetailRepository(
     private val store: FakePostStore = FakePostStore
@@ -13,6 +14,8 @@ class FakePostDetailRepository(
     override fun observePost(postId: String): Flow<ForumPostDetail?> {
         return store.observePost(postId)
     }
+
+    override fun observeRealtimeEvents(postId: String): Flow<PostRealtimeEvent> = emptyFlow()
 
     override suspend fun refreshPost(postId: String): Result<Unit> = Result.success(Unit)
 

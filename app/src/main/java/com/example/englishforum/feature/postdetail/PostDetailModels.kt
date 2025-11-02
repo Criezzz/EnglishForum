@@ -48,6 +48,14 @@ data class CommentComposerUi(
     val replyTarget: CommentReplyTargetUi? = null
 )
 
+data class PostRealtimePromptUi(
+    val commentIds: List<String>,
+    val version: Int
+) {
+    val count: Int get() = commentIds.size
+    val targetCommentId: String get() = commentIds.last()
+}
+
 data class PostDetailUiState(
     val isLoading: Boolean = true,
     val isRefreshing: Boolean = false,
@@ -60,7 +68,8 @@ data class PostDetailUiState(
     val isCurrentUserPostOwner: Boolean = false,
     val isPostDeleted: Boolean = false,
     val commentComposer: CommentComposerUi = CommentComposerUi(),
-    val newlyPostedCommentId: String? = null
+    val newlyPostedCommentId: String? = null,
+    val realtimePrompt: PostRealtimePromptUi? = null
 ) {
     val isEmpty: Boolean get() = !isLoading && post == null && comments.isEmpty()
 }

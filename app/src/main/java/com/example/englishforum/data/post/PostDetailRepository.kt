@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface PostDetailRepository {
     fun observePost(postId: String): Flow<ForumPostDetail?>
+    fun observeRealtimeEvents(postId: String): Flow<PostRealtimeEvent>
 
     suspend fun refreshPost(postId: String): Result<Unit>
 
@@ -43,6 +44,10 @@ interface PostDetailRepository {
         postId: String,
         commentId: String
     ): Result<Unit>
+}
+
+sealed interface PostRealtimeEvent {
+    data class NewComment(val commentId: String) : PostRealtimeEvent
 }
 
 data class PostAttachmentEdit(
