@@ -128,7 +128,8 @@ fun PostDetailRoute(
     onNavigateToAiPractice: (String) -> Unit = {},
     onEditPostClick: (String) -> Unit,
     onPostDeleted: () -> Unit = onBackClick,
-    onAuthorClick: (String) -> Unit = {}
+    onAuthorClick: (String) -> Unit = {},
+    createdFlag: Boolean = false
 ) {
     val appContainer = LocalAppContainer.current
     val viewModel: PostDetailViewModel = viewModel(
@@ -182,7 +183,8 @@ fun PostDetailRoute(
         onPostDeleted = onPostDeleted,
         onRefresh = viewModel::onRefresh,
         onAuthorClick = onAuthorClick,
-        onCommentViewed = viewModel::onCommentViewed
+        onCommentViewed = viewModel::onCommentViewed,
+        createdFlag = createdFlag
     )
 }
 
@@ -213,7 +215,8 @@ fun PostDetailScreen(
     onCommentViewed: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     targetCommentId: String? = null,
-    onAuthorClick: (String) -> Unit = {}
+    onAuthorClick: (String) -> Unit = {},
+    createdFlag: Boolean = false
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
@@ -290,6 +293,13 @@ fun PostDetailScreen(
     LaunchedEffect(uiState.commentComposer.replyTarget) {
         if (uiState.commentComposer.replyTarget == null && targetCommentId == null) {
             highlightedCommentId = null
+        }
+    }
+
+    // Show success message when navigated from create flow
+    LaunchedEffect(createdFlag) {
+        if (createdFlag) {
+            snackbarHostState.showSnackbar("Đăng bài thành công")
         }
     }
 

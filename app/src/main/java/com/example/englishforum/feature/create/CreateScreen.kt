@@ -1,7 +1,8 @@
 package com.example.englishforum.feature.create
 
-//import androidx.compose.foundation.layout.navigationBarsPadding
 import android.net.Uri
+import android.provider.OpenableColumns
+import android.webkit.MimeTypeMap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
@@ -87,6 +88,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -184,12 +186,45 @@ fun CreateScreen(
     onDismiss: (() -> Unit)? = null
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
-    
-    // Image picker launcher
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let { onImageSelected(it) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    // Helper: query file size
+    fun queryFileSize(uri: Uri): Long? {
+        return try {
+            context.contentResolver.query(uri, arrayOf(OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                if (sizeIndex != -1 && cursor.moveToFirst()) cursor.getLong(sizeIndex) else null
+            }
+        } catch (_: Throwable) { null }
+    }
+
+    // Helper: resolve mime type
+    fun resolveMimeType(uri: Uri): String? {
+        val direct = context.contentResolver.getType(uri)
+        if (!direct.isNullOrBlank()) return direct
+        val ext = MimeTypeMap.getFileExtensionFromUrl(uri.toString())
+        return if (!ext.isNullOrBlank()) MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.lowercase()) else null
+    }
+
+    val allowedMimeTypes = setOf("image/jpeg", "image/jpg", "image/png", "image/gif")
+    val maxBytes = 5L * 1024L * 1024L
+
+    val onImageSelectedValidated: (Uri) -> Unit = { uri ->
+        val mime = resolveMimeType(uri)?.lowercase()
+        val size = queryFileSize(uri) ?: -1L
+        val typeOk = mime != null && mime in allowedMimeTypes
+        val sizeOk = size in 1..maxBytes
+        if (typeOk && sizeOk) {
+            onImageSelected(uri)
+        } else {
+            val message = when {
+                !typeOk -> "Chỉ hỗ trợ ảnh JPG, PNG, GIF"
+                !sizeOk -> "Kích thước ảnh phải ≤ 5MB"
+                else -> "Không thể chọn ảnh này"
+            }
+            scope.launch { snackbarHostState.showSnackbar(message) }
+        }
     }
 
     LaunchedEffect(uiState.errorMessage) {
@@ -270,7 +305,7 @@ fun CreateScreen(
                         uiState = uiState,
                         onTitleChange = onTitleChange,
                         onBodyChange = onBodyChange,
-                        onImageSelected = onImageSelected,
+                        onImageSelected = onImageSelectedValidated,
                         onRemoveImage = onRemoveImage,
                         onTagSelected = onTagSelected,
                         onSubmit = onSubmit,
@@ -287,180 +322,180 @@ fun CreateScreen(
         // Bottom sheet mode - Material 3 expressive design with multi-step
         var currentStep by rememberSaveable { mutableIntStateOf(0) }
         val totalSteps = 4
-        
-        Column(
+        // Wrap content in a Box to overlay SnackbarHost
+        Box(
             modifier = modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
                 .padding(bottom = 32.dp)
         ) {
-            // Header with icon
-            Row(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    .fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
             ) {
-                Surface(
-                    modifier = Modifier.size(56.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Filled.AddCircle,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(28.dp)
-                        )
-                    }
-                }
-                
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(id = topBarTitleRes),
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Text(
-                        text = when (currentStep) {
-                            0 -> stringResource(id = R.string.create_post_step1_subtitle)
-                            1 -> stringResource(id = R.string.create_post_step2_subtitle)
-                            2 -> stringResource(id = R.string.create_post_step3_subtitle)
-                            3 -> stringResource(id = R.string.create_post_step4_subtitle)
-                            else -> stringResource(id = R.string.create_post_subtitle)
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                
-                if (onDismiss != null) {
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            imageVector = Icons.Outlined.Close,
-                            contentDescription = stringResource(id = R.string.auth_cancel_action)
-                        )
-                    }
-                }
-            }
-
-            // Step indicator
-            StepIndicator(
-                currentStep = currentStep,
-                totalSteps = totalSteps,
-                modifier = Modifier.padding(bottom = 24.dp)
-            )
-
-            if (uiState.isInitialLoading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(400.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator()
-                }
-            } else {
-                val scrollState = rememberScrollState()
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f, fill = false)
-                        .verticalScroll(scrollState),
-                    verticalArrangement = Arrangement.spacedBy(20.dp)
-                ) {
-                    when (currentStep) {
-                        0 -> Step1TagSelection(
-                            availableTags = uiState.availableTags,
-                            selectedTag = uiState.selectedTag,
-                            onTagSelected = onTagSelected
-                        )
-                        1 -> Step2ContentInput(
-                            title = uiState.title,
-                            body = uiState.body,
-                            onTitleChange = onTitleChange,
-                            onBodyChange = onBodyChange,
-                            tfColors = tfColors,
-                            boxShape = boxShape,
-                            borderColor = borderColor
-                        )
-                        2 -> Step3Images(
-                            uiState = uiState,
-                            onImageSelected = onImageSelected,
-                            onRemoveImage = onRemoveImage
-                        )
-                        3 -> Step4Preview(uiState = uiState)
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Navigation buttons
+                // Header with icon
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    if (currentStep > 0) {
-                        OutlinedButton(
-                            onClick = { currentStep-- },
+                    Surface(
+                        modifier = Modifier.size(56.dp),
+                        shape = CircleShape,
+                        color = MaterialTheme.colorScheme.primaryContainer
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Filled.AddCircle,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        }
+                    }
+
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(id = topBarTitleRes),
+                            style = MaterialTheme.typography.headlineSmall,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            text = when (currentStep) {
+                                0 -> stringResource(id = R.string.create_post_step1_subtitle)
+                                1 -> stringResource(id = R.string.create_post_step2_subtitle)
+                                2 -> stringResource(id = R.string.create_post_step3_subtitle)
+                                3 -> stringResource(id = R.string.create_post_step4_subtitle)
+                                else -> stringResource(id = R.string.create_post_subtitle)
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+
+                    if (onDismiss != null) {
+                        IconButton(onClick = onDismiss) {
+                            Icon(
+                                imageVector = Icons.Outlined.Close,
+                                contentDescription = stringResource(id = R.string.auth_cancel_action)
+                            )
+                        }
+                    }
+                }
+
+                // Step indicator
+                StepIndicator(
+                    currentStep = currentStep,
+                    totalSteps = totalSteps,
+                    modifier = Modifier.padding(bottom = 24.dp)
+                )
+
+                if (uiState.isInitialLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(400.dp),
+                        contentAlignment = Alignment.Center
+                    ) { CircularProgressIndicator() }
+                } else {
+                    val scrollState = rememberScrollState()
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f, fill = false)
+                            .verticalScroll(scrollState),
+                        verticalArrangement = Arrangement.spacedBy(20.dp)
+                    ) {
+                        when (currentStep) {
+                            0 -> Step1TagSelection(
+                                availableTags = uiState.availableTags,
+                                selectedTag = uiState.selectedTag,
+                                onTagSelected = onTagSelected
+                            )
+                            1 -> Step2ContentInput(
+                                title = uiState.title,
+                                body = uiState.body,
+                                onTitleChange = onTitleChange,
+                                onBodyChange = onBodyChange,
+                                tfColors = tfColors,
+                                boxShape = boxShape,
+                                borderColor = borderColor
+                            )
+                            2 -> Step3Images(
+                                uiState = uiState,
+                                onImageSelected = onImageSelectedValidated,
+                                onRemoveImage = onRemoveImage
+                            )
+                            3 -> Step4Preview(uiState = uiState)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Navigation buttons
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        if (currentStep > 0) {
+                            OutlinedButton(
+                                onClick = { currentStep-- },
+                                modifier = Modifier.weight(1f)
+                            ) { Text(text = stringResource(R.string.auth_back_action)) }
+                        }
+
+                        Button(
+                            onClick = {
+                                if (currentStep < totalSteps - 1) currentStep++ else onSubmit()
+                            },
+                            enabled = when (currentStep) {
+                                0 -> uiState.selectedTag != null
+                                1 -> uiState.title.isNotBlank() && uiState.body.isNotBlank()
+                                2 -> true
+                                3 -> uiState.canSubmit
+                                else -> false
+                            },
                             modifier = Modifier.weight(1f)
                         ) {
-                            Text(text = stringResource(R.string.auth_back_action))
-                        }
-                    }
-
-                    Button(
-                        onClick = {
-                            if (currentStep < totalSteps - 1) {
-                                currentStep++
-                            } else {
-                                onSubmit()
-                            }
-                        },
-                        enabled = when (currentStep) {
-                            0 -> uiState.selectedTag != null
-                            1 -> uiState.title.isNotBlank() && uiState.body.isNotBlank()
-                            2 -> true
-                            3 -> uiState.canSubmit
-                            else -> false
-                        },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        if (currentStep == totalSteps - 1 && uiState.isSubmitting) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                                color = MaterialTheme.colorScheme.onPrimary
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(text = stringResource(id = submitLoadingLabelRes))
-                        } else {
-                            Text(
-                                text = if (currentStep < totalSteps - 1) {
-                                    stringResource(R.string.create_post_next)
-                                } else {
-                                    stringResource(id = submitLabelRes)
-                                }
-                            )
-                            if (currentStep < totalSteps - 1) {
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp)
+                            if (currentStep == totalSteps - 1 && uiState.isSubmitting) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
                                 )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(text = stringResource(id = submitLoadingLabelRes))
+                            } else {
+                                Text(
+                                    text = if (currentStep < totalSteps - 1)
+                                        stringResource(R.string.create_post_next)
+                                    else stringResource(id = submitLabelRes)
+                                )
+                                if (currentStep < totalSteps - 1) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Icon(
+                                        imageVector = Icons.Filled.ArrowForward,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
 
-            // Snackbar for bottom sheet mode
-            LaunchedEffect(snackbarHostState) {
-                // Snackbar host is handled by parent in bottom sheet mode
-            }
+            // Overlay snackbar host for bottom sheet mode
+            SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(16.dp)
+            )
         }
     }
 

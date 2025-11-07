@@ -518,7 +518,7 @@ fun MainApp() {
                     )
                 }
                 composable(
-                    route = "post/{postId}?commentId={commentId}",
+                    route = "post/{postId}?commentId={commentId}&created={created}",
                     arguments = listOf(
                         androidx.navigation.navArgument("postId") {
                             type = androidx.navigation.NavType.StringType
@@ -527,11 +527,16 @@ fun MainApp() {
                             type = androidx.navigation.NavType.StringType
                             nullable = true
                             defaultValue = null
+                        },
+                        androidx.navigation.navArgument("created") {
+                            type = androidx.navigation.NavType.BoolType
+                            defaultValue = false
                         }
                     )
                 ) { backStackEntry ->
                     val postId = backStackEntry.arguments?.getString("postId")
                     val commentId = backStackEntry.arguments?.getString("commentId")
+                    val createdFlag = backStackEntry.arguments?.getBoolean("created") ?: false
                     if (postId != null) {
                         PostDetailRoute(
                             modifier = Modifier.fillMaxSize(),
@@ -548,7 +553,8 @@ fun MainApp() {
                             onAuthorClick = { username ->
                                 val encoded = Uri.encode(username)
                                 navController.navigate("profile/$encoded")
-                            }
+                            },
+                            createdFlag = createdFlag
                         )
                     }
                 }
@@ -597,7 +603,7 @@ fun MainApp() {
                 onDismiss = { showCreatePostSheet = false },
                 onNavigateToPostDetail = { postId ->
                     showCreatePostSheet = false
-                    navController.navigate("post/$postId")
+                    navController.navigate("post/$postId?created=true")
                 }
             )
         }
