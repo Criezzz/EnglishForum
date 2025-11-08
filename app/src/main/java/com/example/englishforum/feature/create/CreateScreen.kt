@@ -242,6 +242,7 @@ fun CreateScreen(
             onSuccessMessageConsumed()
         }
     }
+
     val tfColors = TextFieldDefaults.colors(
 
         focusedIndicatorColor = Color.Transparent,

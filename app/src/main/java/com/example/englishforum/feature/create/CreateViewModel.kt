@@ -20,6 +20,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import java.net.UnknownHostException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.io.IOException
 
 data class CreateAttachmentUi(
     val id: String,
@@ -162,9 +167,9 @@ class CreateViewModel(
     }
 
     fun onSubmit() {
-        val currentState = _uiState.value
-        if (!currentState.canSubmit || currentState.isSubmitting) return
-        val selectedTag = currentState.selectedTag ?: return
+        val initialState = _uiState.value
+        if (!initialState.canSubmit || initialState.isSubmitting) return
+        val selectedTag = initialState.selectedTag ?: return
 
         viewModelScope.launch {
             _uiState.update {
@@ -176,67 +181,98 @@ class CreateViewModel(
                     successMessage = null
                 )
             }
-            val attachments = currentState.attachments.map { CreatePostAttachment(it.id, it.label) }
-            val imageUploads = currentState.processedImages.map { processed ->
-                CreatePostImage(
-                    originalUri = processed.originalUri,
-                    file = processed.outputFile,
-                    mimeType = processed.mimeType
-                )
-            }
-            val result = repository.submitPost(
-                title = currentState.title,
-                body = currentState.body,
-                attachments = attachments,
-                images = imageUploads,
-                tag = selectedTag
-            )
-
-            result.onSuccess { submitResult ->
-                currentState.processedImages.forEach { processed ->
-                    processed.outputFile.delete()
-                }
-                when (submitResult) {
-                    is CreatePostResult.Success -> {
-                        _uiState.update { state ->
-                            val postId = submitResult.postId
-                            val feedback = submitResult.message.ifBlank { DEFAULT_SUCCESS_MESSAGE }
-                            state.copy(
-                                isSubmitting = false,
-                                title = "",
-                                body = "",
-                                attachments = emptyList(),
-                                processedImages = emptyList(),
-                                imageUris = emptyList(),
-                                availableTags = tagOptions,
-                                selectedTag = tagOptions.first(),
-                                successPostId = postId,
-                                successMessage = if (postId == null) feedback else null
-                            )
-                        }
-                    }
-                    is CreatePostResult.Declined -> {
-                        _uiState.update { state ->
-                            state.copy(
-                                isSubmitting = false,
-                                declineReason = submitResult.reason,
-                                successMessage = null
-                            )
-                        }
-                    }
-                }
-            }
-            result.onFailure { throwable ->
-                _uiState.update { state ->
-                    state.copy(
-                        isSubmitting = false,
-                        errorMessage = throwable.message ?: "Không thể đăng bài lúc này",
-                        successMessage = null
+            // Lấy trạng thái mới nhất mỗi attempt để người dùng chỉnh sửa trong lúc retry vẫn được áp dụng
+            var attempt = 0
+            var lastFailure: Throwable? = null
+            while (attempt < MAX_RETRY_ATTEMPTS) {
+                val currentState = _uiState.value
+                val attachments = currentState.attachments.map { CreatePostAttachment(it.id, it.label) }
+                val imageUploads = currentState.processedImages.map { processed ->
+                    CreatePostImage(
+                        originalUri = processed.originalUri,
+                        file = processed.outputFile,
+                        mimeType = processed.mimeType
                     )
+                }
+
+                val result: Result<CreatePostResult> = try {
+                    repository.submitPost(
+                        title = currentState.title,
+                        body = currentState.body,
+                        attachments = attachments,
+                        images = imageUploads,
+                        tag = selectedTag
+                    )
+                } catch (t: Throwable) {
+                    Result.failure(t)
+                }
+
+                var handled = false
+                result.onSuccess { submitResult ->
+                    when (submitResult) {
+                        is CreatePostResult.Success -> {
+                            // Chỉ dọn file ảnh khi thành công
+                            currentState.processedImages.forEach { it.outputFile.delete() }
+                            _uiState.update { state ->
+                                val postId = submitResult.postId
+                                val feedback = submitResult.message.ifBlank { DEFAULT_SUCCESS_MESSAGE }
+                                state.copy(
+                                    isSubmitting = false,
+                                    title = "",
+                                    body = "",
+                                    attachments = emptyList(),
+                                    processedImages = emptyList(),
+                                    imageUris = emptyList(),
+                                    availableTags = tagOptions,
+                                    selectedTag = tagOptions.first(),
+                                    successPostId = postId,
+                                    successMessage = if (postId == null) feedback else null
+                                )
+                            }
+                            handled = true
+                        }
+                        is CreatePostResult.Declined -> {
+                            // KHÔNG dọn ảnh khi bị từ chối để người dùng chỉnh sửa và gửi lại
+                            _uiState.update { state ->
+                                state.copy(
+                                    isSubmitting = false,
+                                    declineReason = submitResult.reason,
+                                    successMessage = null
+                                )
+                            }
+                            handled = true
+                        }
+                    }
+                }
+                result.onFailure { throwable -> lastFailure = throwable }
+
+                if (handled) return@launch
+
+                if (lastFailure != null && isNetworkError(lastFailure!!) && attempt < MAX_RETRY_ATTEMPTS - 1) {
+                    delay(RETRY_DELAY_MS)
+                    attempt++
+                    continue
+                } else {
+                    // Không dọn ảnh khi lỗi mạng hoặc lỗi khác: giữ nguyên để người dùng thử lại
+                    val message = if (lastFailure != null && isNetworkError(lastFailure!!)) NETWORK_ERROR_MESSAGE else lastFailure?.message ?: GENERIC_SUBMIT_ERROR
+                    _uiState.update { state ->
+                        state.copy(
+                            isSubmitting = false,
+                            errorMessage = message,
+                            successMessage = null
+                        )
+                    }
+                    return@launch
                 }
             }
         }
     }
+
+    private fun isNetworkError(t: Throwable): Boolean =
+        t is UnknownHostException ||
+            t is ConnectException ||
+            t is SocketTimeoutException ||
+            (t is IOException && t.message?.contains("Failed to connect", ignoreCase = true) == true)
 
     fun onDeclineReasonDismissed() {
         _uiState.update { it.copy(declineReason = null) }
@@ -272,6 +308,10 @@ class CreateViewModel(
         private const val IMAGE_PROCESSING_GENERIC_ERROR = "Không thể xử lý ảnh đã chọn"
         private const val MAX_IMAGES = 5
         private const val IMAGE_LIMIT_MESSAGE = "Đã đạt giới hạn tối đa 5 ảnh"
+        private const val NETWORK_ERROR_MESSAGE = "Không có kết nối"
+        private const val GENERIC_SUBMIT_ERROR = "Không thể đăng bài lúc này"
+        private const val MAX_RETRY_ATTEMPTS = 3
+        private const val RETRY_DELAY_MS = 1000L // tổng ~2s chờ thêm
     }
 }
 
