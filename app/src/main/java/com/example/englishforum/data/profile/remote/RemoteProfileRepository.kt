@@ -442,6 +442,10 @@ internal class RemoteProfileRepository(
             }.awaitAll().toMap()
         }
     }
+    private fun resolvePostTitle(postId: Int, rawTitle: String?): String {
+        val sanitized = rawTitle?.trim()?.takeIf { it.isNotEmpty() }
+        return sanitized ?: "${DEFAULT_POST_TITLE_PREFIX}$postId"
+    }
 
     private fun List<UserPostResponse>.associatePostTitles(): Map<Int, String> {
         return associate { response ->
@@ -450,7 +454,6 @@ internal class RemoteProfileRepository(
     }
 
     private fun List<UserPostResponse>.toProfilePosts(): List<ForumProfilePost> {
-        return map { response -> response.toProfilePost() }
     }
 
     private fun UserPostResponse.toProfilePost(): ForumProfilePost {
@@ -465,15 +468,12 @@ internal class RemoteProfileRepository(
         )
     }
 
-    private fun resolvePostTitle(postId: Int, rawTitle: String?): String {
-        val sanitized = rawTitle?.trim()?.takeIf { it.isNotEmpty() }
-        return sanitized ?: "${DEFAULT_POST_TITLE_PREFIX}$postId"
-    }
-
     private fun List<UserCommentResponse>.toProfileReplies(
         postTitleLookup: Map<Int, String>
     ): List<ForumProfileReply> {
-        return map { response -> response.toProfileReply(postTitleLookup) }
+        return this
+            .sortedByDescending { parseInstant(it.createdAt ?: "") ?: Instant.EPOCH }
+            .map { response -> response.toProfileReply(postTitleLookup) }
     }
 
     private fun UserCommentResponse.toProfileReply(

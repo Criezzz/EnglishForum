@@ -26,12 +26,14 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import retrofit2.HttpException
+import com.example.englishforum.data.profile.ProfileRepository
 
 internal class RemoteCreatePostRepository(
     private val api: CreatePostApi,
     private val userSessionRepository: UserSessionRepository,
     private val contentResolver: ContentResolver,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val profileRepository: ProfileRepository? = null
 ) : CreatePostRepository {
 
     override suspend fun submitPost(
@@ -69,7 +71,7 @@ internal class RemoteCreatePostRepository(
             }
         }
 
-        return submission
+        val mapped: Result<CreatePostResult> = submission
             .map { response ->
                 val postId = response.postId?.takeIf { it > 0 }?.toString()
                 CreatePostResult.Success(
@@ -78,6 +80,22 @@ internal class RemoteCreatePostRepository(
                 )
             }
             .mapFailure { it.toFriendlyException() }
+
+        if (mapped.isSuccess) {
+            // Best-effort refresh of the profile so new post appears in Profile immediately
+            withContext(ioDispatcher) {
+                runCatching {
+                    val current = userSessionRepository.sessionFlow.firstOrNull()
+                    val userId = current?.userId
+                    if (!userId.isNullOrBlank()) {
+                        // Ignore refresh result deliberately; UI can still pull-to-refresh
+                        profileRepository?.refresh(userId)
+                    }
+                }
+            }
+        }
+
+        return mapped
     }
 
     private fun buildAttachmentParts(

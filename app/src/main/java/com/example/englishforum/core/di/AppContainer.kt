@@ -209,7 +209,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
         RemoteCreatePostRepository(
             api = createPostApi,
             userSessionRepository = userSessionRepository,
-            contentResolver = appContext.contentResolver
+            contentResolver = appContext.contentResolver,
+            profileRepository = profileRepository
         )
     }
 
