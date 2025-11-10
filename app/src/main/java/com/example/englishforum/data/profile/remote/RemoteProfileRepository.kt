@@ -454,6 +454,10 @@ internal class RemoteProfileRepository(
     }
 
     private fun List<UserPostResponse>.toProfilePosts(): List<ForumProfilePost> {
+        // Sort by created_at descending; fallback to epoch if parse fails so unknown dates go last
+        return this
+            .sortedByDescending { parseInstant(it.createdAt ?: "") ?: Instant.EPOCH }
+            .map { response -> response.toProfilePost() }
     }
 
     private fun UserPostResponse.toProfilePost(): ForumProfilePost {
