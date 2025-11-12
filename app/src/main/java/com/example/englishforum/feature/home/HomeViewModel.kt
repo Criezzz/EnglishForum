@@ -25,6 +25,7 @@ class HomeViewModel(
     private val loading = MutableStateFlow(true)
     private val refreshing = MutableStateFlow(false)
     private val selectedFilter = MutableStateFlow<HomeFeedFilter>(HomeFeedFilter.Latest)
+    private val errorMessage = MutableStateFlow<String?>(null)
 
     private val filterOptions = listOf(
         HomeFeedFilter.Latest,
@@ -39,15 +40,17 @@ class HomeViewModel(
         repository.postsStream,
         loading,
         refreshing,
-        selectedFilter
-    ) { posts, isLoading, isRefreshing, filter ->
+        selectedFilter,
+        errorMessage
+    ) { posts, isLoading, isRefreshing, filter, error ->
         val filtered = filterPosts(posts, filter)
         HomeUiState(
             isLoading = isLoading,
             isRefreshing = isRefreshing,
             posts = filtered.map { it.toUiModel() },
             availableFilters = filterOptions,
-            selectedFilter = filter
+            selectedFilter = filter,
+            errorMessage = error
         )
     }
         .stateIn(
@@ -84,8 +87,16 @@ class HomeViewModel(
 
     private fun updateVote(postId: String, targetState: VoteState) {
         viewModelScope.launch {
-            repository.setVoteState(postId, targetState)
+            errorMessage.value = null
+            val result = repository.setVoteState(postId, targetState)
+            if (result.isFailure) {
+                errorMessage.value = result.exceptionOrNull()?.message ?: "Không thể cập nhật lượt bình chọn"
+            }
         }
+    }
+
+    fun onErrorShown() {
+        errorMessage.value = null
     }
 
     private suspend fun refreshFeed(isInitial: Boolean) {

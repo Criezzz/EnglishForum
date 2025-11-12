@@ -23,7 +23,8 @@ data class HomeUiState(
     val isRefreshing: Boolean = false,
     val posts: List<HomePostUi> = emptyList(),
     val availableFilters: List<HomeFeedFilter> = emptyList(),
-    val selectedFilter: HomeFeedFilter = HomeFeedFilter.Latest
+    val selectedFilter: HomeFeedFilter = HomeFeedFilter.Latest,
+    val errorMessage: String? = null
 )
 
 sealed class HomeFeedFilter(open val id: String) {

@@ -43,15 +43,17 @@ class ProfileViewModel(
     val avatarState: StateFlow<ProfileAvatarUiState> = _avatarState.asStateFlow()
 
     private val _isRefreshing = MutableStateFlow(false)
+    private val _errorMessage = MutableStateFlow<String?>(null)
 
     private var avatarUploadJob: Job? = null
     private var pendingAvatar: ProcessedImage? = null
 
     val uiState: StateFlow<ProfileUiState> = combine(
         repository.observeProfile(userId),
-        _isRefreshing
-    ) { profile, isRefreshing ->
-        profile.toUiState(isRefreshing = isRefreshing)
+        _isRefreshing,
+        _errorMessage
+    ) { profile, isRefreshing, errorMessage ->
+        profile.toUiState(isRefreshing = isRefreshing, errorMessage = errorMessage)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -235,14 +237,26 @@ class ProfileViewModel(
 
     private fun updatePostVote(postId: String, targetState: VoteState) {
         viewModelScope.launch {
-            repository.setPostVote(userId, postId, targetState)
+            _errorMessage.value = null
+            val result = repository.setPostVote(userId, postId, targetState)
+            if (result.isFailure) {
+                _errorMessage.value = result.exceptionOrNull()?.message ?: "Không thể cập nhật lượt bình chọn"
+            }
         }
     }
 
     private fun updateReplyVote(replyId: String, targetState: VoteState) {
         viewModelScope.launch {
-            repository.setReplyVote(userId, replyId, targetState)
+            _errorMessage.value = null
+            val result = repository.setReplyVote(userId, replyId, targetState)
+            if (result.isFailure) {
+                _errorMessage.value = result.exceptionOrNull()?.message ?: "Không thể cập nhật lượt bình chọn"
+            }
         }
+    }
+
+    fun onErrorShown() {
+        _errorMessage.value = null
     }
 
     fun onRefresh() {
@@ -257,7 +271,7 @@ class ProfileViewModel(
         }
     }
 
-    private fun ForumUserProfile.toUiState(isRefreshing: Boolean = false): ProfileUiState {
+    private fun ForumUserProfile.toUiState(isRefreshing: Boolean = false, errorMessage: String? = null): ProfileUiState {
         return ProfileUiState(
             overview = ProfileOverview(
                 displayName = displayName,
@@ -272,7 +286,8 @@ class ProfileViewModel(
             posts = posts.map { it.toUiModel() },
             replies = replies.map { it.toUiModel() },
             isLoading = false,
-            isRefreshing = isRefreshing
+            isRefreshing = isRefreshing,
+            errorMessage = errorMessage
         )
     }
 

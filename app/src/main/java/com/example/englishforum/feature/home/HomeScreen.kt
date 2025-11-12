@@ -79,7 +79,8 @@ fun HomeScreen(
         onPostClick = onPostClick,
         onCommentClick = onCommentClick,
         onMoreActionsClick = onMoreActionsClick,
-        onAuthorClick = onAuthorClick
+        onAuthorClick = onAuthorClick,
+        onErrorShown = viewModel::onErrorShown
     )
 }
 
@@ -95,7 +96,8 @@ private fun HomeContent(
     onPostClick: (String) -> Unit,
     onCommentClick: (String) -> Unit,
     onMoreActionsClick: (String) -> Unit,
-    onAuthorClick: (String) -> Unit
+    onAuthorClick: (String) -> Unit,
+    onErrorShown: () -> Unit
 ) {
     val pullState = rememberPullToRefreshState()
     val feedContentState = remember(uiState.isLoading, uiState.isRefreshing, uiState.posts) {
@@ -107,31 +109,46 @@ private fun HomeContent(
     }
 
     val listState = rememberLazyListState()
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
 
-    PullToRefreshBox(
-        modifier = modifier.fillMaxSize(),
-        state = pullState,
-        isRefreshing = uiState.isRefreshing,
-        onRefresh = onRefresh,
-        indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = pullState,
-                isRefreshing = uiState.isRefreshing,
-                modifier = Modifier.align(Alignment.TopCenter)
+    androidx.compose.runtime.LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            onErrorShown()
+        }
+    }
+
+    androidx.compose.foundation.layout.Box(modifier = modifier.fillMaxSize()) {
+        PullToRefreshBox(
+            modifier = Modifier.fillMaxSize(),
+            state = pullState,
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = onRefresh,
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullState,
+                    isRefreshing = uiState.isRefreshing,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
+            }
+        ) {
+            HomeFeedList(
+                state = listState,
+                uiState = uiState,
+                feedContentState = feedContentState,
+                onFilterSelected = onFilterSelected,
+                onPostClick = onPostClick,
+                onCommentClick = onCommentClick,
+                onUpvote = onUpvote,
+                onDownvote = onDownvote,
+                onMoreActionsClick = onMoreActionsClick,
+                onAuthorClick = onAuthorClick
             )
         }
-    ) {
-        HomeFeedList(
-            state = listState,
-            uiState = uiState,
-            feedContentState = feedContentState,
-            onFilterSelected = onFilterSelected,
-            onPostClick = onPostClick,
-            onCommentClick = onCommentClick,
-            onUpvote = onUpvote,
-            onDownvote = onDownvote,
-            onMoreActionsClick = onMoreActionsClick,
-            onAuthorClick = onAuthorClick
+
+        androidx.compose.material3.SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
         )
     }
 }
@@ -383,7 +400,8 @@ private fun HomeScreenPreview() {
             onPostClick = {},
             onCommentClick = {},
             onMoreActionsClick = {},
-            onAuthorClick = {}
+            onAuthorClick = {},
+            onErrorShown = {}
         )
     }
 }

@@ -160,7 +160,8 @@ fun ProfileScreen(
         onPostDownvote = viewModel::onPostDownvote,
         onReplyUpvote = viewModel::onReplyUpvote,
         onReplyDownvote = viewModel::onReplyDownvote,
-        onRefresh = viewModel::onRefresh
+        onRefresh = viewModel::onRefresh,
+        onErrorShown = viewModel::onErrorShown
     )
 
     val overview = uiState.overview
@@ -209,29 +210,39 @@ private fun ProfileContent(
     onPostDownvote: (String) -> Unit,
     onReplyUpvote: (String) -> Unit,
     onReplyDownvote: (String) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onErrorShown: () -> Unit
 ) {
     var selectedTabIndex by rememberSaveable { mutableIntStateOf(ProfileTab.Posts.ordinal) }
     val tabs = ProfileTab.entries.toList()
     val pullRefreshState = rememberPullToRefreshState()
+    val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
 
-    PullToRefreshBox(
-        modifier = modifier.fillMaxSize(),
-        state = pullRefreshState,
-        isRefreshing = uiState.isRefreshing,
-        onRefresh = {
-            if (!uiState.isLoading) {
-                onRefresh()
-            }
-        },
-        indicator = {
-            PullToRefreshDefaults.Indicator(
-                state = pullRefreshState,
-                isRefreshing = uiState.isRefreshing,
-                modifier = Modifier.align(Alignment.TopCenter)
-            )
+    androidx.compose.runtime.LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            onErrorShown()
         }
-    ) {
+    }
+
+    androidx.compose.foundation.layout.Box(modifier = modifier.fillMaxSize()) {
+        PullToRefreshBox(
+            modifier = Modifier.fillMaxSize(),
+            state = pullRefreshState,
+            isRefreshing = uiState.isRefreshing,
+            onRefresh = {
+                if (!uiState.isLoading) {
+                    onRefresh()
+                }
+            },
+            indicator = {
+                PullToRefreshDefaults.Indicator(
+                    state = pullRefreshState,
+                    isRefreshing = uiState.isRefreshing,
+                    modifier = Modifier.align(Alignment.TopCenter)
+                )
+            }
+        ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 24.dp),
@@ -310,6 +321,12 @@ private fun ProfileContent(
             }
         }
     }
+        }
+
+        androidx.compose.material3.SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
     }
 }
 
@@ -731,7 +748,8 @@ private fun ProfileScreenPreview() {
             onPostDownvote = {},
             onReplyUpvote = {},
             onReplyDownvote = {},
-            onRefresh = {}
+            onRefresh = {},
+            onErrorShown = {}
         )
     }
 }

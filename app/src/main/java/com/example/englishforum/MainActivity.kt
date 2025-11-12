@@ -148,6 +148,7 @@ fun MainApp() {
         }
     )
     val sessionMonitorState by sessionMonitorViewModel.state.collectAsState()
+    val recoveredFromOffline by sessionMonitorViewModel.recoveredFromOffline.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val sessionExpiredMessage = stringResource(R.string.session_expired_message)
     val sessionOfflineMessage = stringResource(R.string.session_offline_message)
@@ -173,6 +174,13 @@ fun MainApp() {
             }
 
             else -> Unit
+        }
+    }
+
+    LaunchedEffect(recoveredFromOffline) {
+        if (recoveredFromOffline) {
+            // Network recovered, repositories will auto-refresh
+            sessionMonitorViewModel.onRecoveryHandled()
         }
     }
 

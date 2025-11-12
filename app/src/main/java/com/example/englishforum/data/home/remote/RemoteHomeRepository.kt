@@ -35,16 +35,19 @@ class RemoteHomeRepository(
     private val postsApi: PostsApi,
     private val userSessionRepository: UserSessionRepository,
     private val postStore: ForumPostSummaryStore,
+    private val networkMonitor: com.example.englishforum.core.network.NetworkMonitor,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : HomeRepository {
 
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
     private var lastSessionUserId: String? = null
+    private var wasOffline = false
 
     override val postsStream = postStore.postsStream
 
     init {
         scope.launch { observeSessionChanges() }
+        scope.launch { observeNetworkChanges() }
     }
 
     override suspend fun refresh(): Result<Unit> {
@@ -98,6 +101,21 @@ class RemoteHomeRepository(
             } else if (session.userId != lastSessionUserId || postStore.currentPosts.isEmpty()) {
                 lastSessionUserId = session.userId
                 refreshFeed(session).getOrElse { }
+            }
+        }
+    }
+
+    private suspend fun observeNetworkChanges() {
+        networkMonitor.isOnline.collectLatest { isOnline ->
+            if (!isOnline) {
+                wasOffline = true
+            } else if (wasOffline) {
+                // Recovered from offline, refresh feed
+                wasOffline = false
+                val session = currentSessionOrNull()
+                if (session != null && postStore.currentPosts.isNotEmpty()) {
+                    refreshFeed(session).getOrElse { }
+                }
             }
         }
     }

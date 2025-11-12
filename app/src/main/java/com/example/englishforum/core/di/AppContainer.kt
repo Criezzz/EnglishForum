@@ -173,7 +173,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
         RemoteHomeRepository(
             postsApi = postsApi,
             userSessionRepository = userSessionRepository,
-            postStore = postSummaryStore
+            postStore = postSummaryStore,
+            networkMonitor = networkMonitor
         )
     }
 

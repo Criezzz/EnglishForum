@@ -38,6 +38,11 @@ class SessionMonitorViewModel(
     private val _state = MutableStateFlow<SessionMonitorState>(SessionMonitorState.SignedOut)
     val state: StateFlow<SessionMonitorState> = _state.asStateFlow()
 
+    private val _recoveredFromOffline = MutableStateFlow(false)
+    val recoveredFromOffline: StateFlow<Boolean> = _recoveredFromOffline.asStateFlow()
+
+    private var wasOffline = false
+
     init {
         observeSessionAndConnectivity()
     }
@@ -63,12 +68,20 @@ class SessionMonitorViewModel(
     ) {
         if (session == null) {
             _state.value = SessionMonitorState.SignedOut
+            wasOffline = false
             return
         }
 
         if (!isOnline) {
             _state.value = SessionMonitorState.Offline
+            wasOffline = true
             return
+        }
+
+        // If we were offline and now online, mark as recovered
+        if (wasOffline && isOnline) {
+            wasOffline = false
+            _recoveredFromOffline.value = true
         }
 
         if (!session.isEmailVerified) {
@@ -105,12 +118,17 @@ class SessionMonitorViewModel(
 
             SessionValidationResult.Offline -> {
                 _state.value = SessionMonitorState.Offline
+                wasOffline = true
             }
 
             is SessionValidationResult.Error -> {
                 _state.value = SessionMonitorState.Error(result.message)
             }
         }
+    }
+
+    fun onRecoveryHandled() {
+        _recoveredFromOffline.value = false
     }
 
     private fun validationTickerFlow(): Flow<Unit> = flow {
