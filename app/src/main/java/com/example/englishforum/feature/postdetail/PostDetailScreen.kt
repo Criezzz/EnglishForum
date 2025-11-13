@@ -10,6 +10,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -226,6 +228,9 @@ fun PostDetailScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     val post = uiState.post
     val pullRefreshState = rememberPullToRefreshState()
+    
+    // FAB position state: true = top-right, false = bottom-right
+    var fabAtTop by remember { mutableStateOf(false) }
 
     LaunchedEffect(uiState.errorMessage) {
         val message = uiState.errorMessage
@@ -374,25 +379,6 @@ fun PostDetailScreen(
                     onCancelReplyTarget()
                 }
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(
-                onClick = onOpenAiPracticeClick,
-                containerColor = MaterialTheme.colorScheme.secondaryContainer,
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer
-            ) {
-                if (uiState.isAiPracticeChecking) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Outlined.AutoAwesome,
-                        contentDescription = stringResource(R.string.post_detail_ai_practice_content_description)
-                    )
-                }
-            }
         }
     ) { innerPadding ->
         val topPadding = innerPadding.calculateTopPadding()
@@ -641,6 +627,16 @@ fun PostDetailScreen(
                     }
                 }
             }
+            
+            // Draggable AI Practice FAB
+            DraggableAIPracticeFAB(
+                isChecking = uiState.isAiPracticeChecking,
+                onClick = onOpenAiPracticeClick,
+                topPadding = topPadding,
+                bottomPadding = bottomPadding,
+                fabAtTop = fabAtTop,
+                onPositionChange = { atTop -> fabAtTop = atTop }
+            )
         }
     }
 
@@ -661,6 +657,106 @@ fun PostDetailScreen(
                 onDeletePost()
             }
         )
+    }
+}
+
+@Composable
+private fun DraggableAIPracticeFAB(
+    isChecking: Boolean,
+    onClick: () -> Unit,
+    topPadding: androidx.compose.ui.unit.Dp,
+    bottomPadding: androidx.compose.ui.unit.Dp,
+    fabAtTop: Boolean,
+    onPositionChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val configuration = androidx.compose.ui.platform.LocalConfiguration.current
+    
+    // Calculate full height distance between top and bottom positions
+    val screenHeight = with(density) { configuration.screenHeightDp.dp.toPx() }
+    val topPosition = with(density) { (topPadding + 16.dp).toPx() }
+    val bottomPosition = screenHeight - with(density) { (bottomPadding + 16.dp + 56.dp).toPx() } // 56dp = FAB height
+    
+    // Distance to move from bottom position
+    val travelDistance = bottomPosition - topPosition
+    
+    // Track drag offset separately
+    var isDragging by remember { mutableStateOf(false) }
+    var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    
+    // Target position (when not dragging)
+    val targetOffsetY = if (fabAtTop) -travelDistance else 0f
+    
+    // Animate to target position only when not dragging
+    val animatedOffsetY by androidx.compose.animation.core.animateFloatAsState(
+        targetValue = if (isDragging) dragOffsetY else targetOffsetY,
+        animationSpec = if (isDragging) {
+            androidx.compose.animation.core.snap()  // Instant when dragging
+        } else {
+            androidx.compose.animation.core.spring(
+                dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy,
+                stiffness = androidx.compose.animation.core.Spring.StiffnessMedium
+            )
+        },
+        label = "fabOffset"
+    )
+    
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(end = 16.dp, bottom = bottomPadding + 16.dp)
+    ) {
+        FloatingActionButton(
+            onClick = onClick,
+            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+            contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .offset { androidx.compose.ui.unit.IntOffset(0, animatedOffsetY.toInt()) }
+                .pointerInput(Unit) {
+                    var totalDragY = 0f
+                    var startOffsetY = 0f
+                    detectDragGestures(
+                        onDragStart = {
+                            isDragging = true
+                            totalDragY = 0f
+                            startOffsetY = targetOffsetY  // Remember starting position
+                            dragOffsetY = startOffsetY
+                        },
+                        onDragEnd = {
+                            isDragging = false
+                            // Determine direction based on drag amount
+                            // Negative = dragged up, Positive = dragged down
+                            val threshold = 50f // Minimum drag distance to trigger
+                            
+                            when {
+                                totalDragY < -threshold -> onPositionChange(true)  // Drag up → top
+                                totalDragY > threshold -> onPositionChange(false)  // Drag down → bottom
+                                else -> onPositionChange(!fabAtTop)  // Small drag → toggle
+                            }
+                        },
+                        onDrag = { change, dragAmount ->
+                            change.consume()
+                            totalDragY += dragAmount.y
+                            // Update drag offset, clamped between top and bottom
+                            dragOffsetY = (startOffsetY + totalDragY).coerceIn(-travelDistance, 0f)
+                        }
+                    )
+                }
+        ) {
+            if (isChecking) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Outlined.AutoAwesome,
+                    contentDescription = stringResource(R.string.post_detail_ai_practice_content_description)
+                )
+            }
+        }
     }
 }
 
