@@ -29,6 +29,7 @@ data class ProfilePost(
     val body: String,
     val timeLabel: String,
     val voteCount: Int,
+    val commentCount: Int = 0,
     val voteState: VoteState = VoteState.NONE,
     val previewImageUrl: String? = null
 )

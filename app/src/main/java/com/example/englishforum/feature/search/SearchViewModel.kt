@@ -23,7 +23,8 @@ import kotlinx.coroutines.launch
 import kotlin.math.max
 
 class SearchViewModel(
-    private val repository: SearchRepository
+    private val repository: SearchRepository,
+    private val postSummaryStore: com.example.englishforum.data.post.ForumPostSummaryStore
 ) : ViewModel() {
 
     private val query = MutableStateFlow("")
@@ -36,13 +37,33 @@ class SearchViewModel(
         query,
         loading,
         posts,
+        postSummaryStore.postsStream,
         users,
         error
-    ) { currentQuery, isLoading, postResults, userResults, errorMessage ->
+    ) { flows: Array<Any?> ->
+        val currentQuery = flows[0] as String
+        val isLoading = flows[1] as Boolean
+        val postResults = flows[2] as List<ForumPostSummary>
+        val storePosts = flows[3] as List<ForumPostSummary>
+        val userResults = flows[4] as List<SearchUser>
+        val errorMessage = flows[5] as String?
+        
+        // Merge vote states from store
+        val mergedPosts = postResults.map { searchPost ->
+            val storePost = storePosts.firstOrNull { it.id == searchPost.id }
+            if (storePost != null) {
+                searchPost.copy(
+                    voteState = storePost.voteState,
+                    voteCount = storePost.voteCount
+                )
+            } else {
+                searchPost
+            }
+        }
         SearchUiState(
             query = currentQuery,
             isLoading = isLoading,
-            posts = postResults.map { it.toUiModel() },
+            posts = mergedPosts.map { it.toUiModel() },
             users = userResults.map { it.toUiModel() },
             errorMessage = errorMessage
         )
@@ -143,6 +164,7 @@ class SearchViewModel(
     }
 
     private fun ForumPostSummary.toUiModel(): SearchPostUi {
+        android.util.Log.d("SearchViewModel", "Post $id - title: '$title', body length: ${body.length}")
         return SearchPostUi(
             id = id,
             authorName = authorName,
@@ -175,12 +197,13 @@ class SearchViewModel(
 }
 
 class SearchViewModelFactory(
-    private val repository: SearchRepository
+    private val repository: SearchRepository,
+    private val postSummaryStore: com.example.englishforum.data.post.ForumPostSummaryStore
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(SearchViewModel::class.java)) {
-            return SearchViewModel(repository) as T
+            return SearchViewModel(repository, postSummaryStore) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }

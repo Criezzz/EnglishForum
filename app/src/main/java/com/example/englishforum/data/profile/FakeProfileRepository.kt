@@ -2,6 +2,7 @@ package com.example.englishforum.data.profile
 
 import com.example.englishforum.core.common.resolveVoteChange
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.model.forum.ForumPostSummary
 import com.example.englishforum.core.model.forum.ForumProfilePost
 import com.example.englishforum.core.model.forum.ForumProfileReply
 import com.example.englishforum.core.model.forum.ForumProfileStats
@@ -11,6 +12,7 @@ import com.example.englishforum.data.profile.ProfileAvatarImage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 
 class FakeProfileRepository : ProfileRepository {
@@ -20,6 +22,8 @@ class FakeProfileRepository : ProfileRepository {
     override fun observeProfile(userId: String): Flow<ForumUserProfile> {
         return profileState.asStateFlow()
     }
+    
+    override val postsStream: Flow<List<ForumPostSummary>> = flowOf(emptyList())
 
     override suspend fun updateDisplayName(userId: String, displayName: String): Result<Unit> {
         profileState.update { current -> current.copy(displayName = displayName) }

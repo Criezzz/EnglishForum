@@ -50,10 +50,31 @@ class ProfileViewModel(
 
     val uiState: StateFlow<ProfileUiState> = combine(
         repository.observeProfile(userId),
+        repository.postsStream,
         _isRefreshing,
         _errorMessage
-    ) { profile, isRefreshing, errorMessage ->
-        profile.toUiState(isRefreshing = isRefreshing, errorMessage = errorMessage)
+    ) { flows: Array<Any?> ->
+        val profile = flows[0] as ForumUserProfile
+        val storePosts = flows[1] as List<com.example.englishforum.core.model.forum.ForumPostSummary>
+        val isRefreshing = flows[2] as Boolean
+        val errorMessage = flows[3] as String?
+        
+        // Merge vote states from store into profile posts
+        val mergedProfile = profile.copy(
+            posts = profile.posts.map { profilePost ->
+                val storePost = storePosts.firstOrNull { it.id == profilePost.id }
+                if (storePost != null) {
+                    profilePost.copy(
+                        voteState = storePost.voteState,
+                        voteCount = storePost.voteCount
+                    )
+                } else {
+                    profilePost
+                }
+            }
+        )
+        
+        mergedProfile.toUiState(isRefreshing = isRefreshing, errorMessage = errorMessage)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -298,6 +319,7 @@ class ProfileViewModel(
             body = body,
             timeLabel = timestampLabel,
             voteCount = voteCount,
+            commentCount = commentCount,
             voteState = voteState,
             previewImageUrl = previewImageUrl
         )

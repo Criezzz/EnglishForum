@@ -358,6 +358,11 @@ fun MainApp() {
                         onCommentClick = { postId ->
                             navController.navigate("post/$postId")
                         },
+                        onMoreActionsClick = { postId ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Tính năng tạm thời chưa hoạt động")
+                            }
+                        },
                         onAuthorClick = { username ->
                             val encoded = Uri.encode(username)
                             navController.navigate("profile/$encoded")
@@ -409,6 +414,16 @@ fun MainApp() {
                                 navController.navigate("post/$postId")
                             }
                         },
+                        onPostMoreClick = { post ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Tính năng tạm thời chưa hoạt động")
+                            }
+                        },
+                        onReplyMoreClick = { reply ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Tính năng tạm thời chưa hoạt động")
+                            }
+                        },
                         isOwnProfile = true
                     )
                 }
@@ -440,6 +455,16 @@ fun MainApp() {
                                 navController.navigate("post/$postId?commentId=$commentId")
                             } else {
                                 navController.navigate("post/$postId")
+                            }
+                        },
+                        onPostMoreClick = { post ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Tính năng tạm thời chưa hoạt động")
+                            }
+                        },
+                        onReplyMoreClick = { reply ->
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Tính năng tạm thời chưa hoạt động")
                             }
                         },
                         isOwnProfile = isOwnProfile,

@@ -72,7 +72,12 @@ fun SearchRoute(
 ) {
     val appContainer = LocalAppContainer.current
     val viewModel: SearchViewModel = viewModel(
-        factory = remember(appContainer) { SearchViewModelFactory(appContainer.searchRepository) }
+        factory = remember(appContainer) { 
+            SearchViewModelFactory(
+                appContainer.searchRepository,
+                appContainer.postSummaryStore
+            ) 
+        }
     )
     val uiState by viewModel.uiState.collectAsState()
 
@@ -425,10 +430,8 @@ private fun SearchPostCard(
     ForumContentCard(
         modifier = modifier.fillMaxWidth(),
         meta = result.relativeTimeText,
-        title = result.title.takeIf { it.isNotBlank() },
-        body = result.body.takeIf { it.isNotBlank() },
-        bodyMaxLines = SEARCH_RESULT_BODY_MAX_LINES,
-        bodyOverflow = TextOverflow.Ellipsis,
+        title = null,
+        body = null,
         voteCount = result.voteCount,
         voteState = result.voteState,
         commentCount = result.commentCount,
@@ -466,6 +469,28 @@ private fun SearchPostCard(
                     text = result.relativeTimeText,
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        },
+        bodyContent = {
+            var previousDisplayed = false
+            if (result.title.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = result.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                previousDisplayed = true
+            }
+            if (result.body.isNotBlank()) {
+                Spacer(Modifier.height(if (previousDisplayed) 4.dp else 6.dp))
+                Text(
+                    text = result.body,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = SEARCH_RESULT_BODY_MAX_LINES,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         },

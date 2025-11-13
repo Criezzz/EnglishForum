@@ -33,8 +33,11 @@ class RemoteSearchRepository(
     private val searchApi: SearchApi,
     private val userSessionRepository: UserSessionRepository,
     private val postInteractionRepository: HomeRepository,
+    private val postSummaryStore: com.example.englishforum.data.post.ForumPostSummaryStore,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : SearchRepository {
+    
+    val postsStream = postSummaryStore.postsStream
 
     override suspend fun search(keyword: String): Result<SearchResult> {
         val sanitized = keyword.trim()
@@ -104,13 +107,19 @@ class RemoteSearchRepository(
         baseUrl: String,
         usersLookup: Map<Int?, SearchUser>
     ): ForumPostSummary {
+        val normalizedTitle = title?.takeIf { it.isNotBlank() }
+            ?: content?.take(50)?.trim()
+            ?: "Untitled Post"
+        
+        android.util.Log.d("SearchRepo", "Post $postId - raw title: '$title', content preview: '${content?.take(30)}', normalized: '$normalizedTitle'")
+        
         return ForumPostSummary(
             id = postId.toString(),
             authorName = resolveAuthorName(usersLookup),
             authorUsername = authorUsername?.takeIf { it.isNotBlank() }
                 ?: usersLookup[authorId]?.username,
             minutesAgo = createdAt.toMinutesAgo(),
-            title = title.orEmpty(),
+            title = normalizedTitle,
             body = content.orEmpty(),
             voteCount = voteCount ?: 0,
             voteState = userVote.toVoteState(),

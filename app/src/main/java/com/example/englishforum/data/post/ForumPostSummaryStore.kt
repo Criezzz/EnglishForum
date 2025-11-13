@@ -59,6 +59,19 @@ class ForumPostSummaryStore {
     fun remove(postId: String) {
         postsState.update { current -> current.filterNot { it.id == postId } }
     }
+
+    fun upsert(post: ForumPostSummary) {
+        postsState.update { current ->
+            val index = current.indexOfFirst { it.id == post.id }
+            if (index == -1) {
+                current + post
+            } else {
+                current.toMutableList().also { list ->
+                    list[index] = post
+                }
+            }
+        }
+    }
 }
 
 private fun ForumPostDetail.toSummary(previous: ForumPostSummary?): ForumPostSummary {

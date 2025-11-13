@@ -219,11 +219,12 @@ private fun HomeFeedList(
                         voteState = post.voteState,
                         commentCount = post.commentCount,
                         commentPillPlacement = CommentPillPlacement.End,
-                        showMoreActions = false,
+                        showMoreActions = true,
                         onCardClick = { onPostClick(post.id) },
                         onCommentClick = { onCommentClick(post.id) },
                         onUpvoteClick = { onUpvote(post.id) },
                         onDownvoteClick = { onDownvote(post.id) },
+                        onMoreActionsClick = { onMoreActionsClick(post.id) },
                         leadingContent = {
                             ForumAuthorAvatar(
                                 name = post.authorName,

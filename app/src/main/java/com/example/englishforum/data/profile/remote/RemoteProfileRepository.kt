@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
 import com.example.englishforum.BuildConfig
+import com.example.englishforum.core.common.resolveVoteChange
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumProfilePost
 import com.example.englishforum.core.model.forum.ForumProfileReply
@@ -13,6 +14,7 @@ import com.example.englishforum.core.model.forum.ForumUserProfile
 import com.example.englishforum.data.auth.UserSession
 import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.data.auth.bearerToken
+import com.example.englishforum.data.post.ForumPostSummaryStore
 import com.example.englishforum.data.post.remote.PostDetailApi
 import com.example.englishforum.data.profile.ProfileAvatarImage
 import com.example.englishforum.data.profile.ProfileRepository
@@ -44,6 +46,7 @@ import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaType
@@ -58,6 +61,7 @@ internal class RemoteProfileRepository(
     private val userSessionRepository: UserSessionRepository,
     private val contentResolver: ContentResolver,
     private val postDetailApi: PostDetailApi,
+    private val postSummaryStore: ForumPostSummaryStore,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ProfileRepository {
 
@@ -65,6 +69,8 @@ internal class RemoteProfileRepository(
     private var cachedUserId: String? = null
     private val baseUrl = BuildConfig.API_BASE_URL.trimEnd('/')
     private val postTitleCache = ConcurrentHashMap<Int, String>()
+    
+    override val postsStream = postSummaryStore.postsStream
 
     override fun observeProfile(userId: String): Flow<ForumUserProfile> = flow {
         refreshProfile(userId, force = cachedUserId != userId)
@@ -152,11 +158,98 @@ internal class RemoteProfileRepository(
     }
 
     override suspend fun setPostVote(userId: String, postId: String, target: VoteState): Result<Unit> {
-        return Result.failure(UnsupportedOperationException("Post interactions are not supported yet"))
+        val session = currentSessionOrNull()
+            ?: return Result.failure(IllegalStateException("Phiên đăng nhập đã hết hạn"))
+        
+        val numericPostId = postId.toIntOrNull()
+            ?: return Result.failure(IllegalArgumentException("ID bài viết không hợp lệ"))
+        
+        // Get current post state
+        val currentProfile = profileState.value
+        val currentPost = currentProfile?.posts?.firstOrNull { it.id == postId }
+            ?: return Result.failure(IllegalArgumentException("Bài viết không còn khả dụng"))
+        
+        val (nextState, delta) = resolveVoteChange(currentPost.voteState, target)
+        val voteValue = nextState.toVoteValue()
+        
+        return withContext(ioDispatcher) {
+            runCatching {
+                postDetailApi.votePost(
+                    bearer = session.bearerToken(),
+                    postId = numericPostId,
+                    voteType = voteValue
+                )
+            }.map {
+                // Update local profile state
+                profileState.update { current ->
+                    current?.copy(
+                        posts = current.posts.map { post ->
+                            if (post.id == postId) {
+                                post.copy(
+                                    voteState = nextState,
+                                    voteCount = post.voteCount + delta
+                                )
+                            } else {
+                                post
+                            }
+                        }
+                    )
+                }
+                
+                // Update shared post summary store for sync across screens
+                postSummaryStore.updatePost(postId) { post ->
+                    post.copy(
+                        voteState = nextState,
+                        voteCount = post.voteCount + delta
+                    )
+                }
+                
+                Unit
+            }
+        }.mapFailure { it.toProfileRepositoryException() }
     }
 
     override suspend fun setReplyVote(userId: String, replyId: String, target: VoteState): Result<Unit> {
-        return Result.failure(UnsupportedOperationException("Reply interactions are not supported yet"))
+        val session = currentSessionOrNull()
+            ?: return Result.failure(IllegalStateException("Phiên đăng nhập đã hết hạn"))
+        
+        val numericReplyId = replyId.toIntOrNull()
+            ?: return Result.failure(IllegalArgumentException("ID bình luận không hợp lệ"))
+        
+        // Get current reply state
+        val currentProfile = profileState.value
+        val currentReply = currentProfile?.replies?.firstOrNull { it.id == replyId }
+            ?: return Result.failure(IllegalArgumentException("Bình luận không còn khả dụng"))
+        
+        val (nextState, delta) = resolveVoteChange(currentReply.voteState, target)
+        val voteValue = nextState.toVoteValue()
+        
+        return withContext(ioDispatcher) {
+            runCatching {
+                postDetailApi.voteComment(
+                    bearer = session.bearerToken(),
+                    commentId = numericReplyId,
+                    voteType = voteValue
+                )
+            }.map {
+                // Update local state optimistically
+                profileState.update { current ->
+                    current?.copy(
+                        replies = current.replies.map { reply ->
+                            if (reply.id == replyId) {
+                                reply.copy(
+                                    voteState = nextState,
+                                    voteCount = reply.voteCount + delta
+                                )
+                            } else {
+                                reply
+                            }
+                        }
+                    )
+                }
+                Unit
+            }
+        }.mapFailure { it.toProfileRepositoryException() }
     }
 
     override suspend fun updatePassword(currentPassword: String, newPassword: String): Result<Unit> {
@@ -341,7 +434,69 @@ internal class RemoteProfileRepository(
             }
         }
 
-        profileState.value = remote.getOrDefault(fallback)
+        val profile = remote.getOrDefault(fallback)
+        
+        // Merge vote states from store (in case user voted in other screens)
+        val mergedProfile = mergeVoteStatesFromStore(profile)
+        profileState.value = mergedProfile
+        
+        // Sync profile posts to shared store
+        syncPostsToStore(mergedProfile.posts)
+    }
+    
+    private fun mergeVoteStatesFromStore(profile: ForumUserProfile): ForumUserProfile {
+        val storePostsMap = postSummaryStore.currentPosts.associateBy { it.id }
+        return profile.copy(
+            posts = profile.posts.map { profilePost ->
+                val storePost = storePostsMap[profilePost.id]
+                if (storePost != null) {
+                    // Use vote state from store if available (more up-to-date)
+                    profilePost.copy(
+                        voteState = storePost.voteState,
+                        voteCount = storePost.voteCount
+                    )
+                } else {
+                    profilePost
+                }
+            }
+        )
+    }
+    
+    private fun syncPostsToStore(posts: List<ForumProfilePost>) {
+        posts.forEach { profilePost ->
+            // Try to update existing post first
+            val updated = postSummaryStore.updatePost(profilePost.id) { existing ->
+                // Only update vote-related fields, preserve other fields from store
+                existing.copy(
+                    voteState = profilePost.voteState,
+                    voteCount = profilePost.voteCount,
+                    commentCount = profilePost.commentCount
+                )
+            }
+            
+            // If post not in store, add it as new summary
+            if (!updated) {
+                val summary = profilePost.toPostSummary()
+                postSummaryStore.upsert(summary)
+            }
+        }
+    }
+    
+    private fun ForumProfilePost.toPostSummary(): com.example.englishforum.core.model.forum.ForumPostSummary {
+        return com.example.englishforum.core.model.forum.ForumPostSummary(
+            id = id,
+            authorName = "", // Profile posts don't have author info
+            authorUsername = null,
+            minutesAgo = 0,
+            title = title,
+            body = body,
+            voteCount = voteCount,
+            voteState = voteState,
+            commentCount = commentCount,
+            tag = com.example.englishforum.core.model.forum.PostTag.AskQuestion, // Default tag
+            authorAvatarUrl = null,
+            previewImageUrl = previewImageUrl
+        )
     }
 
     private suspend fun currentSessionOrNull(): UserSession? {
@@ -471,6 +626,7 @@ internal class RemoteProfileRepository(
             body = content.orEmpty(),
             timestampLabel = createdAt.toProfileTimestampLabel(),
             voteCount = voteCount ?: 0,
+            commentCount = commentCount ?: 0,
             voteState = userVote.toVoteState(),
             previewImageUrl = attachments.resolvePreviewUrl()
         )
@@ -568,6 +724,12 @@ internal class RemoteProfileRepository(
         private const val RECENT_WINDOW_MINUTES = 60L
         private const val DATE_FORMAT_PATTERN = "dd/MM/yyyy HH:mm"
         private const val DEFAULT_DATE_PLACEHOLDER = "--/--/---- --:--"
+    }
+
+    private fun VoteState.toVoteValue(): Int = when (this) {
+        VoteState.NONE -> 0
+        VoteState.UPVOTED -> 1
+        VoteState.DOWNVOTED -> -1
     }
 }
 

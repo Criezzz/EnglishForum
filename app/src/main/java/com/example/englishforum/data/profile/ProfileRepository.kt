@@ -1,11 +1,14 @@
 package com.example.englishforum.data.profile
 
 import com.example.englishforum.core.model.VoteState
+import com.example.englishforum.core.model.forum.ForumPostSummary
 import com.example.englishforum.core.model.forum.ForumUserProfile
 import kotlinx.coroutines.flow.Flow
 
 interface ProfileRepository {
     fun observeProfile(userId: String): Flow<ForumUserProfile>
+    
+    val postsStream: Flow<List<ForumPostSummary>>
 
     suspend fun refresh(userId: String): Result<Unit> = Result.success(Unit)
 

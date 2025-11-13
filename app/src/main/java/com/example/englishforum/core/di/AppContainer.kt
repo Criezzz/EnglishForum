@@ -51,6 +51,7 @@ import retrofit2.converter.moshi.MoshiConverterFactory
 import java.util.concurrent.TimeUnit
 
 interface AppContainer {
+    val postSummaryStore: com.example.englishforum.data.post.ForumPostSummaryStore
     val userSessionRepository: UserSessionRepository
     val authRepository: AuthRepository
     val sessionPreferenceRepository: SessionPreferenceRepository
@@ -71,7 +72,7 @@ class DefaultAppContainer(context: Context) : AppContainer {
 
     private val appContext = context.applicationContext
     private val postStore = FakePostStore
-    private val postSummaryStore = ForumPostSummaryStore()
+    override val postSummaryStore = ForumPostSummaryStore()
 
     private val moshi: Moshi by lazy {
         Moshi.Builder()
@@ -182,7 +183,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
         RemoteSearchRepository(
             searchApi = searchApi,
             userSessionRepository = userSessionRepository,
-            postInteractionRepository = homeRepository
+            postInteractionRepository = homeRepository,
+            postSummaryStore = postSummaryStore
         )
     }
 
@@ -231,7 +233,8 @@ class DefaultAppContainer(context: Context) : AppContainer {
             profileApi = profileApi,
             userSessionRepository = userSessionRepository,
             contentResolver = appContext.contentResolver,
-            postDetailApi = postDetailApi
+            postDetailApi = postDetailApi,
+            postSummaryStore = postSummaryStore
         )
     }
 

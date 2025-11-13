@@ -8,6 +8,7 @@ data class UserPostResponse(
     val title: String? = null,
     @Json(name = "content") val content: String? = null,
     @Json(name = "vote_count") val voteCount: Int? = null,
+    @Json(name = "comment_count") val commentCount: Int? = null,
     @Json(name = "user_vote") val userVote: Int? = null,
     @Json(name = "created_at") val createdAt: String? = null,
     val tag: String? = null,

@@ -284,12 +284,14 @@ private fun ProfileContent(
                                 .padding(horizontal = 16.dp),
                             meta = stringResource(R.string.profile_post_meta, post.timeLabel),
                             voteCount = post.voteCount,
+                            commentCount = post.commentCount,
                             title = post.title,
                             body = post.body,
                             voteState = post.voteState,
                             onCardClick = { onPostClick(post.id) },
                             onUpvoteClick = { onPostUpvote(post.id) },
                             onDownvoteClick = { onPostDownvote(post.id) },
+                            onCommentClick = { onPostClick(post.id) },
                             onMoreActionsClick = { onPostMoreClick(post) },
                             supportingContent = {
                                 post.previewImageUrl?.let { previewUrl ->
