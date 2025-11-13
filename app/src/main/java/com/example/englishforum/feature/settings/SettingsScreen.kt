@@ -1013,6 +1013,13 @@ private fun ChangePasswordBottomSheet(
                                     )
                                 }
                             }
+                            newPassword.trim().length < 8 -> {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar(
+                                        message = "Mật khẩu phải có ít nhất 8 ký tự"
+                                    )
+                                }
+                            }
                             newPassword != confirmPassword -> {
                                 scope.launch {
                                     snackbarHostState.showSnackbar(

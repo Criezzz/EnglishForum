@@ -154,10 +154,25 @@ class RemoteAuthRepository(
                 "Đã xảy ra lỗi, vui lòng thử lại"
             } else {
                 val json = JSONObject(raw)
-                json.optString("detail", json.optString("message", raw))
+                val errorMsg = json.optString("detail", json.optString("message", raw))
+                translateErrorMessage(errorMsg)
             }
         } catch (_: Exception) {
-            raw ?: "Đã xảy ra lỗi, vui lòng thử lại"
+            translateErrorMessage(raw ?: "Đã xảy ra lỗi, vui lòng thử lại")
+        }
+    }
+
+    private fun translateErrorMessage(message: String): String {
+        return when {
+            message.contains("User not found", ignoreCase = true) -> "Tài khoản không tồn tại"
+            message.contains("password must be at least 8", ignoreCase = true) -> "Mật khẩu phải có ít nhất 8 ký tự"
+            message.contains("password must be at least 6", ignoreCase = true) -> "Mật khẩu phải có ít nhất 8 ký tự"
+            message.contains("Invalid credentials", ignoreCase = true) -> "Tên đăng nhập hoặc mật khẩu không đúng"
+            message.contains("username already exists", ignoreCase = true) -> "Tên đăng nhập đã tồn tại"
+            message.contains("email already exists", ignoreCase = true) -> "Email đã được sử dụng"
+            message.contains("Invalid OTP", ignoreCase = true) -> "Mã OTP không hợp lệ"
+            message.contains("OTP expired", ignoreCase = true) -> "Mã OTP đã hết hạn"
+            else -> message
         }
     }
 

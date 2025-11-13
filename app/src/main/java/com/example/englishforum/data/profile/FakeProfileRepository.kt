@@ -53,7 +53,7 @@ class FakeProfileRepository : ProfileRepository {
             }
             current.copy(posts = posts)
         }
-        return if (updated) Result.success(Unit) else Result.failure(IllegalArgumentException("Post not found"))
+        return if (updated) Result.success(Unit) else Result.failure(IllegalArgumentException("Không tìm thấy bài viết"))
     }
 
     override suspend fun setReplyVote(userId: String, replyId: String, target: VoteState): Result<Unit> {

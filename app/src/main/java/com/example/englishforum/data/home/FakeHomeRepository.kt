@@ -19,7 +19,7 @@ class FakeHomeRepository(
         return if (store.updatePostVote(postId, target)) {
             Result.success(Unit)
         } else {
-            Result.failure(IllegalArgumentException("Post not found"))
+            Result.failure(IllegalArgumentException("Không tìm thấy bài viết"))
         }
     }
 

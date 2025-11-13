@@ -126,8 +126,8 @@ class ForgotPasswordViewModel(
         }
         val trimmedPassword = state.newPassword.trim()
         val trimmedConfirm = state.confirmNewPassword.trim()
-        if (trimmedPassword.length < 6) {
-            uiState = state.copy(passwordErrorMessage = "Mật khẩu phải có ít nhất 6 ký tự")
+        if (trimmedPassword.length < 8) {
+            uiState = state.copy(passwordErrorMessage = "Mật khẩu phải có ít nhất 8 ký tự")
             return
         }
         if (trimmedConfirm.isEmpty()) {

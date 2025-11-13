@@ -42,8 +42,8 @@ class FakeAuthRepository(
         if (normalizedEmail.isEmpty() || !normalizedEmail.contains("@")) {
             return Result.failure(IllegalArgumentException("Email không hợp lệ"))
         }
-        if (normalizedPassword.length < 6) {
-            return Result.failure(IllegalArgumentException("Mật khẩu phải có ít nhất 6 ký tự"))
+        if (normalizedPassword.length < 8) {
+            return Result.failure(IllegalArgumentException("Mật khẩu phải có ít nhất 8 ký tự"))
         }
 
         val session = UserSession(
@@ -107,10 +107,10 @@ class FakeAuthRepository(
             return Result.failure(IllegalArgumentException("Token không hợp lệ"))
         }
         val normalizedPassword = newPassword.trim()
-        return if (normalizedPassword.length >= 6) {
+        return if (normalizedPassword.length >= 8) {
             Result.success(Unit)
         } else {
-            Result.failure(IllegalArgumentException("Mật khẩu phải có ít nhất 6 ký tự"))
+            Result.failure(IllegalArgumentException("Mật khẩu phải có ít nhất 8 ký tự"))
         }
     }
 

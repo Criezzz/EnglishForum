@@ -46,8 +46,8 @@ class RegisterViewModel(
             uiState = state.copy(errorMessage = "Vui lòng nhập email hợp lệ")
             return false
         }
-        if (state.password.trim().length < 6) {
-            uiState = state.copy(errorMessage = "Mật khẩu phải có ít nhất 6 ký tự")
+        if (state.password.trim().length < 8) {
+            uiState = state.copy(errorMessage = "Mật khẩu phải có ít nhất 8 ký tự")
             return false
         }
         if (state.confirmPassword.trim().isEmpty()) {

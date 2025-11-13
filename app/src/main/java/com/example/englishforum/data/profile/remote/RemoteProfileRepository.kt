@@ -164,11 +164,15 @@ internal class RemoteProfileRepository(
         val sanitizedNew = newPassword.trim()
         
         if (sanitizedCurrent.isBlank() || sanitizedNew.isBlank()) {
-            return Result.failure(ProfileRepositoryException("Password cannot be empty"))
+            return Result.failure(ProfileRepositoryException("Mật khẩu không được để trống"))
+        }
+
+        if (sanitizedNew.length < 8) {
+            return Result.failure(ProfileRepositoryException("Mật khẩu phải có ít nhất 8 ký tự"))
         }
 
         val session = currentSessionOrNull()
-            ?: return Result.failure(ProfileRepositoryException("Session expired. Please sign in again."))
+            ?: return Result.failure(ProfileRepositoryException("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại"))
 
         return runCatching {
             withContext(ioDispatcher) {
@@ -576,7 +580,7 @@ private fun Throwable.toProfileRepositoryException(): ProfileRepositoryException
         val message = when (status) {
             400, 422 -> "Invalid profile information. Please review and try again."
             401 -> "Session expired. Please sign in again."
-            404 -> "User not found."
+            404 -> "Không tìm thấy người dùng"
             409 -> "This username is already taken."
             else -> "Unexpected server error ($status)."
         }

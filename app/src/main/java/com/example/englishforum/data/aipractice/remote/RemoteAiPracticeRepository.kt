@@ -173,7 +173,7 @@ class RemoteAiPracticeRepository(
                 Result.success(questions)
             } catch (e: HttpException) {
                 when (e.code()) {
-                    404 -> Result.failure(IllegalArgumentException("Post not found"))
+                    404 -> Result.failure(IllegalArgumentException("Không tìm thấy bài viết"))
                     422 -> Result.failure(IllegalArgumentException("Invalid request format or parameters: ${e.message}"))
                     500 -> Result.failure(IllegalStateException("AI generation failed"))
                     else -> Result.failure(IOException("Server error (${e.code()}): ${e.message}"))
