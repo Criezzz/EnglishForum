@@ -75,8 +75,21 @@ class PostDetailViewModel(
                         aiPracticeChecking.value = isGen
                     }
                 }
-            } else if (hasLoadedInitialPost) {
-                isLoading.value = false
+            } else {
+                // Post is null - either doesn't exist or was deleted
+                // If we've loaded initial post before, it was deleted
+                // If we haven't loaded initial post, it doesn't exist
+                // In both cases, stop loading after a brief delay to allow initial check
+                if (hasLoadedInitialPost) {
+                    isLoading.value = false
+                } else {
+                    // For non-existent posts, set loading to false after initial check
+                    // This allows UI to show "not found" message
+                    viewModelScope.launch {
+                        kotlinx.coroutines.delay(100) // Brief delay to ensure initial state is set
+                        isLoading.value = false
+                    }
+                }
             }
         }
 

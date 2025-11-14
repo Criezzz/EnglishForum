@@ -35,6 +35,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.englishforum.core.model.VoteState
@@ -69,7 +70,8 @@ fun ForumContentCard(
     headerContent: (@Composable ColumnScope.() -> Unit)? = null,
     bodyContent: (@Composable ColumnScope.() -> Unit)? = null,
     voteCountAnimationKey: Int = 0,
-    commentCountAnimationKey: Int = 0
+    commentCountAnimationKey: Int = 0,
+    testId: String? = null
 ) {
     Surface(
         modifier = modifier,
@@ -179,7 +181,8 @@ fun ForumContentCard(
                     voteState = voteState,
                     onUpvoteClick = onUpvoteClick,
                     onDownvoteClick = onDownvoteClick,
-                    animationKey = voteCountAnimationKey
+                    animationKey = voteCountAnimationKey,
+                    testId = testId
                 )
 
                 val showCommentAction = commentCount != null
@@ -228,7 +231,8 @@ private fun ForumVoteActionGroup(
     onUpvoteClick: () -> Unit,
     onDownvoteClick: () -> Unit,
     modifier: Modifier = Modifier,
-    animationKey: Int = 0
+    animationKey: Int = 0,
+    testId: String? = null
 ) {
     val colorScheme = MaterialTheme.colorScheme
 
@@ -316,11 +320,13 @@ private fun ForumVoteActionGroup(
             onClick = onUpvoteClick,
             buttonSize = 32.dp,
             enforceMinimumTouchTarget = false,
-            selectedColorOverride = colorScheme.primary
+            selectedColorOverride = colorScheme.primary,
+            modifier = if (testId != null) Modifier.testTag("upvote_button_$testId") else Modifier
         )
         Text(
             text = voteCount.toString(),
-            style = MaterialTheme.typography.labelLarge
+            style = MaterialTheme.typography.labelLarge,
+            modifier = if (testId != null) Modifier.testTag("vote_count_$testId") else Modifier
         )
         VoteIconButton(
             icon = Icons.Filled.KeyboardArrowDown,
@@ -329,7 +335,8 @@ private fun ForumVoteActionGroup(
             onClick = onDownvoteClick,
             buttonSize = 32.dp,
             enforceMinimumTouchTarget = false,
-            selectedColorOverride = colorScheme.error
+            selectedColorOverride = colorScheme.error,
+            modifier = if (testId != null) Modifier.testTag("downvote_button_$testId") else Modifier
         )
     }
 }

@@ -24,7 +24,7 @@ class ForgotPasswordViewModel(
     fun onContactChange(value: String) {
         otpTimerJob?.cancel()
         otpTimerJob = null
-        uiState = ForgotPasswordUiState(contact = value)
+        uiState = uiState.copy(contact = value, errorMessage = null)
     }
 
     fun submit() {
@@ -157,7 +157,12 @@ class ForgotPasswordViewModel(
     fun clearMessages() {
         otpTimerJob?.cancel()
         otpTimerJob = null
-        uiState = ForgotPasswordUiState()
+        uiState = uiState.copy(
+            isLoading = false,
+            errorMessage = null,
+            successMessage = null,
+
+        )
     }
 
     private fun startOtpCountdown() {

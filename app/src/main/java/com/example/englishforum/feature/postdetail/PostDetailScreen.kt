@@ -84,6 +84,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
@@ -326,7 +327,8 @@ fun PostDetailScreen(
                         Box {
                             IconButton(
                                 onClick = { isOptionsExpanded = true },
-                                enabled = !uiState.isPerformingAction
+                                enabled = !uiState.isPerformingAction,
+                                modifier = Modifier.testTag("post_detail_more_button")
                             ) {
                                 Icon(
                                     imageVector = Icons.Filled.MoreVert,
@@ -412,7 +414,9 @@ fun PostDetailScreen(
                                 .padding(innerPadding),
                             contentAlignment = Alignment.Center
                         ) {
-                            CircularProgressIndicator()
+                            CircularProgressIndicator(
+                                modifier = Modifier.testTag("post_detail_loading_indicator")
+                            )
                         }
                     }
 
@@ -426,7 +430,8 @@ fun PostDetailScreen(
                             Text(
                                 text = stringResource(R.string.post_detail_missing_post),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.testTag("post_detail_not_found_message")
                             )
                         }
                     }
@@ -462,6 +467,7 @@ fun PostDetailScreen(
                                     showMoreActions = false,
                                     voteCountAnimationKey = uiState.post.voteCountAnimationKey,
                                     commentCountAnimationKey = uiState.post.commentCountAnimationKey,
+                                    testId = uiState.post.id,
                                     leadingContent = {
                                         ForumAuthorAvatar(
                                             name = uiState.post.authorName,
@@ -811,7 +817,8 @@ private fun PostDetailOptionsMenu(
                     )
                 },
                 enabled = enabled,
-                onClick = onDeleteClick
+                onClick = onDeleteClick,
+                modifier = Modifier.testTag("post_detail_delete_menu_item")
             )
         }
     }
@@ -888,7 +895,10 @@ private fun DeletePostConfirmationDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            TextButton(
+                onClick = onConfirm,
+                modifier = Modifier.testTag("delete_post_confirm_button")
+            ) {
                 Text(
                     text = stringResource(R.string.post_detail_delete_confirm),
                     color = MaterialTheme.colorScheme.error
@@ -896,7 +906,10 @@ private fun DeletePostConfirmationDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag("delete_post_cancel_button")
+            ) {
                 Text(text = stringResource(R.string.auth_cancel_action))
             }
         }
@@ -1068,6 +1081,7 @@ private fun PostCommentItem(
                             MaterialTheme.colorScheme.primary
                         },
                         modifier = Modifier
+                            .testTag("comment_reply_button_${comment.id}")
                             .clickable(enabled = !isHighlighted) { onReply() }
                             .padding(vertical = 4.dp)
                     )
@@ -1078,6 +1092,7 @@ private fun PostCommentItem(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
+                                .testTag("comment_edit_button_${comment.id}")
                                 .clickable { showEditDialog = true }
                                 .padding(vertical = 4.dp)
                         )
@@ -1087,6 +1102,7 @@ private fun PostCommentItem(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier
+                                .testTag("comment_delete_button_${comment.id}")
                                 .clickable { showDeleteDialog = true }
                                 .padding(vertical = 4.dp)
                         )
@@ -1100,20 +1116,23 @@ private fun PostCommentItem(
                         icon = Icons.Outlined.KeyboardArrowUp,
                         contentDescription = null,
                         selected = comment.voteState == VoteState.UPVOTED,
-                        onClick = onUpvote
+                        onClick = onUpvote,
+                        modifier = Modifier.testTag("comment_upvote_button_${comment.id}")
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = comment.voteCount.toString(),
                         style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.testTag("comment_vote_count_${comment.id}")
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     VoteIconButton(
                         icon = Icons.Outlined.KeyboardArrowDown,
                         contentDescription = null,
                         selected = comment.voteState == VoteState.DOWNVOTED,
-                        onClick = onDownvote
+                        onClick = onDownvote,
+                        modifier = Modifier.testTag("comment_downvote_button_${comment.id}")
                     )
                 }
             }
@@ -1150,7 +1169,7 @@ private fun PostSingleImage(
 ) {
     PostDetailImageCard(
         image = image,
-        modifier = modifier,
+        modifier = modifier.testTag("post_detail_single_image"),
         onClick = onClick
     )
 }
@@ -1230,7 +1249,9 @@ private fun PostImageGallery(
     val coroutineScope = rememberCoroutineScope()
     
     Box(
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("post_detail_image_gallery")
     ) {
         // Image Pager
         HorizontalPager(
@@ -1435,6 +1456,7 @@ private fun FullScreenImageViewer(
             modifier = modifier
                 .fillMaxSize()
                 .background(Color.Black)
+                .testTag("post_detail_fullscreen_image_viewer")
         ) {
             // Image Pager
             HorizontalPager(
@@ -1681,7 +1703,7 @@ private fun EditCommentDialog(
             OutlinedTextField(
                 value = editedContent,
                 onValueChange = { editedContent = it },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag("edit_comment_input"),
                 placeholder = { Text("Nhập nội dung bình luận") },
                 minLines = 3,
                 maxLines = 10
@@ -1689,6 +1711,7 @@ private fun EditCommentDialog(
         },
         confirmButton = {
             TextButton(
+                modifier = Modifier.testTag("edit_comment_confirm_button"),
                 onClick = { onConfirm(editedContent) },
                 enabled = editedContent.trim().isNotEmpty()
             ) {
@@ -1728,7 +1751,10 @@ private fun DeleteCommentConfirmationDialog(
             )
         },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
+            TextButton(
+                onClick = onConfirm,
+                modifier = Modifier.testTag("delete_comment_confirm_button")
+            ) {
                 Text(
                     text = "Xoá",
                     color = MaterialTheme.colorScheme.error

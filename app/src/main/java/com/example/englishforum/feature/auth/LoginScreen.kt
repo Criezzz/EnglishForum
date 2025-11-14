@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -96,7 +97,7 @@ fun LoginScreen(
         OutlinedTextField(
             value = uiState.username,
             onValueChange = viewModel::onUsernameChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("login_username_field"),
             singleLine = true,
             label = { Text(text = stringResource(R.string.auth_username_label)) },
             keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
@@ -108,7 +109,7 @@ fun LoginScreen(
         OutlinedTextField(
             value = uiState.password,
             onValueChange = viewModel::onPasswordChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("login_password_field"),
             singleLine = true,
             label = { Text(text = stringResource(R.string.auth_password_label)) },
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -159,7 +160,11 @@ fun LoginScreen(
         Spacer(modifier = Modifier.height(12.dp))
 
         uiState.error?.let { err ->
-            Text(text = err, color = MaterialTheme.colorScheme.error, modifier = Modifier.fillMaxWidth())
+            Text(
+                text = err, 
+                color = MaterialTheme.colorScheme.error, 
+                modifier = Modifier.fillMaxWidth().testTag("login_error")
+            )
             Spacer(modifier = Modifier.height(8.dp))
         }
 
@@ -172,7 +177,8 @@ fun LoginScreen(
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(48.dp),
+                .height(48.dp)
+                .testTag("login_button"),
             enabled = !uiState.isLoading
         ) {
             if (uiState.isLoading) {
@@ -189,10 +195,16 @@ fun LoginScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onForgotPasswordClick) {
+            TextButton(
+                onClick = onForgotPasswordClick,
+                modifier = Modifier.testTag("login_forgot_password_button")
+            ) {
                 Text(text = stringResource(R.string.auth_forgot_password))
             }
-            TextButton(onClick = onRegisterClick) {
+            TextButton(
+                onClick = onRegisterClick,
+                modifier = Modifier.testTag("login_register_button")
+            ) {
                 Text(text = stringResource(R.string.auth_register))
             }
         }

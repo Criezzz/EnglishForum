@@ -89,6 +89,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -459,7 +460,9 @@ fun CreateScreen(
                                 3 -> uiState.canSubmit
                                 else -> false
                             },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("create_post_next_button")
                         ) {
                             if (currentStep == totalSteps - 1 && uiState.isSubmitting) {
                                 CircularProgressIndicator(
@@ -547,7 +550,9 @@ private fun CreateFormContent(
         TextField(
             value = uiState.title,
             onValueChange = onTitleChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("create_post_title_field"),
             shape = boxShape,
             colors = tfColors,
             label = { Text(text = stringResource(id = R.string.create_post_title_label)) },
@@ -569,7 +574,9 @@ private fun CreateFormContent(
         TextField(
             value = uiState.body,
             onValueChange = onBodyChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("create_post_body_field"),
             shape = boxShape,
             colors = tfColors,
             label = { Text(text = stringResource(id = R.string.create_post_body_label)) },
@@ -596,7 +603,8 @@ private fun CreateFormContent(
     Button(
         modifier = Modifier
             .fillMaxWidth()
-            .navigationBarsPadding(),
+            .navigationBarsPadding()
+            .testTag("create_post_submit_button"),
         enabled = uiState.canSubmit,
         onClick = onSubmit,
         contentPadding = PaddingValues(vertical = 14.dp)
@@ -746,7 +754,9 @@ private fun Step2ContentInput(
         OutlinedTextField(
             value = title,
             onValueChange = onTitleChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("create_post_title_field"),
             label = { Text(text = stringResource(id = R.string.create_post_title_label)) },
             placeholder = { Text(text = stringResource(id = R.string.create_post_title_placeholder)) },
             singleLine = true,
@@ -760,7 +770,9 @@ private fun Step2ContentInput(
         OutlinedTextField(
             value = body,
             onValueChange = onBodyChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("create_post_body_field"),
             label = { Text(text = stringResource(id = R.string.create_post_body_label)) },
             placeholder = { Text(text = stringResource(id = R.string.create_post_body_placeholder)) },
             singleLine = false,
@@ -1037,7 +1049,8 @@ private fun ImagePickerSection(
                 items(imageUris, key = { it.toString() }) { uri ->
                     ImagePreviewCard(
                         imageUri = uri,
-                        onRemove = { onRemoveImage(uri) }
+                        onRemove = { onRemoveImage(uri) },
+                        modifier = Modifier.testTag("create_post_image_preview_${uri.toString().hashCode()}")
                     )
                 }
                 
@@ -1047,7 +1060,8 @@ private fun ImagePickerSection(
                         AddImageCard(
                             onClick = onPickImage,
                             enabled = !isProcessing,
-                            isProcessing = isProcessing
+                            isProcessing = isProcessing,
+                            modifier = Modifier.testTag("create_post_add_image_button")
                         )
                     }
                 }
@@ -1149,6 +1163,7 @@ private fun ImagePreviewCard(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .padding(4.dp)
+                    .testTag("create_post_remove_image_${imageUri.toString().hashCode()}")
             ) {
                 Surface(
                     shape = MaterialTheme.shapes.small,
@@ -1173,6 +1188,7 @@ private fun AddImageCard(
     isProcessing: Boolean,
     modifier: Modifier = Modifier
 ) {
+    // Note: testTag is applied at call site
     OutlinedCard(
         onClick = onClick,
         modifier = modifier.size(120.dp),

@@ -225,6 +225,7 @@ private fun HomeFeedList(
                         onUpvoteClick = { onUpvote(post.id) },
                         onDownvoteClick = { onDownvote(post.id) },
                         onMoreActionsClick = { onMoreActionsClick(post.id) },
+                        testId = post.id,
                         leadingContent = {
                             ForumAuthorAvatar(
                                 name = post.authorName,

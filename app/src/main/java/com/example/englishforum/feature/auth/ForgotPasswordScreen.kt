@@ -32,6 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -108,12 +109,16 @@ private fun ContactStep(
             value = uiState.contact,
             onValueChange = viewModel::onContactChange,
             label = { Text(text = stringResource(R.string.auth_contact_label)) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("forgot_password_contact_field"),
             singleLine = true
         )
 
         uiState.errorMessage?.let { err ->
-            Text(text = err, color = MaterialTheme.colorScheme.error)
+            Text(
+                text = err, 
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.testTag("forgot_password_contact_error")
+            )
         }
 
         if (uiState.isLoading) {
@@ -128,7 +133,7 @@ private fun ContactStep(
 
         Button(
             onClick = { viewModel.submit() },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("forgot_password_send_otp_button"),
             enabled = !uiState.isLoading && uiState.otpSecondsRemaining == 0
         ) {
             Text(text = buttonLabel)
@@ -139,7 +144,7 @@ private fun ContactStep(
                 viewModel.clearMessages()
                 onBackToLogin()
             },
-            modifier = Modifier.align(Alignment.Start)
+            modifier = Modifier.align(Alignment.Start).testTag("forgot_password_back_button")
         ) {
             Text(text = stringResource(R.string.auth_back_action))
         }
@@ -175,7 +180,7 @@ private fun OtpStep(
         OutlinedTextField(
             value = uiState.otp,
             onValueChange = viewModel::onOtpChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("forgot_password_otp_field"),
             singleLine = true,
             readOnly = uiState.isOtpVerified || uiState.isLoading,
             enabled = !uiState.isOtpVerified && !uiState.isLoading,
@@ -189,20 +194,46 @@ private fun OtpStep(
         )
 
         uiState.otpErrorMessage?.let { err ->
-            Text(text = err, color = MaterialTheme.colorScheme.error)
+            Text(
+                text = err, 
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.testTag("forgot_password_otp_error")
+            )
         }
 
         if (!uiState.isOtpVerified) {
+            // Verify OTP Button
+            Button(
+                onClick = { viewModel.verifyOtp() },
+                modifier = Modifier.fillMaxWidth().testTag("forgot_password_verify_otp_button"),
+                enabled = !uiState.isLoading
+            ) {
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                } else {
+                    Text(text = "Xác nhận")
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                TextButton(onClick = { viewModel.clearMessages() }) {
+                TextButton(
+                    onClick = { viewModel.clearMessages() },
+                    modifier = Modifier.testTag("forgot_password_change_contact_button")
+                ) {
                     Text(text = stringResource(R.string.auth_change_contact))
                 }
 
                 val resendEnabled = uiState.otpSecondsRemaining == 0 && !uiState.isLoading
-                TextButton(onClick = { viewModel.submit() }, enabled = resendEnabled) {
+                TextButton(
+                    onClick = { viewModel.submit() }, 
+                    enabled = resendEnabled,
+                    modifier = Modifier.testTag("forgot_password_resend_otp_button")
+                ) {
                     val resendLabel = if (uiState.otpSecondsRemaining > 0) {
                         stringResource(R.string.auth_resend_with_counter, uiState.otpSecondsRemaining)
                     } else {
@@ -225,7 +256,7 @@ private fun OtpStep(
                     value = uiState.newPassword,
                     onValueChange = viewModel::onNewPasswordChange,
                     label = { Text(text = stringResource(R.string.auth_new_password_label)) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag("forgot_password_new_password_field"),
                     singleLine = true,
                     visualTransformation = if (newPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
@@ -246,7 +277,7 @@ private fun OtpStep(
                     value = uiState.confirmNewPassword,
                     onValueChange = viewModel::onConfirmNewPasswordChange,
                     label = { Text(text = stringResource(R.string.auth_confirm_password_label)) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag("forgot_password_confirm_password_field"),
                     singleLine = true,
                     visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
@@ -265,12 +296,16 @@ private fun OtpStep(
                 )
 
                 uiState.passwordErrorMessage?.let { err ->
-                    Text(text = err, color = MaterialTheme.colorScheme.error)
+                    Text(
+                        text = err, 
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.testTag("forgot_password_password_error")
+                    )
                 }
 
                 Button(
                     onClick = { viewModel.changePassword(onSuccess = onResetSuccess) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag("forgot_password_change_password_button"),
                     enabled = !uiState.isChangingPassword
                 ) {
                     if (uiState.isChangingPassword) {

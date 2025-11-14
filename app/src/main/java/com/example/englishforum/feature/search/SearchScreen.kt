@@ -1,3 +1,4 @@
+
 package com.example.englishforum.feature.search
 
 import androidx.compose.foundation.clickable
@@ -39,6 +40,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
@@ -96,7 +98,7 @@ fun SearchRoute(
 }
 
 @Composable
-private fun SearchScreen(
+internal fun SearchScreen(
     modifier: Modifier = Modifier,
     uiState: SearchUiState,
     onQueryChange: (String) -> Unit,
@@ -131,7 +133,8 @@ private fun SearchScreen(
             TextField(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .focusRequester(focusRequester),
+                    .focusRequester(focusRequester)
+                    .testTag("search_text_field"),
                 value = uiState.query,
                 onValueChange = onQueryChange,
                 placeholder = { Text(stringResource(R.string.search_placeholder)) },
@@ -309,7 +312,7 @@ private fun SearchEmptyState(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier,
+        modifier = modifier.testTag("search_empty_state"),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {

@@ -49,6 +49,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -122,7 +123,8 @@ fun NotiScreen(
                 actions = {
                     IconButton(
                         onClick = onMarkAllAsRead,
-                        enabled = uiState.unreadCount > 0
+                        enabled = uiState.unreadCount > 0,
+                        modifier = Modifier.testTag("notification_mark_all_read_button")
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.DoneAll,
@@ -164,7 +166,9 @@ fun NotiScreen(
                             .padding(innerPadding),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(
+                            modifier = Modifier.testTag("notification_loading_indicator")
+                        )
                     }
                 }
 
@@ -178,7 +182,8 @@ fun NotiScreen(
                         Text(
                             text = stringResource(id = R.string.notifications_empty_state),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("notification_empty_state")
                         )
                     }
                 }
@@ -354,7 +359,9 @@ private fun NotificationListItem(
     }
 
     Surface(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .testTag("notification_item_${item.id}"),
         onClick = onClick,
         shape = MaterialTheme.shapes.large,
         tonalElevation = if (item.isRead) 0.dp else 2.dp,

@@ -38,6 +38,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.testTag
 import com.example.englishforum.R
 
 @Composable
@@ -87,6 +88,7 @@ fun PostDetailCommentComposer(
                     value = state.draft,
                     onValueChange = onDraftChange,
                     enabled = composerEnabled,
+                    modifier = Modifier.weight(1f).testTag("comment_input_field"),
                     placeholder = {
                         Text(
                             text = stringResource(R.string.post_detail_comment_placeholder),
@@ -119,14 +121,13 @@ fun PostDetailCommentComposer(
                     textStyle = MaterialTheme.typography.bodyLarge,
                     minLines = 1,
                     maxLines = 6,
-                    shape = MaterialTheme.shapes.extraLarge,
-                    modifier = Modifier.weight(1f)
+                    shape = MaterialTheme.shapes.extraLarge
                 )
 
                 FilledIconButton(
                     onClick = onSendClick,
                     enabled = isSendEnabled,
-                    modifier = Modifier.size(56.dp),
+                    modifier = Modifier.size(56.dp).testTag("comment_send_button"),
                     shape = MaterialTheme.shapes.large,
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
@@ -202,7 +203,7 @@ private fun ReplyContextChip(
             }
             IconButton(
                 onClick = onDismiss,
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(40.dp).testTag("comment_cancel_reply_button")
             ) {
                 Icon(
                     imageVector = Icons.Filled.Close,

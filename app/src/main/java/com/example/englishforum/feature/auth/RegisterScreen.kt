@@ -30,6 +30,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -71,7 +72,7 @@ fun RegisterScreen(
         OutlinedTextField(
             value = uiState.username,
             onValueChange = viewModel::onUsernameChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("register_username_field"),
             label = { Text(text = stringResource(R.string.auth_username_label)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
@@ -83,7 +84,7 @@ fun RegisterScreen(
         OutlinedTextField(
             value = uiState.email,
             onValueChange = viewModel::onEmailChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("register_email_field"),
             label = { Text(text = stringResource(R.string.auth_email_label)) },
             singleLine = true,
             keyboardOptions = KeyboardOptions.Default.copy(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next),
@@ -95,7 +96,7 @@ fun RegisterScreen(
         OutlinedTextField(
             value = uiState.password,
             onValueChange = viewModel::onPasswordChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("register_password_field"),
             label = { Text(text = stringResource(R.string.auth_password_label)) },
             singleLine = true,
             visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -118,7 +119,7 @@ fun RegisterScreen(
         OutlinedTextField(
             value = uiState.confirmPassword,
             onValueChange = viewModel::onConfirmPasswordChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag("register_confirm_password_field"),
             label = { Text(text = stringResource(R.string.auth_confirm_password_label)) },
             singleLine = true,
             visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -149,7 +150,7 @@ fun RegisterScreen(
             Text(
                 text = error,
                 color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("register_error")
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -158,7 +159,7 @@ fun RegisterScreen(
             Text(
                 text = message,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("register_success")
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -174,6 +175,7 @@ fun RegisterScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
+                .testTag("register_button")
         ) {
             if (uiState.isLoading) {
                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -189,10 +191,16 @@ fun RegisterScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            TextButton(onClick = onCancel) {
+            TextButton(
+                onClick = onCancel,
+                modifier = Modifier.testTag("register_cancel_button")
+            ) {
                 Text(text = stringResource(R.string.auth_cancel_action))
             }
-            TextButton(onClick = onCancel) {
+            TextButton(
+                onClick = onCancel,
+                modifier = Modifier.testTag("register_login_button")
+            ) {
                 Text(text = stringResource(R.string.auth_login))
             }
         }
