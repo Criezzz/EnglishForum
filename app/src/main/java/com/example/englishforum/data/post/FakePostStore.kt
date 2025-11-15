@@ -129,7 +129,9 @@ object FakePostStore {
     fun addComment(
         postId: String,
         content: String,
+        authorId: String? = null,
         authorName: String = "Bạn",
+        authorUsername: String? = null,
         replyToCommentId: String? = null
     ): Boolean {
         val sanitizedContent = content.trim()
@@ -137,7 +139,9 @@ object FakePostStore {
 
         val newComment = ForumComment(
             id = generateLocalCommentId(),
+            authorId = authorId,
             authorName = authorName,
+            authorUsername = authorUsername,
             minutesAgo = 0,
             body = sanitizedContent,
             voteCount = 0,

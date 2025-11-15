@@ -1,14 +1,17 @@
 package com.example.englishforum.data.post
 
+import com.example.englishforum.data.auth.UserSessionRepository
 import com.example.englishforum.core.model.VoteState
 import com.example.englishforum.core.model.forum.ForumPostDetail
 import com.example.englishforum.core.model.forum.PostTag
 import com.example.englishforum.data.post.PostAttachmentEdit
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.firstOrNull
 
 class FakePostDetailRepository(
-    private val store: FakePostStore = FakePostStore
+    private val store: FakePostStore = FakePostStore,
+    private val userSessionRepository: UserSessionRepository? = null
 ) : PostDetailRepository {
 
     override fun observePost(postId: String): Flow<ForumPostDetail?> {
@@ -61,7 +64,18 @@ class FakePostDetailRepository(
         if (sanitized.isEmpty()) {
             return Result.failure(IllegalArgumentException("Nội dung bình luận không được để trống"))
         }
-        return if (store.addComment(postId, sanitized, replyToCommentId = replyToCommentId)) {
+        val session = userSessionRepository?.sessionFlow?.firstOrNull()
+        val authorName = session?.username ?: "Bạn"
+        return if (
+            store.addComment(
+                postId = postId,
+                content = sanitized,
+                authorId = session?.userId,
+                authorName = authorName,
+                authorUsername = session?.username,
+                replyToCommentId = replyToCommentId
+            )
+        ) {
             Result.success(Unit)
         } else {
             Result.failure(IllegalArgumentException("Post not found"))
