@@ -64,6 +64,8 @@ data class PostDetailUiState(
     val isRefreshing: Boolean = false,
     val post: PostDetailUi? = null,
     val comments: List<PostCommentUi> = emptyList(),
+    val canLoadMoreComments: Boolean = false,
+    val isLoadingMoreComments: Boolean = false,
     val errorMessage: String? = null,
     val isAiPracticeChecking: Boolean = false,
     val userMessage: String? = null,

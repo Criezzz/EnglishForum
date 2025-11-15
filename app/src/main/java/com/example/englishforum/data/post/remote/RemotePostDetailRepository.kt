@@ -55,6 +55,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlin.math.max
 import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
@@ -63,6 +64,8 @@ import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
 import retrofit2.HttpException
+
+private const val COMMENTS_PAGE_SIZE = 30
 
 internal class RemotePostDetailRepository(
     private val api: PostDetailApi,
@@ -76,6 +79,7 @@ internal class RemotePostDetailRepository(
     private val scope = CoroutineScope(SupervisorJob() + ioDispatcher)
     private val postStates = mutableMapOf<String, MutableStateFlow<ForumPostDetail?>>()
     private val commentIdLookup = mutableMapOf<String, Map<String, Int>>()
+    private val commentPaginationStates = mutableMapOf<String, CommentPaginationState>()
     private val postRealtimeFlows = mutableMapOf<String, MutableSharedFlow<PostRealtimeEvent>>()
     private val postEventConnections = mutableMapOf<String, SseConnection>()
     private val postReconnectGuards = mutableMapOf<String, AtomicBoolean>()
@@ -214,6 +218,7 @@ internal class RemotePostDetailRepository(
             .map {
                 postStates[postId]?.value = null
                 commentIdLookup.remove(postId)
+                commentPaginationStates.remove(postId)
                 summaryStore.remove(postId)
                 stopPostEventStream(postId)
                 postRealtimeFlows.remove(postId)
@@ -418,6 +423,47 @@ internal class RemotePostDetailRepository(
         return fetchAndStorePost(postId)
     }
 
+    override suspend fun loadMoreComments(postId: String): Result<Boolean> {
+        val session = currentSessionOrNull()
+            ?: return Result.failure(IllegalStateException(SESSION_EXPIRED_MESSAGE))
+        val numericPostId = postId.toIntOrNull()
+            ?: return Result.failure(IllegalArgumentException(INVALID_POST_ID_MESSAGE))
+
+        val paginationState = commentPaginationStates[postId]
+            ?: return Result.failure(IllegalStateException(POST_NOT_AVAILABLE_MESSAGE))
+
+        if (!paginationState.hasMore) {
+            return Result.success(false)
+        }
+
+        val offset = paginationState.nextOffset
+            ?: return Result.success(false)
+
+        val fetchResult = withContext(ioDispatcher) {
+            runCatching {
+                api.getPostComments(
+                    bearer = session.bearerToken(),
+                    postId = numericPostId,
+                    offset = offset,
+                    limit = COMMENTS_PAGE_SIZE
+                )
+            }
+        }
+
+        return fetchResult
+            .map { newComments ->
+                if (newComments.isEmpty()) {
+                    paginationState.hasMore = false
+                    false
+                } else {
+                    paginationState.append(newComments, COMMENTS_PAGE_SIZE)
+                    updatePostCommentsFromState(postId, paginationState)
+                    true
+                }
+            }
+            .mapFailure { it.toFriendlyException() }
+    }
+
     override suspend fun updateComment(
         postId: String,
         commentId: String,
@@ -483,25 +529,30 @@ internal class RemotePostDetailRepository(
         val numericId = postId.toIntOrNull()
             ?: return Result.failure(IllegalArgumentException(INVALID_POST_ID_MESSAGE))
 
+        val paginationState = commentPaginationStates.getOrPut(postId) { CommentPaginationState() }
+
         val fetchResult = withContext(ioDispatcher) {
             runCatching {
                 val detail = api.getPostDetail(
                     bearer = session.bearerToken(),
                     postId = numericId
                 )
+                val fetchLimit = paginationState.refreshFetchLimit(detail.commentCount)
                 val comments = api.getPostComments(
                     bearer = session.bearerToken(),
-                    postId = numericId
+                    postId = numericId,
+                    limit = fetchLimit
                 )
-                detail to comments
+                Triple(detail, comments, fetchLimit)
             }
         }
 
         return fetchResult
-            .map { (detail, comments) ->
+            .map { (detail, comments, fetchLimit) ->
                 val postAuthorId = resolveAuthorIdentifier(detail)
-                val forumComments = comments.toForumComments(postAuthorId)
-                commentIdLookup[postId] = comments.associateCommentIds()
+                paginationState.resetWith(comments, fetchLimit)
+                val forumComments = paginationState.loadedResponses.toForumComments(postAuthorId)
+                commentIdLookup[postId] = paginationState.loadedResponses.associateCommentIds()
                 val forumPost = detail.toDomain(postAuthorId, forumComments)
                 postStates.getOrPut(postId) { MutableStateFlow(null) }.value = forumPost
                 summaryStore.upsertFromDetail(forumPost)
@@ -519,6 +570,18 @@ internal class RemotePostDetailRepository(
         return postRealtimeFlows.getOrPut(postId) {
             MutableSharedFlow(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
         }
+    }
+
+    private fun updatePostCommentsFromState(
+        postId: String,
+        paginationState: CommentPaginationState
+    ) {
+        val current = postStates[postId]?.value ?: return
+        val forumComments = paginationState.loadedResponses.toForumComments(current.authorId)
+        val updated = current.copy(comments = forumComments)
+        postStates[postId]?.value = updated
+        summaryStore.upsertFromDetail(updated)
+        commentIdLookup[postId] = paginationState.loadedResponses.associateCommentIds()
     }
 
     private fun lockForPost(postId: String): Mutex {
@@ -687,7 +750,8 @@ internal class RemotePostDetailRepository(
             authorAvatarUrl = resolveAuthorAvatarUrl(),
             previewImageUrl = attachments.resolvePreviewUrl(),
             galleryImages = attachments.resolveGalleryUrls(),
-            attachments = attachments.toForumPostAttachments()
+            attachments = attachments.toForumPostAttachments(),
+            totalCommentCount = commentCount
         )
     }
 
@@ -889,6 +953,36 @@ internal class RemotePostDetailRepository(
         val response: PostCommentResponse,
         val children: MutableList<RemoteCommentNode> = mutableListOf()
     )
+
+    private class CommentPaginationState {
+        val loadedResponses: MutableList<PostCommentResponse> = mutableListOf()
+        var nextOffset: Int? = null
+        var hasMore: Boolean = true
+
+        fun refreshFetchLimit(totalServerCount: Int): Int {
+            if (loadedResponses.isEmpty()) return COMMENTS_PAGE_SIZE
+            if (!hasMore) {
+                return totalServerCount.coerceAtLeast(COMMENTS_PAGE_SIZE)
+            }
+            return max(loadedResponses.size, COMMENTS_PAGE_SIZE)
+        }
+
+        fun resetWith(newResponses: List<PostCommentResponse>, fetchLimit: Int) {
+            loadedResponses.clear()
+            loadedResponses.addAll(newResponses)
+            updatePaginationState(newResponses, fetchLimit)
+        }
+
+        fun append(newResponses: List<PostCommentResponse>, fetchLimit: Int) {
+            loadedResponses.addAll(newResponses)
+            updatePaginationState(newResponses, fetchLimit)
+        }
+
+        private fun updatePaginationState(newResponses: List<PostCommentResponse>, fetchLimit: Int) {
+            nextOffset = newResponses.lastOrNull()?.commentId
+            hasMore = newResponses.size >= fetchLimit && nextOffset != null
+        }
+    }
 
 
     companion object {

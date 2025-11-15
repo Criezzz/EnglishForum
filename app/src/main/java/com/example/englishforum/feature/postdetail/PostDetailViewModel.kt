@@ -46,6 +46,7 @@ class PostDetailViewModel(
     private val newlyPostedCommentId = MutableStateFlow<String?>(null)
     private val realtimePrompt = MutableStateFlow<PostRealtimePromptUi?>(null)
     private val newCommentIds = MutableStateFlow<Set<String>>(emptySet())
+    private val isLoadingMoreComments = MutableStateFlow(false)
     
     // Track previous counts and animation keys for animation triggers
     private var previousVoteCount: Int? = null
@@ -157,6 +158,7 @@ class PostDetailViewModel(
         } else {
             emptyList()
         }
+        val canLoadMore = post?.let { it.loadedCommentsCount < it.commentCount } ?: false
         val isOwner = post?.let { detail ->
             inputs.session?.let { user ->
                 detail.authorId.equals(user.userId, ignoreCase = true) ||
@@ -169,6 +171,7 @@ class PostDetailViewModel(
             isRefreshing = baseOutput.refreshing,
             post = postUi,
             comments = commentUi,
+            canLoadMoreComments = canLoadMore,
             errorMessage = inputs.errorMessage,
             isAiPracticeChecking = inputs.isAiChecking,
             isCurrentUserPostOwner = isOwner,
@@ -195,6 +198,9 @@ class PostDetailViewModel(
         }
         .combine(realtimePrompt) { state, prompt ->
             state.copy(realtimePrompt = prompt)
+        }
+        .combine(isLoadingMoreComments) { state, loadingMore ->
+            state.copy(isLoadingMoreComments = loadingMore)
         }
         .stateIn(
             scope = viewModelScope,
@@ -319,6 +325,24 @@ class PostDetailViewModel(
                 errorMessage.value = throwable.message ?: "Không thể tải lại bài viết."
             } finally {
                 isRefreshing.value = false
+            }
+        }
+    }
+
+    fun onLoadMoreComments() {
+        if (isLoadingMoreComments.value || !uiState.value.canLoadMoreComments) return
+        viewModelScope.launch {
+            isLoadingMoreComments.value = true
+            errorMessage.value = null
+            try {
+                val result = repository.loadMoreComments(postId)
+                if (result.isFailure) {
+                    errorMessage.value = result.exceptionOrNull()?.message ?: "Không thể tải thêm bình luận."
+                }
+            } catch (throwable: Throwable) {
+                errorMessage.value = throwable.message ?: "Không thể tải thêm bình luận."
+            } finally {
+                isLoadingMoreComments.value = false
             }
         }
     }

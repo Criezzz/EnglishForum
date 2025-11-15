@@ -12,6 +12,8 @@ interface PostDetailRepository {
 
     suspend fun refreshPost(postId: String): Result<Unit>
 
+    suspend fun loadMoreComments(postId: String): Result<Boolean>
+
     suspend fun setPostVote(postId: String, target: VoteState): Result<Unit>
 
     suspend fun setCommentVote(postId: String, commentId: String, target: VoteState): Result<Unit>

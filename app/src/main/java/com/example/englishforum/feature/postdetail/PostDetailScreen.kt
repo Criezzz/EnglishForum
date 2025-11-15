@@ -184,6 +184,7 @@ fun PostDetailRoute(
         onPostDeletionHandled = viewModel::onPostDeletionHandled,
         onPostDeleted = onPostDeleted,
         onRefresh = viewModel::onRefresh,
+        onLoadMoreComments = viewModel::onLoadMoreComments,
         onAuthorClick = onAuthorClick,
         onCommentViewed = viewModel::onCommentViewed,
         createdFlag = createdFlag
@@ -214,6 +215,7 @@ fun PostDetailScreen(
     onPostDeletionHandled: () -> Unit,
     onPostDeleted: () -> Unit,
     onRefresh: () -> Unit,
+    onLoadMoreComments: () -> Unit = {},
     onCommentViewed: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     targetCommentId: String? = null,
@@ -622,6 +624,16 @@ fun PostDetailScreen(
                                         }
                                     }
                                 }
+
+                                if (uiState.isLoadingMoreComments || uiState.canLoadMoreComments) {
+                                    item(key = "comments-load-more") {
+                                        CommentLoadMoreFooter(
+                                            isLoading = uiState.isLoadingMoreComments,
+                                            canLoadMore = uiState.canLoadMoreComments,
+                                            onLoadMore = onLoadMoreComments
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -934,6 +946,49 @@ private fun CommentThreadEntry(
             isHighlighted = isHighlighted,
             onAuthorClick = onAuthorClick
         )
+    }
+}
+
+@Composable
+private fun CommentLoadMoreFooter(
+    isLoading: Boolean,
+    canLoadMore: Boolean,
+    onLoadMore: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (!isLoading && !canLoadMore) return
+
+    LaunchedEffect(canLoadMore, isLoading) {
+        if (canLoadMore && !isLoading) {
+            onLoadMore()
+        }
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 16.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(20.dp),
+                strokeWidth = 2.dp
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "Đang tải thêm bình luận...",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Text(
+                text = "Tiếp tục cuộn để tải thêm bình luận",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
     }
 }
 

@@ -58,9 +58,15 @@ data class ForumPostDetail(
     val authorAvatarUrl: String? = null,
     val previewImageUrl: String? = null,
     val galleryImages: List<String>? = null,
-    val attachments: List<ForumPostAttachment> = emptyList()
+    val attachments: List<ForumPostAttachment> = emptyList(),
+    val totalCommentCount: Int? = null
 ) {
-    val commentCount: Int = comments.sumOf { it.totalThreadCount() }
+    val loadedCommentsCount: Int get() = comments.sumOf { it.totalThreadCount() }
+    val commentCount: Int
+        get() {
+            val reported = totalCommentCount ?: 0
+            return if (reported < loadedCommentsCount) loadedCommentsCount else reported
+        }
 }
 
 data class ForumPostAttachment(

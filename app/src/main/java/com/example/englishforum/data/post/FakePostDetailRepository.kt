@@ -19,6 +19,8 @@ class FakePostDetailRepository(
 
     override suspend fun refreshPost(postId: String): Result<Unit> = Result.success(Unit)
 
+    override suspend fun loadMoreComments(postId: String): Result<Boolean> = Result.success(false)
+
     override suspend fun setPostVote(postId: String, target: VoteState): Result<Unit> {
         return if (store.updatePostVote(postId, target)) {
             Result.success(Unit)
