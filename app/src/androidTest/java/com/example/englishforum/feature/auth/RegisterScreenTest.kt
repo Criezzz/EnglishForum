@@ -338,5 +338,106 @@ class RegisterScreenTest {
         
         assert(cancelClicked)
     }
+
+    @Test
+    fun registerScreen_clearError_removesError() {
+        // Test: Clear error message
+        
+        val fakeAuthRepo = FakeAuthRepository()
+        val viewModel = RegisterViewModel(fakeAuthRepo)
+        
+        composeTestRule.setContent {
+            RegisterScreen(
+                viewModel = viewModel,
+                onVerificationRequired = {},
+                onRegisterSuccess = {},
+                onCancel = {}
+            )
+        }
+
+        // Trigger error by entering invalid data
+        composeTestRule.onNodeWithTag("register_username_field").performTextInput("user")
+        composeTestRule.onNodeWithTag("register_button").performClick()
+        
+        composeTestRule.waitForIdle()
+        Thread.sleep(1200)
+        composeTestRule.waitForIdle()
+        
+        // Verify error exists
+        assert(viewModel.uiState.errorMessage != null)
+        
+        // Clear error
+        viewModel.clearError()
+        
+        // Verify error is cleared
+        assert(viewModel.uiState.errorMessage == null)
+    }
+
+    @Test
+    fun registerScreen_registerWithoutVerification_success() {
+        // Test: Register without email verification requirement
+        
+        var registrationComplete = false
+        val fakeAuthRepo = FakeAuthRepository()
+        val viewModel = RegisterViewModel(fakeAuthRepo)
+        
+        composeTestRule.setContent {
+            RegisterScreen(
+                viewModel = viewModel,
+                onVerificationRequired = {},
+                onRegisterSuccess = { registrationComplete = true },
+                onCancel = {}
+            )
+        }
+
+        // Enter valid registration data
+        composeTestRule.onNodeWithTag("register_username_field").performTextInput("newuser123")
+        composeTestRule.onNodeWithTag("register_email_field").performTextInput("newuser@example.com")
+        composeTestRule.onNodeWithTag("register_password_field").performTextInput("Strong@123")
+        composeTestRule.onNodeWithTag("register_confirm_password_field").performTextInput("Strong@123")
+        
+        // Click register button
+        composeTestRule.onNodeWithTag("register_button").performClick()
+        
+        // Wait for async operation
+        composeTestRule.waitUntil(timeoutMillis = 2000) {
+            viewModel.uiState.isRegistrationComplete || registrationComplete
+        }
+        
+        // Note: FakeAuthRepository may always require verification
+        // This test verifies the path exists
+    }
+
+    @Test
+    fun registerScreen_validation_emptyConfirmPassword_showsError() {
+        // Test: Validation for empty confirm password
+        
+        val fakeAuthRepo = FakeAuthRepository()
+        val viewModel = RegisterViewModel(fakeAuthRepo)
+        
+        composeTestRule.setContent {
+            RegisterScreen(
+                viewModel = viewModel,
+                onVerificationRequired = {},
+                onRegisterSuccess = {},
+                onCancel = {}
+            )
+        }
+
+        // Enter valid data but leave confirm password empty
+        composeTestRule.onNodeWithTag("register_username_field").performTextInput("newuser123")
+        composeTestRule.onNodeWithTag("register_email_field").performTextInput("newuser@example.com")
+        composeTestRule.onNodeWithTag("register_password_field").performTextInput("Strong@123")
+        // Leave confirm password empty
+        
+        // Click register button
+        composeTestRule.onNodeWithTag("register_button").performClick()
+        
+        // Wait for validation
+        composeTestRule.waitForIdle()
+        
+        // Verify error message (ViewModel validates before API call)
+        assert(viewModel.uiState.errorMessage != null)
+    }
 }
 

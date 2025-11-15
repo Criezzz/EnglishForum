@@ -21,6 +21,20 @@ class FakeAuthRepository(
             )
             userSessionRepository?.saveSession(session)
             Result.success(AuthResult(session, requiresEmailVerification = false))
+        } else if (normalizedUsername.equals("unverified", ignoreCase = true) &&
+            normalizedPassword.equals("pass", ignoreCase = true)
+        ) {
+            // Account that requires email verification
+            val session = UserSession(
+                userId = "unverified-user",
+                username = normalizedUsername.ifEmpty { "unverified" },
+                accessToken = "fake-access-token-unverified",
+                refreshToken = "fake-refresh-token-unverified",
+                tokenType = "Bearer",
+                isEmailVerified = false
+            )
+            userSessionRepository?.saveSession(session)
+            Result.success(AuthResult(session, requiresEmailVerification = true))
         } else {
             Result.failure(IllegalArgumentException("Tên đăng nhập hoặc mật khẩu không đúng"))
         }

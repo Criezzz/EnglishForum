@@ -310,7 +310,7 @@ fun PostDetailScreen(
     }
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.testTag("post_detail_root"),
         topBar = {
             TopAppBar(
                 title = { },
@@ -1081,7 +1081,7 @@ private fun PostCommentItem(
                             MaterialTheme.colorScheme.primary
                         },
                         modifier = Modifier
-                            .testTag("comment_reply_button_${comment.id}")
+                            .testTag("comment_reply_button")
                             .clickable(enabled = !isHighlighted) { onReply() }
                             .padding(vertical = 4.dp)
                     )
@@ -1092,7 +1092,7 @@ private fun PostCommentItem(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier
-                                .testTag("comment_edit_button_${comment.id}")
+                                .testTag("comment_edit_button")
                                 .clickable { showEditDialog = true }
                                 .padding(vertical = 4.dp)
                         )
@@ -1102,7 +1102,7 @@ private fun PostCommentItem(
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.error,
                             modifier = Modifier
-                                .testTag("comment_delete_button_${comment.id}")
+                                .testTag("comment_delete_button")
                                 .clickable { showDeleteDialog = true }
                                 .padding(vertical = 4.dp)
                         )
@@ -1117,7 +1117,7 @@ private fun PostCommentItem(
                         contentDescription = null,
                         selected = comment.voteState == VoteState.UPVOTED,
                         onClick = onUpvote,
-                        modifier = Modifier.testTag("comment_upvote_button_${comment.id}")
+                        modifier = Modifier.testTag("comment_upvote_button")
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
@@ -1132,7 +1132,7 @@ private fun PostCommentItem(
                         contentDescription = null,
                         selected = comment.voteState == VoteState.DOWNVOTED,
                         onClick = onDownvote,
-                        modifier = Modifier.testTag("comment_downvote_button_${comment.id}")
+                        modifier = Modifier.testTag("comment_downvote_button")
                     )
                 }
             }

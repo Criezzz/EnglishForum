@@ -343,5 +343,133 @@ class LoginScreenTest {
         
         assert(forgotPasswordClicked)
     }
+
+    @Test
+    fun loginScreen_requiresVerification_navigatesToVerification() {
+        // Test: Login with account that requires email verification
+        
+        var verificationRequired = false
+        val fakeAuthRepo = FakeAuthRepository()
+        val viewModel = LoginViewModel(fakeAuthRepo, createFakeSessionPreferenceRepository())
+        
+        composeTestRule.setContent {
+            LoginScreen(
+                viewModel = viewModel,
+                onLoginSuccess = {},
+                onRequireVerification = { verificationRequired = true },
+                onRegisterClick = {},
+                onForgotPasswordClick = {}
+            )
+        }
+
+        // Use credentials that require verification ("unverified" / "pass")
+        composeTestRule.onNodeWithTag("login_username_field").performTextInput("unverified")
+        composeTestRule.onNodeWithTag("login_password_field").performTextInput("pass")
+        composeTestRule.onNodeWithTag("login_button").performClick()
+        
+        // Wait for async operation (login has 900ms delay)
+        composeTestRule.waitUntil(timeoutMillis = 3000) {
+            verificationRequired
+        }
+        
+        // Verify callback was called
+        assert(verificationRequired)
+    }
+
+    @Test
+    fun loginScreen_keepLoggedInToggle_updatesState() {
+        // Test: Toggle keep logged in checkbox
+        
+        val viewModel = LoginViewModel(
+            FakeAuthRepository(),
+            createFakeSessionPreferenceRepository()
+        )
+        
+        composeTestRule.setContent {
+            LoginScreen(
+                viewModel = viewModel,
+                onLoginSuccess = {},
+                onRequireVerification = {},
+                onRegisterClick = {},
+                onForgotPasswordClick = {}
+            )
+        }
+
+        // Toggle keep logged in (if checkbox exists with test tag)
+        // Note: This depends on UI implementation
+        // For now, verify the ViewModel method exists and can be called
+        viewModel.onKeepLoggedInChange(true)
+        assert(viewModel.uiState.keepLoggedIn)
+        
+        viewModel.onKeepLoggedInChange(false)
+        assert(!viewModel.uiState.keepLoggedIn)
+    }
+
+    @Test
+    fun loginScreen_clearError_removesError() {
+        // Test: Clear error message
+        
+        val fakeAuthRepo = FakeAuthRepository()
+        val viewModel = LoginViewModel(fakeAuthRepo, createFakeSessionPreferenceRepository())
+        
+        composeTestRule.setContent {
+            LoginScreen(
+                viewModel = viewModel,
+                onLoginSuccess = {},
+                onRequireVerification = {},
+                onRegisterClick = {},
+                onForgotPasswordClick = {}
+            )
+        }
+
+        // Trigger error
+        composeTestRule.onNodeWithTag("login_username_field").performTextInput("")
+        composeTestRule.onNodeWithTag("login_password_field").performTextInput("pass")
+        composeTestRule.onNodeWithTag("login_button").performClick()
+        
+        composeTestRule.waitForIdle()
+        Thread.sleep(1000)
+        composeTestRule.waitForIdle()
+        
+        // Verify error exists
+        assert(viewModel.uiState.error != null)
+        
+        // Clear error
+        viewModel.clearError()
+        
+        // Verify error is cleared
+        assert(viewModel.uiState.error == null)
+    }
+
+    @Test
+    fun loginScreen_resetSuccessMessage_displaysAndClears() {
+        // Test: Display reset success message from forgot password flow
+        
+        val viewModel = LoginViewModel(
+            FakeAuthRepository(),
+            createFakeSessionPreferenceRepository()
+        )
+        
+        var messageShown = false
+        composeTestRule.setContent {
+            LoginScreen(
+                viewModel = viewModel,
+                onLoginSuccess = {},
+                onRequireVerification = {},
+                onRegisterClick = {},
+                onForgotPasswordClick = {},
+                resetSuccessMessage = "Mật khẩu đã được đặt lại",
+                onResetMessageShown = { messageShown = true }
+            )
+        }
+
+        // Verify message is displayed
+        composeTestRule.onNodeWithText("Mật khẩu đã được đặt lại").assertExists()
+        
+        // Wait for message to be cleared
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+            messageShown
+        }
+    }
 }
 

@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.testTag
 import androidx.compose.foundation.layout.size
 
 @Composable
@@ -69,7 +70,7 @@ fun EmailVerificationScreen(
             Text(
                 text = error,
                 color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("email_verification_error")
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -78,7 +79,7 @@ fun EmailVerificationScreen(
             Text(
                 text = message,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth().testTag("email_verification_message")
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -101,7 +102,8 @@ fun EmailVerificationScreen(
 
         TextButton(
             onClick = { viewModel.resend() },
-            enabled = uiState.secondsRemaining <= 0 && !uiState.isLoading
+            enabled = uiState.secondsRemaining <= 0 && !uiState.isLoading,
+            modifier = Modifier.testTag("email_verification_resend_button")
         ) {
             val label = if (uiState.secondsRemaining > 0) {
                 "Gửi lại (${uiState.secondsRemaining}s)"

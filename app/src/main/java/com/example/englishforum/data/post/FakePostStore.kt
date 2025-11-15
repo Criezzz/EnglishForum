@@ -678,9 +678,18 @@ object FakePostStore {
                 )
             }
 
+            // Preserve single-image posts: if original had only previewImageUrl (no galleryImages),
+            // keep galleryImages as null so UI shows PostSingleImage instead of PostImageGallery
+            val shouldHaveGallery = post.galleryImages != null && post.galleryImages.isNotEmpty()
+            val finalGalleryImages = if (shouldHaveGallery) {
+                orderedUrls.takeIf { it.isNotEmpty() }
+            } else {
+                null // Single image: only previewImageUrl, no gallery
+            }
+
             post.copy(
                 previewImageUrl = orderedUrls.firstOrNull(),
-                galleryImages = orderedUrls.takeIf { it.isNotEmpty() },
+                galleryImages = finalGalleryImages,
                 attachments = attachments
             )
         }
