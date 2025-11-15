@@ -76,7 +76,10 @@ class ViewPostTest {
                 refreshToken = "fake_refresh_token"
             )
         )
-        fakePostDetailRepository = FakePostDetailRepository(FakePostStore)
+        fakePostDetailRepository = FakePostDetailRepository(
+            store = FakePostStore,
+            userSessionRepository = fakeUserSessionRepository
+        )
     }
 
     private fun setupScreen(postId: String) {
@@ -285,4 +288,3 @@ class ViewPostTest {
             .assertExists()
     }
 }
-

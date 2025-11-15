@@ -105,7 +105,9 @@ class NotificationTest {
                 override suspend fun updateVote(postId: String, target: VoteState) = Result.success(Unit)
             }
             override val createPostRepository = FakeCreatePostRepository(userSessionRepository = fakeUserSessionRepository)
-            override val postDetailRepository = FakePostDetailRepository()
+            override val postDetailRepository = FakePostDetailRepository(
+                userSessionRepository = fakeUserSessionRepository
+            )
             override val profileRepository = FakeProfileRepository()
             override val aiPracticeRepository = FakeAiPracticeRepository()
             override val sessionValidator = object : SessionValidator {
@@ -206,7 +208,9 @@ class NotificationTest {
                 override suspend fun updateVote(postId: String, target: VoteState) = Result.success(Unit)
             }
             override val createPostRepository = FakeCreatePostRepository(userSessionRepository = fakeUserSessionRepository)
-            override val postDetailRepository = FakePostDetailRepository()
+            override val postDetailRepository = FakePostDetailRepository(
+                userSessionRepository = fakeUserSessionRepository
+            )
             override val profileRepository = FakeProfileRepository()
             override val aiPracticeRepository = FakeAiPracticeRepository()
             override val sessionValidator = object : SessionValidator {
@@ -290,4 +294,3 @@ class NotificationTest {
         }
     }
 }
-

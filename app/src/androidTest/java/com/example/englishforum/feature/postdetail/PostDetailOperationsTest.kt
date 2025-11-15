@@ -67,7 +67,10 @@ class PostDetailOperationsTest {
                 refreshToken = "fake_refresh_token"
             )
         )
-        fakePostDetailRepository = FakePostDetailRepository(FakePostStore)
+        fakePostDetailRepository = FakePostDetailRepository(
+            store = FakePostStore,
+            userSessionRepository = fakeUserSessionRepository
+        )
     }
 
     private fun setupScreen(postId: String) {
@@ -195,8 +198,11 @@ class PostDetailOperationsTest {
         
         // Wait for comments to load - check for comment text (more reliable than buttons)
         composeTestRule.waitUntil(timeoutMillis = 15000) {
-            composeTestRule.onAllNodesWithText("Sed vulputate", useUnmergedTree = true)
-                .fetchSemanticsNodes().isNotEmpty()
+            composeTestRule.onAllNodesWithText(
+                "Sed vulputate",
+                substring = true,
+                useUnmergedTree = true
+            ).fetchSemanticsNodes().isNotEmpty()
         }
         
         // Wait for comment buttons to appear (they render after comment text)
@@ -229,8 +235,11 @@ class PostDetailOperationsTest {
         
         // Wait for comments to load - check for comment text (more reliable than buttons)
         composeTestRule.waitUntil(timeoutMillis = 15000) {
-            composeTestRule.onAllNodesWithText("Sed vulputate", useUnmergedTree = true)
-                .fetchSemanticsNodes().isNotEmpty()
+            composeTestRule.onAllNodesWithText(
+                "Sed vulputate",
+                substring = true,
+                useUnmergedTree = true
+            ).fetchSemanticsNodes().isNotEmpty()
         }
         
         // Wait for comment buttons to appear (they render after comment text)
@@ -550,4 +559,3 @@ class PostDetailOperationsTest {
         }
     }
 }
-

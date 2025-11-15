@@ -105,7 +105,9 @@ class CreatePostTest {
                 override suspend fun search(keyword: String) = Result.success(SearchResult(emptyList(), emptyList()))
                 override suspend fun updateVote(postId: String, target: VoteState) = Result.success(Unit)
             }
-            override val postDetailRepository = FakePostDetailRepository()
+            override val postDetailRepository = FakePostDetailRepository(
+                userSessionRepository = fakeUserSessionRepository
+            )
             override val notificationRepository = FakeNotificationRepository()
             override val profileRepository = FakeProfileRepository()
             override val aiPracticeRepository = FakeAiPracticeRepository()
@@ -441,4 +443,3 @@ class CreatePostTest {
     // TC08 (Size exceeded), TC10 (Offline), TC11 (Reconnect), TC13 (State preserved)
     // are skipped as they require complex mocking (image picker, network state, etc.)
 }
-

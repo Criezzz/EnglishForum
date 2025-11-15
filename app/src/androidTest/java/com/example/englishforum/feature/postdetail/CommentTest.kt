@@ -67,7 +67,10 @@ class CommentTest {
                 refreshToken = "fake_refresh_token"
             )
         )
-        fakePostDetailRepository = FakePostDetailRepository(FakePostStore)
+        fakePostDetailRepository = FakePostDetailRepository(
+            store = FakePostStore,
+            userSessionRepository = fakeUserSessionRepository
+        )
     }
 
     private fun setupScreen(postId: String) {
@@ -310,8 +313,11 @@ class CommentTest {
         
         // Wait for comments to load - check for comment text first (more reliable than buttons)
         composeTestRule.waitUntil(timeoutMillis = 15000) {
-            composeTestRule.onAllNodesWithText("Sed vulputate", useUnmergedTree = true)
-                .fetchSemanticsNodes().isNotEmpty()
+            composeTestRule.onAllNodesWithText(
+                "Sed vulputate",
+                substring = true,
+                useUnmergedTree = true
+            ).fetchSemanticsNodes().isNotEmpty()
         }
         
         // Wait for reply buttons to appear (they render after comment text)
@@ -377,17 +383,20 @@ class CommentTest {
         
         // Wait for comments to load - check for comment text first (more reliable than buttons)
         composeTestRule.waitUntil(timeoutMillis = 15000) {
-            composeTestRule.onAllNodesWithText("Sed vulputate", useUnmergedTree = true)
-                .fetchSemanticsNodes().isNotEmpty()
+            composeTestRule.onAllNodesWithText(
+                "Sed vulputate",
+                substring = true,
+                useUnmergedTree = true
+            ).fetchSemanticsNodes().isNotEmpty()
         }
         
         // Wait for reply buttons to appear (they render after comment text)
         composeTestRule.waitUntil(timeoutMillis = 5000) {
-            composeTestRule.onAllNodesWithTag("comment_reply_button_", useUnmergedTree = true)
+            composeTestRule.onAllNodesWithTag("comment_reply_button", useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
         
-        composeTestRule.onAllNodesWithTag("comment_reply_button_", useUnmergedTree = true)[0]
+        composeTestRule.onAllNodesWithTag("comment_reply_button", useUnmergedTree = true)[0]
             .performClick()
         
         // Wait for state update and UI recomposition
@@ -436,17 +445,20 @@ class CommentTest {
         
         // Wait for comments to load - check for comment text first (more reliable than buttons)
         composeTestRule.waitUntil(timeoutMillis = 15000) {
-            composeTestRule.onAllNodesWithText("Sed vulputate", useUnmergedTree = true)
-                .fetchSemanticsNodes().isNotEmpty()
+            composeTestRule.onAllNodesWithText(
+                "Sed vulputate",
+                substring = true,
+                useUnmergedTree = true
+            ).fetchSemanticsNodes().isNotEmpty()
         }
         
         // Wait for reply buttons to appear (they render after comment text)
         composeTestRule.waitUntil(timeoutMillis = 5000) {
-            composeTestRule.onAllNodesWithTag("comment_reply_button_", useUnmergedTree = true)
+            composeTestRule.onAllNodesWithTag("comment_reply_button", useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
         
-        composeTestRule.onAllNodesWithTag("comment_reply_button_", useUnmergedTree = true)[0]
+        composeTestRule.onAllNodesWithTag("comment_reply_button", useUnmergedTree = true)[0]
             .performClick()
         
         // Wait for reply context chip to appear (state change is synchronous)
@@ -472,4 +484,3 @@ class CommentTest {
             .assertCountEquals(0)
     }
 }
-

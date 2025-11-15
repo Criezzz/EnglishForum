@@ -66,7 +66,10 @@ class DeletePostTest {
     @Before
     fun setUp() {
         fakeUserSessionRepository = FakeUserSessionRepository()
-        fakePostDetailRepository = FakePostDetailRepository(FakePostStore)
+        fakePostDetailRepository = FakePostDetailRepository(
+            store = FakePostStore,
+            userSessionRepository = fakeUserSessionRepository
+        )
     }
 
     private fun setupScreen(postId: String, isOwner: Boolean = false) {
@@ -249,4 +252,3 @@ class DeletePostTest {
             .assertIsDisplayed()
     }
 }
-
