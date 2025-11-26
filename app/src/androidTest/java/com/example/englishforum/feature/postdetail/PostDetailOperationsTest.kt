@@ -185,6 +185,37 @@ class PostDetailOperationsTest {
     }
 
     @Test
+    fun postDetail_moreMenu_showsDeleteForAuthor() {
+        // Ensure current user is the author of post-1
+        fakeUserSessionRepository.setSession(
+            UserSession(
+                userId = "demo-user",
+                username = "linhtran",
+                accessToken = "fake_token",
+                refreshToken = "fake_refresh_token"
+            )
+        )
+
+        setupScreen("post-1")
+
+        composeTestRule.waitUntil(timeoutMillis = 5000) {
+            composeTestRule.onAllNodesWithTag("post_detail_more_button", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeTestRule.onNodeWithTag("post_detail_more_button", useUnmergedTree = true)
+            .performClick()
+
+        composeTestRule.waitUntil(timeoutMillis = 3000) {
+            composeTestRule.onAllNodesWithTag("post_detail_delete_menu_item", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
+        composeTestRule.onNodeWithTag("post_detail_delete_menu_item", useUnmergedTree = true)
+            .assertExists()
+    }
+
+    @Test
     fun postDetail_upvoteComment_success() {
         // Test: Upvote comment
         

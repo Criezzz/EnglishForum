@@ -1,10 +1,10 @@
 package com.example.englishforum.feature.create
 
 import androidx.activity.ComponentActivity
-import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.example.englishforum.R
 import com.example.englishforum.core.di.AppContainer
 import com.example.englishforum.core.di.LocalAppContainer
 import com.example.englishforum.core.ui.theme.EnglishForumTheme
@@ -13,7 +13,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import com.example.englishforum.data.auth.FakeUserSessionRepository
 import com.example.englishforum.data.auth.UserSession
-import com.example.englishforum.data.create.FakeCreatePostRepository
 import com.example.englishforum.core.image.DefaultImageProcessor
 import com.example.englishforum.data.auth.SessionPreferenceRepository
 import com.example.englishforum.data.post.ForumPostSummaryStore
@@ -30,14 +29,19 @@ import com.example.englishforum.data.notification.NotificationRepository
 import com.example.englishforum.data.notification.FakeNotificationRepository
 import com.example.englishforum.data.profile.ProfileRepository
 import com.example.englishforum.data.profile.FakeProfileRepository
-import com.example.englishforum.data.post.PostDetailRepository
+import com.example.englishforum.data.create.CreatePostAttachment
+import com.example.englishforum.data.create.CreatePostImage
+import com.example.englishforum.data.create.CreatePostRepository
+import com.example.englishforum.data.create.CreatePostResult
 import com.example.englishforum.data.post.FakePostDetailRepository
 import com.example.englishforum.data.aipractice.AiPracticeRepository
 import com.example.englishforum.data.aipractice.FakeAiPracticeRepository
+import com.example.englishforum.core.model.forum.PostTag
 import com.example.englishforum.core.model.search.SearchResult
 import com.example.englishforum.core.model.VoteState
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import java.util.ArrayDeque
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -60,8 +64,44 @@ class CreatePostTest {
     val composeTestRule = createAndroidComposeRule<ComponentActivity>()
 
     private lateinit var fakeUserSessionRepository: FakeUserSessionRepository
-    private lateinit var fakeCreatePostRepository: FakeCreatePostRepository
+    private lateinit var testCreatePostRepository: ControlledCreatePostRepository
     private lateinit var imageProcessor: ImageProcessor
+
+    private class ControlledCreatePostRepository(
+        private val defaultSuccessId: String = "post-success-id"
+    ) : CreatePostRepository {
+        data class SubmitCall(
+            val title: String,
+            val body: String,
+            val attachments: List<CreatePostAttachment>,
+            val images: List<CreatePostImage>,
+            val tag: PostTag
+        )
+
+        private val queuedResults: ArrayDeque<Result<CreatePostResult>> = ArrayDeque()
+        val submissions = mutableListOf<SubmitCall>()
+
+        fun enqueueResult(result: Result<CreatePostResult>) {
+            queuedResults.addLast(result)
+        }
+
+        override suspend fun submitPost(
+            title: String,
+            body: String,
+            attachments: List<CreatePostAttachment>,
+            images: List<CreatePostImage>,
+            tag: PostTag
+        ): Result<CreatePostResult> {
+            submissions += SubmitCall(title, body, attachments, images, tag)
+            val queued = if (queuedResults.isEmpty()) null else queuedResults.removeFirst()
+            return queued ?: Result.success(
+                CreatePostResult.Success(
+                    postId = defaultSuccessId,
+                    message = "Đăng bài thành công"
+                )
+            )
+        }
+    }
 
     @Before
     fun setUp() {
@@ -74,7 +114,7 @@ class CreatePostTest {
                 refreshToken = "fake_refresh_token"
             )
         )
-        fakeCreatePostRepository = FakeCreatePostRepository(userSessionRepository = fakeUserSessionRepository)
+        testCreatePostRepository = ControlledCreatePostRepository()
         imageProcessor = DefaultImageProcessor(composeTestRule.activity.applicationContext)
     }
 
@@ -82,7 +122,7 @@ class CreatePostTest {
         val fakePostSummaryStore = ForumPostSummaryStore()
         
         val appContainer = object : AppContainer {
-            override val createPostRepository = fakeCreatePostRepository
+            override val createPostRepository = testCreatePostRepository
             override val userSessionRepository = fakeUserSessionRepository
             override val postSummaryStore = fakePostSummaryStore
             override val authRepository = object : AuthRepository {
@@ -176,12 +216,10 @@ class CreatePostTest {
         // After successful submission, sheet should close (onNavigateToPostDetail is called)
         // Wait for sheet to close - button should disappear
         composeTestRule.waitForIdle()
-        Thread.sleep(1000) // Give time for async operation
-        composeTestRule.waitForIdle()
-        
-        // Verify sheet is closed (button no longer exists)
-        composeTestRule.onAllNodesWithTag("create_post_next_button", useUnmergedTree = true)
-            .assertCountEquals(0)
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithTag("create_post_next_button", useUnmergedTree = true)
+                .fetchSemanticsNodes().isEmpty()
+        }
     }
 
     @Test
@@ -332,7 +370,7 @@ class CreatePostTest {
 
         // Wait for sheet to close (onNavigateToPostDetail is called, sheet dismissed)
         // This verifies successful submission and form reset (sheet closes = form state cleared)
-        composeTestRule.waitUntil(timeoutMillis = 10000) {
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
             composeTestRule.onAllNodesWithTag("create_post_next_button", useUnmergedTree = true)
                 .fetchSemanticsNodes().isEmpty()
         }
@@ -377,6 +415,9 @@ class CreatePostTest {
     @Test
     fun createPost_declineReason_displayed() {
         // Test: Decline reason is displayed when post is declined
+
+        val declineReason = "Bài viết bị từ chối vì nội dung chưa rõ ràng"
+        testCreatePostRepository.enqueueResult(Result.success(CreatePostResult.Declined(declineReason)))
         
         setupScreen()
         
@@ -399,15 +440,72 @@ class CreatePostTest {
         composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
             .performClick()
         
-        // Wait for result
-        composeTestRule.waitUntil(timeoutMillis = 10000) {
-            composeTestRule.onAllNodesWithTag("create_post_next_button", useUnmergedTree = true)
-                .fetchSemanticsNodes().isEmpty() ||
-            composeTestRule.onAllNodesWithText("từ chối", useUnmergedTree = true)
+        // Wait for decline dialog to appear
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText(declineReason, substring = true, useUnmergedTree = true)
                 .fetchSemanticsNodes().isNotEmpty()
         }
-        
-        // Note: Decline reason display depends on FakeCreatePostRepository behavior
+
+        // Verify decline dialog contents
+        val declineTitle = composeTestRule.activity.getString(R.string.create_post_declined_title)
+        composeTestRule.onNodeWithText(declineTitle, useUnmergedTree = true).assertExists()
+        composeTestRule.onNodeWithText(declineReason, substring = true, useUnmergedTree = true).assertExists()
+
+        // Dismiss dialog and ensure it disappears
+        val editLabel = composeTestRule.activity.getString(R.string.create_post_declined_edit)
+        composeTestRule.onNodeWithText(editLabel, useUnmergedTree = true).performClick()
+        composeTestRule.waitUntil(timeoutMillis = 3_000) {
+            composeTestRule.onAllNodesWithText(declineTitle, useUnmergedTree = true)
+                .fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+    @Test
+    fun createPost_declinedThenRetry_successClosesSheet() {
+        // Test: After a decline, user can retry submission successfully
+        val declineReason = "Bài viết bị từ chối vì thiếu chi tiết"
+        testCreatePostRepository.enqueueResult(Result.success(CreatePostResult.Declined(declineReason)))
+        testCreatePostRepository.enqueueResult(
+            Result.success(CreatePostResult.Success(postId = "post-retry-success", message = "OK"))
+        )
+
+        setupScreen()
+
+        // STEP 0 -> 1
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        composeTestRule.onNodeWithTag("create_post_title_field", useUnmergedTree = true)
+            .performTextInput("Retryable Post")
+        composeTestRule.onNodeWithTag("create_post_body_field", useUnmergedTree = true)
+            .performTextInput("Retry after decline")
+
+        // STEP 1 -> 2
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        // STEP 2 -> 3
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+
+        // First submit -> decline dialog
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText(declineReason, substring = true, useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+        composeTestRule.onNodeWithText(
+            composeTestRule.activity.getString(R.string.create_post_declined_edit),
+            useUnmergedTree = true
+        ).performClick()
+
+        // Retry submit should succeed and close sheet
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .assertIsEnabled()
+            .performClick()
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithTag("create_post_next_button", useUnmergedTree = true)
+                .fetchSemanticsNodes().isEmpty()
+        }
     }
 
     @Test

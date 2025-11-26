@@ -337,11 +337,67 @@ class LoginScreenTest {
                 onForgotPasswordClick = { forgotPasswordClicked = true }
             )
         }
-
+        
         // Click forgot password link
         composeTestRule.onNodeWithTag("login_forgot_password_button").performClick()
         
         assert(forgotPasswordClicked)
+    }
+
+    @Test
+    fun loginScreen_errorClearsWhenTyping() {
+        val fakeAuthRepo = FakeAuthRepository()
+        val viewModel = LoginViewModel(fakeAuthRepo, createFakeSessionPreferenceRepository())
+
+        composeTestRule.setContent {
+            LoginScreen(
+                viewModel = viewModel,
+                onLoginSuccess = {},
+                onRequireVerification = {},
+                onRegisterClick = {},
+                onForgotPasswordClick = {}
+            )
+        }
+
+        // Trigger an error
+        composeTestRule.onNodeWithTag("login_button").performClick()
+        composeTestRule.waitUntil(timeoutMillis = 2500) {
+            composeTestRule.onAllNodesWithTag("login_error").fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // Typing should clear the error state
+        composeTestRule.onNodeWithTag("login_username_field").performTextInput("user")
+        composeTestRule.waitUntil(timeoutMillis = 2000) {
+            composeTestRule.onAllNodesWithTag("login_error").fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+    @Test
+    fun loginScreen_loadingDisablesLoginButton() {
+        val fakeAuthRepo = FakeAuthRepository()
+        val viewModel = LoginViewModel(fakeAuthRepo, createFakeSessionPreferenceRepository())
+
+        composeTestRule.setContent {
+            LoginScreen(
+                viewModel = viewModel,
+                onLoginSuccess = {},
+                onRequireVerification = {},
+                onRegisterClick = {},
+                onForgotPasswordClick = {}
+            )
+        }
+
+        // Enter valid credentials and submit
+        composeTestRule.onNodeWithTag("login_username_field").performTextInput("user")
+        composeTestRule.onNodeWithTag("login_password_field").performTextInput("pass")
+        composeTestRule.onNodeWithTag("login_button").performClick()
+
+        // While loading, button should be disabled
+        composeTestRule.waitUntil(timeoutMillis = 1000) { viewModel.uiState.isLoading }
+        composeTestRule.onNodeWithTag("login_button").assertIsNotEnabled()
+
+        // Wait for loading to finish to avoid leaking state to other tests
+        composeTestRule.waitUntil(timeoutMillis = 3000) { !viewModel.uiState.isLoading }
     }
 
     @Test
@@ -472,4 +528,3 @@ class LoginScreenTest {
         }
     }
 }
-
