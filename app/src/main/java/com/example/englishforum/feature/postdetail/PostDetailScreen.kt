@@ -222,6 +222,7 @@ fun PostDetailScreen(
     createdFlag: Boolean = false
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val errorSnackbarHostState = remember { SnackbarHostState() }
     val listState = rememberLazyListState()
     var highlightedCommentId by remember { mutableStateOf<String?>(null) }
     var isOptionsExpanded by remember { mutableStateOf(false) }
@@ -229,6 +230,7 @@ fun PostDetailScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     val post = uiState.post
     val pullRefreshState = rememberPullToRefreshState()
+    val snackbarScope = rememberCoroutineScope()
     
     // FAB position state: true = top-right, false = bottom-right
     var fabAtTop by remember { mutableStateOf(false) }
@@ -236,14 +238,17 @@ fun PostDetailScreen(
     LaunchedEffect(uiState.errorMessage) {
         val message = uiState.errorMessage
         if (message != null) {
-            snackbarHostState.showSnackbar(message)
+            errorSnackbarHostState.showSnackbar(message)
         }
     }
 
     LaunchedEffect(uiState.userMessage) {
         val message = uiState.userMessage
         if (message != null) {
-            snackbarHostState.showSnackbar(message)
+            // Show success messages immediately without being cancelled when the key changes
+            snackbarScope.launch {
+                snackbarHostState.showSnackbar(message)
+            }
             onUserMessageShown()
         }
     }
@@ -367,7 +372,10 @@ fun PostDetailScreen(
                     .padding(bottom = 8.dp),
                 contentAlignment = Alignment.BottomCenter
             ) {
-                SnackbarHost(hostState = snackbarHostState)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SnackbarHost(hostState = errorSnackbarHostState)
+                    SnackbarHost(hostState = snackbarHostState)
+                }
             }
         },
         bottomBar = {
@@ -849,7 +857,9 @@ private fun ReportPostDialog(
                     onValueChange = { reason = it },
                     label = { Text(text = stringResource(R.string.post_detail_report_reason_label)) },
                     placeholder = { Text(text = stringResource(R.string.post_detail_report_reason_placeholder)) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("post_detail_report_reason_field"),
                     minLines = 3
                 )
             }
