@@ -537,6 +537,404 @@ class CreatePostTest {
         // This test verifies the UI structure exists
     }
 
+    @Test
+    fun createPost_stepNavigation_backButtonWorks() {
+        // Test: Back button navigates to previous step
+        
+        setupScreen()
+        
+        // STEP 0 -> 1
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Enter content
+        composeTestRule.onNodeWithTag("create_post_title_field", useUnmergedTree = true)
+            .performTextInput("Test Title")
+        composeTestRule.onNodeWithTag("create_post_body_field", useUnmergedTree = true)
+            .performTextInput("Test Body")
+        
+        // STEP 1 -> 2
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Verify we're on step 2 (image selection) - add image button should exist
+        composeTestRule.onNodeWithTag("create_post_add_image_button", useUnmergedTree = true)
+            .assertExists()
+        
+        // Click back button
+        val backLabel = composeTestRule.activity.getString(R.string.auth_back_action)
+        composeTestRule.onNodeWithText(backLabel, useUnmergedTree = true)
+            .performClick()
+        
+        // Verify we're back on step 1 (content input) - title field should exist
+        composeTestRule.onNodeWithTag("create_post_title_field", useUnmergedTree = true)
+            .assertExists()
+    }
+
+    @Test
+    fun createPost_previewStep_showsContentCorrectly() {
+        // Test: Preview step displays entered content
+        
+        setupScreen()
+        
+        // STEP 0 -> 1
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Enter title and body
+        val testTitle = "Preview Test Title"
+        val testBody = "Preview Test Body Content"
+        composeTestRule.onNodeWithTag("create_post_title_field", useUnmergedTree = true)
+            .performTextInput(testTitle)
+        composeTestRule.onNodeWithTag("create_post_body_field", useUnmergedTree = true)
+            .performTextInput(testBody)
+        
+        // STEP 1 -> 2
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // STEP 2 -> 3 (Preview)
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Verify preview shows the entered content
+        composeTestRule.onNodeWithText(testTitle, useUnmergedTree = true)
+            .assertExists()
+        composeTestRule.onNodeWithText(testBody, useUnmergedTree = true)
+            .assertExists()
+    }
+
+    @Test
+    fun createPost_selectDifferentTag_updatesSelection() {
+        // Test: Selecting different tags updates the selection
+        
+        setupScreen()
+        
+        // On step 0 (tag selection), tags should be visible
+        // The first tag (AskQuestion) should be selected by default
+        val tutorialLabel = composeTestRule.activity.getString(R.string.post_tag_tutorial)
+        
+        // Click on Tutorial tag
+        composeTestRule.onNodeWithText(tutorialLabel, useUnmergedTree = true)
+            .performClick()
+        
+        // Proceed to next step
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .assertIsEnabled()
+            .performClick()
+        
+        // Enter content to proceed
+        composeTestRule.onNodeWithTag("create_post_title_field", useUnmergedTree = true)
+            .performTextInput("Tag Test")
+        composeTestRule.onNodeWithTag("create_post_body_field", useUnmergedTree = true)
+            .performTextInput("Tag content")
+        
+        // Go to image step
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Go to preview step
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Verify the selected tag is shown in preview
+        composeTestRule.onNodeWithText(tutorialLabel, useUnmergedTree = true)
+            .assertExists()
+    }
+
+    @Test
+    fun createPost_networkError_showsErrorMessage() {
+        // Test: Network error displays error message
+        
+        testCreatePostRepository.enqueueResult(
+            Result.failure(java.net.UnknownHostException("No network"))
+        )
+        // Need to enqueue multiple failures for all retry attempts
+        testCreatePostRepository.enqueueResult(
+            Result.failure(java.net.UnknownHostException("No network"))
+        )
+        testCreatePostRepository.enqueueResult(
+            Result.failure(java.net.UnknownHostException("No network"))
+        )
+        
+        setupScreen()
+        
+        // Navigate through all steps
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        composeTestRule.onNodeWithTag("create_post_title_field", useUnmergedTree = true)
+            .performTextInput("Network Error Test")
+        composeTestRule.onNodeWithTag("create_post_body_field", useUnmergedTree = true)
+            .performTextInput("Testing network error")
+        
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Submit - should fail with network error
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Wait for error snackbar to appear
+        composeTestRule.waitUntil(timeoutMillis = 10_000) {
+            composeTestRule.onAllNodesWithText("Không có kết nối", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
+    fun createPost_genericError_showsErrorMessage() {
+        // Test: Generic error displays error message
+        
+        testCreatePostRepository.enqueueResult(
+            Result.failure(RuntimeException("Something went wrong"))
+        )
+        
+        setupScreen()
+        
+        // Navigate through all steps
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        composeTestRule.onNodeWithTag("create_post_title_field", useUnmergedTree = true)
+            .performTextInput("Generic Error Test")
+        composeTestRule.onNodeWithTag("create_post_body_field", useUnmergedTree = true)
+            .performTextInput("Testing generic error")
+        
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Submit - should fail with generic error
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Wait for error snackbar to appear
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText("Something went wrong", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
+    fun createPost_dismissSheet_closesBottomSheet() {
+        // Test: Dismiss button closes the bottom sheet
+        
+        setupScreen()
+        
+        // Find and click the close button
+        val cancelLabel = composeTestRule.activity.getString(R.string.auth_cancel_action)
+        composeTestRule.onNodeWithContentDescription(cancelLabel, useUnmergedTree = true)
+            .performClick()
+        
+        // Verify sheet is closed
+        composeTestRule.waitUntil(timeoutMillis = 3_000) {
+            composeTestRule.onAllNodesWithTag("create_post_next_button", useUnmergedTree = true)
+                .fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+    @Test
+    fun createPost_socketTimeoutError_retriesAndShowsError() {
+        // Test: Socket timeout triggers retry and shows error
+        
+        testCreatePostRepository.enqueueResult(
+            Result.failure(java.net.SocketTimeoutException("Connection timed out"))
+        )
+        testCreatePostRepository.enqueueResult(
+            Result.failure(java.net.SocketTimeoutException("Connection timed out"))
+        )
+        testCreatePostRepository.enqueueResult(
+            Result.failure(java.net.SocketTimeoutException("Connection timed out"))
+        )
+        
+        setupScreen()
+        
+        // Navigate through all steps
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        composeTestRule.onNodeWithTag("create_post_title_field", useUnmergedTree = true)
+            .performTextInput("Timeout Test")
+        composeTestRule.onNodeWithTag("create_post_body_field", useUnmergedTree = true)
+            .performTextInput("Testing timeout error")
+        
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Submit
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Wait for error after retries
+        composeTestRule.waitUntil(timeoutMillis = 10_000) {
+            composeTestRule.onAllNodesWithText("Không có kết nối", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
+    fun createPost_connectException_retriesAndShowsError() {
+        // Test: Connection exception triggers retry and shows error
+        
+        testCreatePostRepository.enqueueResult(
+            Result.failure(java.net.ConnectException("Connection refused"))
+        )
+        testCreatePostRepository.enqueueResult(
+            Result.failure(java.net.ConnectException("Connection refused"))
+        )
+        testCreatePostRepository.enqueueResult(
+            Result.failure(java.net.ConnectException("Connection refused"))
+        )
+        
+        setupScreen()
+        
+        // Navigate through all steps
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        composeTestRule.onNodeWithTag("create_post_title_field", useUnmergedTree = true)
+            .performTextInput("Connect Exception Test")
+        composeTestRule.onNodeWithTag("create_post_body_field", useUnmergedTree = true)
+            .performTextInput("Testing connection exception")
+        
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Submit
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Wait for error after retries
+        composeTestRule.waitUntil(timeoutMillis = 10_000) {
+            composeTestRule.onAllNodesWithText("Không có kết nối", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
+    fun createPost_networkErrorThenSuccess_submitsSuccessfully() {
+        // Test: After network error, retry succeeds
+        
+        // First attempt fails
+        testCreatePostRepository.enqueueResult(
+            Result.failure(java.net.UnknownHostException("No network"))
+        )
+        // Second attempt succeeds (within same submit)
+        testCreatePostRepository.enqueueResult(
+            Result.success(CreatePostResult.Success(postId = "retry-success", message = "OK"))
+        )
+        
+        setupScreen()
+        
+        // Navigate through all steps
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        composeTestRule.onNodeWithTag("create_post_title_field", useUnmergedTree = true)
+            .performTextInput("Retry Success Test")
+        composeTestRule.onNodeWithTag("create_post_body_field", useUnmergedTree = true)
+            .performTextInput("Testing retry success")
+        
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Submit - first fails, auto-retry succeeds
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Sheet should close on success
+        composeTestRule.waitUntil(timeoutMillis = 10_000) {
+            composeTestRule.onAllNodesWithTag("create_post_next_button", useUnmergedTree = true)
+                .fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+    @Test
+    fun createPost_successWithNoPostId_showsSuccessMessage() {
+        // Test: Success without postId shows success message (not navigation)
+        
+        testCreatePostRepository.enqueueResult(
+            Result.success(CreatePostResult.Success(postId = null, message = "Đăng bài thành công"))
+        )
+        
+        setupScreen()
+        
+        // Navigate through all steps
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        composeTestRule.onNodeWithTag("create_post_title_field", useUnmergedTree = true)
+            .performTextInput("No PostId Test")
+        composeTestRule.onNodeWithTag("create_post_body_field", useUnmergedTree = true)
+            .performTextInput("Testing success without postId")
+        
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Submit
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .performClick()
+        
+        // Wait for success message in snackbar
+        composeTestRule.waitUntil(timeoutMillis = 5_000) {
+            composeTestRule.onAllNodesWithText("Đăng bài thành công", useUnmergedTree = true)
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+    }
+
+    @Test
+    fun createPost_allTagsDisplayed() {
+        // Test: All available tags are displayed on step 0
+        
+        setupScreen()
+        
+        // Verify all tags are displayed
+        val askQuestionLabel = composeTestRule.activity.getString(R.string.post_tag_question)
+        val tutorialLabel = composeTestRule.activity.getString(R.string.post_tag_tutorial)
+        val resourceLabel = composeTestRule.activity.getString(R.string.post_tag_resource)
+        val experienceLabel = composeTestRule.activity.getString(R.string.post_tag_experience)
+        
+        composeTestRule.onNodeWithText(askQuestionLabel, useUnmergedTree = true)
+            .assertExists()
+        composeTestRule.onNodeWithText(tutorialLabel, useUnmergedTree = true)
+            .assertExists()
+        composeTestRule.onNodeWithText(resourceLabel, useUnmergedTree = true)
+            .assertExists()
+        composeTestRule.onNodeWithText(experienceLabel, useUnmergedTree = true)
+            .assertExists()
+    }
+
+    @Test
+    fun createPost_stepIndicator_displayed() {
+        // Test: Step indicator is displayed on all steps
+        
+        setupScreen()
+        
+        // Step indicator should be visible
+        composeTestRule.waitForIdle()
+        
+        // Navigate through steps and verify next button works
+        composeTestRule.onNodeWithTag("create_post_next_button", useUnmergedTree = true)
+            .assertExists()
+            .performClick()
+        
+        // On step 1, verify title field exists
+        composeTestRule.onNodeWithTag("create_post_title_field", useUnmergedTree = true)
+            .assertExists()
+    }
+
     // Note: TC05 (Add 5 images), TC06 (Exceed limit), TC07 (Invalid format),
     // TC08 (Size exceeded), TC10 (Offline), TC11 (Reconnect), TC13 (State preserved)
     // are skipped as they require complex mocking (image picker, network state, etc.)

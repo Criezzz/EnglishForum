@@ -115,10 +115,7 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         "**/*_Factory*.*",
         "**/*Module*.*",
         "**/*Dagger*.*",
-        "**/*Hilt*.*",
-        // Compose generated classes
-        "**/*\$composable*.*",
-        "**/*ComposableSingletons*.*"
+        "**/*Hilt*.*"
     )
 
     val javaClasses = fileTree(layout.buildDirectory.dir("intermediates/javac/debug/classes")) {
@@ -202,9 +199,7 @@ tasks.register<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
         "**/*_Factory*.*",
         "**/*Module*.*",
         "**/*Dagger*.*",
-        "**/*Hilt*.*",
-        "**/*\$composable*.*",
-        "**/*ComposableSingletons*.*"
+        "**/*Hilt*.*"
     )
 
     val javaClasses = fileTree(layout.buildDirectory.dir("intermediates/javac/debug/classes")) {
@@ -266,9 +261,7 @@ tasks.register<JacocoReport>("jacocoAndroidTestReport") {
         "**/*_Factory*.*",
         "**/*Module*.*",
         "**/*Dagger*.*",
-        "**/*Hilt*.*",
-        "**/*\$composable*.*",
-        "**/*ComposableSingletons*.*"
+        "**/*Hilt*.*"
     )
 
     val javaClasses = fileTree(layout.buildDirectory.dir("intermediates/javac/debug/classes")) {
@@ -320,10 +313,16 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.foundation.layout)
     testImplementation(libs.junit)
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
+    testImplementation("org.mockito:mockito-core:5.8.0")
+    androidTestImplementation(kotlin("test"))
+    androidTestImplementation("org.jetbrains.kotlin:kotlin-test-junit")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.ui.test.junit4)
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.9.0")
     androidTestUtil("androidx.test:orchestrator:1.4.2")
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
